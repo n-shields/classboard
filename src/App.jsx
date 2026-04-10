@@ -8,7 +8,7 @@ import ProgressWidget from "./components/ProgressWidget";
 import NoteWidget from "./components/NoteWidget";
 import ExportImport from "./components/ExportImport";
 import { loadSchedules, saveSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
-import { applyTheme } from "./data/themes";
+import { THEMES, applyTheme } from "./data/themes";
 import "./App.css";
 
 const PERIOD_DATA_KEY = "classboard_period_data";
@@ -182,7 +182,7 @@ export default function App() {
 
   // ── Right column panels ───────────────────────────────────────────────────
   const resizableContent = {
-    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={currentPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} />,
+    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={currentPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} wheelColors={(THEMES[currentTheme] || THEMES.midnight).wheelColors} wheelText={(THEMES[currentTheme] || THEMES.midnight).wheelText} />,
     prize: <ProgressWidget data={currentProgress} onChange={handleProgressChange} collapsed={collapsed.prize} onToggle={() => toggleCollapsed("prize")} />,
     notes: <NoteWidget notes={currentNotes} onNoteChange={handleNoteChange} periodLabel={currentPeriod?.label} collapsed={collapsed.notes} onToggle={() => toggleCollapsed("notes")} />,
   };

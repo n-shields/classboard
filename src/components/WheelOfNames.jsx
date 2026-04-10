@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import "./WheelOfNames.css";
 
-const COLORS = [
+const DEFAULT_WHEEL_COLORS = [
   "#e94560", "#0f3460", "#533483", "#1a7431",
   "#b5451b", "#1a5276", "#76448a", "#1e8bc3",
   "#27ae60", "#e67e22", "#c0392b", "#2980b9",
@@ -11,7 +11,7 @@ function easeOut(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-export default function WheelOfNames({ names, onNamesChange, periodLabel, collapsed, onToggle }) {
+export default function WheelOfNames({ names, onNamesChange, periodLabel, collapsed, onToggle, wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff" }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const rotationRef = useRef(0);
@@ -57,7 +57,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, startAngle, endAngle);
       ctx.closePath();
-      ctx.fillStyle = COLORS[i % COLORS.length];
+      ctx.fillStyle = wheelColors[i % wheelColors.length];
       ctx.fill();
       ctx.strokeStyle = "rgba(0,0,0,0.25)";
       ctx.lineWidth = 1.5;
@@ -68,22 +68,20 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
       // Flip segments in the left half so text never appears upside-down.
       const flipped = Math.cos(textAngle) < 0;
       const textRotation = flipped ? textAngle + Math.PI : textAngle;
-      // Center text halfway along the usable radius
-      const textRadius = radius * (flipped ? 0.55 : 0.55);
+      const textRadius = radius * 0.55;
 
       ctx.save();
       ctx.translate(cx + textRadius * Math.cos(textAngle), cy + textRadius * Math.sin(textAngle));
       ctx.rotate(textRotation);
 
       const name = names[i];
-      // Max width = most of the radial extent (center hub to near rim)
       const maxWidth = radius * 0.72;
       const fontSize = Math.min(15, Math.max(8, maxWidth / (name.length * 0.62)));
       ctx.font = `bold ${fontSize}px Segoe UI`;
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = wheelText;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.shadowColor = "rgba(0,0,0,0.7)";
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
       ctx.shadowBlur = 3;
       ctx.fillText(name, 0, 0, maxWidth);
       ctx.restore();
@@ -110,7 +108,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.5;
     ctx.stroke();
-  }, [names, periodLabel]);
+  }, [names, periodLabel, wheelColors, wheelText]);
 
   useEffect(() => {
     drawWheel(rotationRef.current);
