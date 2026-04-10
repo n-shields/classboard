@@ -42,6 +42,9 @@ export default function App() {
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
+  // Clock always tracks real time regardless of manual period selection
+  const [clockPeriodIndex, setClockPeriodIndex]         = useState(-1);
+  const [clockNextPeriodIndex, setClockNextPeriodIndex] = useState(-1);
 
   // Widget collapse state
   const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
@@ -68,6 +71,9 @@ export default function App() {
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
   const nextPeriod    = nextPeriodIndex    >= 0 ? periods[nextPeriodIndex]    : null;
   const periodKey     = currentPeriod ? String(currentPeriod.id) : null;
+  // Clock always uses auto-detected period
+  const clockPeriod     = clockPeriodIndex     >= 0 ? periods[clockPeriodIndex]     : null;
+  const clockNextPeriod = clockNextPeriodIndex >= 0 ? periods[clockNextPeriodIndex] : null;
 
   const currentTexts    = periodKey ? (periodData[periodKey]?.texts    ?? ["","",""]) : ["","",""];
   const currentNotes    = periodKey ? (periodData[periodKey]?.notes    ?? ["","",""]) : ["","",""];
@@ -82,6 +88,18 @@ export default function App() {
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
 
   // ── Period detection ──────────────────────────────────────────────────────
+  // Clock period: always follows real time, never overridden by manual selection
+  useEffect(() => {
+    const detect = () => {
+      setClockPeriodIndex(detectCurrentPeriod(periods));
+      setClockNextPeriodIndex(detectNextPeriod(periods));
+    };
+    detect();
+    const id = setInterval(detect, 30_000);
+    return () => clearInterval(id);
+  }, [periods]);
+
+  // Content period: follows real time only when autoMode is on
   useEffect(() => {
     if (!autoMode) return;
     const detect = () => {
@@ -235,6 +253,7 @@ export default function App() {
         onPeriodSelect={idx => { setCurrentPeriodIndex(idx); setNextPeriodIndex(detectNextPeriod(periods)); setAutoMode(false); }}
         autoMode={autoMode} onAutoModeChange={setAutoMode}
         currentTheme={currentTheme} onThemeChange={handleThemeChange}
+        onImport={() => window.location.reload()}
       />
 
       <div className="columns" ref={colsRef}>
@@ -245,7 +264,7 @@ export default function App() {
           </div>
           <div className="drag drag-h" onMouseDown={dragLeftRow} />
           <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
-            <CameraFeed onImport={() => window.location.reload()} />
+            <CameraFeed />
           </div>
         </div>
 
@@ -253,9 +272,9 @@ export default function App() {
 
         {/* ── Right column ── */}
         <div className="col col-flex">
-          {/* Clock: fixed height, not resizable */}
+          {/* Clock: fixed height, not resizable; always uses real-time period */}
           <div className="panel" style={{ flex: "0 0 auto" }}>
-            <ClockWidget currentPeriod={currentPeriod} nextPeriod={nextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} />
+            <ClockWidget currentPeriod={clockPeriod} nextPeriod={clockNextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} />
           </div>
 
           {/* Resizable panels */}

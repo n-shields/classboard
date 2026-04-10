@@ -10,6 +10,20 @@
   overflow-x: auto;
 }
 
+.ei-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+
+.ei-btn {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
 .period-bar-left {
   display: flex;
   align-items: center;

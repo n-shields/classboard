@@ -1,36 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import "./CameraFeed.css";
 
-const EXPORT_KEYS = [
-  "classboard_schedules",
-  "classboard_schedule_type",
-  "classboard_period_data",
-  "classboard_global_theme",
-  "classboard_period_layout",
-];
-
-function doExport() {
-  const data = {};
-  EXPORT_KEYS.forEach(k => {
-    const v = localStorage.getItem(k);
-    if (v !== null) try { data[k] = JSON.parse(v); } catch (_) { data[k] = v; }
-  });
-  // schedule_type is a plain string, re-read to be safe
-  data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Normal";
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `classboard-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-export default function CameraFeed({ onImport }) {
+export default function CameraFeed() {
   const videoRef = useRef(null);
   const freezeCanvasRef = useRef(null);
   const streamRef = useRef(null);
-  const importRef = useRef(null);
   const [active, setActive] = useState(false);
   const [frozen, setFrozen] = useState(false);
   const [mirrored, setMirrored] = useState(true);
@@ -86,26 +60,6 @@ export default function CameraFeed({ onImport }) {
     setFrozen(true);
   };
 
-  const handleImportFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        const strKeys = ["classboard_schedule_type", "classboard_global_theme"];
-        const jsonKeys = ["classboard_schedules", "classboard_period_data", "classboard_period_layout"];
-        strKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, data[k]); });
-        jsonKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, JSON.stringify(data[k])); });
-        onImport?.();
-      } catch (err) {
-        alert("Could not read file: " + err.message);
-      }
-      e.target.value = "";
-    };
-    reader.readAsText(file);
-  };
-
   useEffect(() => () => stopCamera(), []);
 
   const flipTransform = [mirrored && "scaleX(-1)", flippedV && "scaleY(-1)"]
@@ -146,28 +100,6 @@ export default function CameraFeed({ onImport }) {
           title={active ? "Stop camera" : "Start camera"}
         >{active ? "■" : "▶"}</button>
 
-        {/* Spacer pushes export/import to bottom */}
-        <div className="sidebar-spacer" />
-
-        <div className="sidebar-divider" />
-
-        <button
-          className="sidebar-btn"
-          onClick={doExport}
-          title="Export all data to JSON"
-        >↑</button>
-        <button
-          className="sidebar-btn"
-          onClick={() => importRef.current.click()}
-          title="Import data from JSON"
-        >↓</button>
-        <input
-          ref={importRef}
-          type="file"
-          accept=".json"
-          style={{ display: "none" }}
-          onChange={handleImportFile}
-        />
       </div>
 
       <div className="camera-content">
