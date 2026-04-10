@@ -1,0 +1,113 @@
+.progress-widget {
+  height: 100%;
+  transition: box-shadow 0.3s;
+}
+
+.pw-full {
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
+  border-color: rgba(250, 204, 21, 0.4) !important;
+}
+
+.pw-title {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.pw-badge {
+  font-size: 1rem;
+  animation: pop 0.4s ease-out;
+}
+
+@keyframes pop {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.pw-body {
+  padding: 10px;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Cell grid */
+.pw-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 4px;
+  width: 100%;
+}
+
+.pw-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+  min-width: 0;
+}
+
+.pw-cell-on {
+  background: #facc15;
+  border-color: #eab308;
+  box-shadow: 0 0 6px rgba(250, 204, 21, 0.4);
+}
+
+.pw-cell-full {
+  animation: cell-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes cell-pulse {
+  from { box-shadow: 0 0 4px rgba(250,204,21,0.3); }
+  to   { box-shadow: 0 0 12px rgba(250,204,21,0.7); }
+}
+
+/* Controls */
+.pw-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.pw-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.pw-plus  { background: var(--success); color: #111; }
+.pw-minus { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.pw-btn:disabled { opacity: 0.3; cursor: default; }
+
+.pw-count {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  min-width: 52px;
+  text-align: center;
+}
+
+.pw-max {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* Celebration */
+.pw-celebration {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #facc15;
+  text-align: center;
+  animation: pop 0.4s ease-out;
+  flex-shrink: 0;
+}

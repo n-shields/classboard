@@ -1,0 +1,37 @@
+.export-import {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 50;
+}
+
+.ei-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.ei-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.ei-btn span:first-child {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ei-label { letter-spacing: 0.04em; }

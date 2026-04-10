@@ -1,0 +1,68 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Column layout ── */
+.columns {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.col-flex { flex: 1; min-width: 0; }
+
+.panel {
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+/* Panel that takes remaining space */
+.panel-flex {
+  flex: 1;
+  flex-shrink: 1;
+}
+
+/* ── Drag handles ── */
+.drag {
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+}
+.drag:hover,
+.drag:active { background: var(--accent); }
+
+.drag-v {
+  width: 4px;
+  cursor: col-resize;
+}
+/* Wider invisible hit area */
+.drag-v::before {
+  content: "";
+  position: absolute;
+  inset: 0 -5px;
+}
+
+.drag-h {
+  height: 4px;
+  cursor: row-resize;
+}
+.drag-h::before {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
+}

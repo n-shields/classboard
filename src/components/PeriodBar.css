@@ -1,0 +1,77 @@
+.period-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.period-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.schedule-select {
+  padding: 4px 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  max-width: 110px;
+}
+
+/* Theme picker */
+.theme-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+}
+
+.theme-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+.theme-select {
+  max-width: 90px;
+}
+
+/* Period buttons */
+.period-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.period-btn {
+  background: var(--surface);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  min-width: 42px;
+}
+
+.period-btn-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+  opacity: 1 !important;
+}
+
+/* Visibility toggles */
+.visibility-toggles {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+}

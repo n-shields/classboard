@@ -1,0 +1,142 @@
+.camera-feed {
+  height: 100%;
+  flex-direction: row;
+}
+
+/* ── Left sidebar ── */
+.camera-sidebar {
+  width: 44px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 5px;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+}
+
+/* Reuse sidebar utility classes from TextBoard */
+.camera-sidebar .sidebar-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  margin-bottom: 4px;
+}
+
+.camera-sidebar .sidebar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.camera-sidebar .sidebar-btn {
+  width: 36px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--surface);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+  padding: 0;
+}
+.camera-sidebar .sidebar-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+  opacity: 1;
+}
+.camera-sidebar .sidebar-btn-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+.camera-sidebar .sidebar-btn-danger {
+  background: rgba(248,113,113,0.15) !important;
+  color: var(--danger) !important;
+  border-color: var(--danger) !important;
+}
+
+.camera-sidebar .sidebar-divider {
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
+
+/* ── Video content ── */
+.camera-content {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.camera-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-dim);
+}
+
+.camera-placeholder span { font-size: 2.5rem; }
+.camera-placeholder p { font-size: 0.875rem; }
+
+.freeze-canvas {
+  object-fit: cover;
+}
+
+.freeze-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(91,141,238,0.85);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.camera-error {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  color: var(--danger);
+  z-index: 1;
+}

@@ -1,0 +1,106 @@
+.textboard {
+  height: 100%;
+  flex-direction: row;
+}
+
+/* ── Left sidebar ── */
+.textboard-sidebar {
+  width: 44px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 5px;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sidebar-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  margin-bottom: 4px;
+  max-height: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.sidebar-btn {
+  width: 36px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--surface);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+  padding: 0;
+}
+.sidebar-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+  opacity: 1;
+}
+.sidebar-btn-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+.sidebar-btn-danger {
+  color: var(--danger);
+  border-color: transparent;
+}
+.sidebar-btn-danger:hover {
+  background: rgba(248,113,113,0.15);
+  color: var(--danger);
+}
+
+.sidebar-divider {
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
+}
+
+/* ── Text content ── */
+.textboard-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.textboard-textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 14px 16px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+}

@@ -1,0 +1,43 @@
+.schedule-editor {
+  min-width: 480px;
+}
+
+.schedule-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin-bottom: 8px;
+}
+
+.schedule-table th {
+  text-align: left;
+  padding: 6px 8px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-table input {
+  font-size: 0.875rem;
+  padding: 4px 6px;
+}
+
+.editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
