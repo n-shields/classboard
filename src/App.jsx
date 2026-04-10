@@ -6,14 +6,17 @@ import CameraFeed from "./components/CameraFeed";
 import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
 import NoteWidget from "./components/NoteWidget";
-import ExportImport from "./components/ExportImport";
 import { loadSchedules, saveSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
 import "./App.css";
 
-const PERIOD_DATA_KEY = "classboard_period_data";
-// Clock is fixed-height and not in this list
-const RESIZABLE_RIGHT = ["wheel", "prize", "notes"];
+const PERIOD_DATA_KEY   = "classboard_period_data";
+const PERIOD_LAYOUT_KEY = "classboard_period_layout";
+// Notes above wheel
+const RESIZABLE_RIGHT = ["notes", "wheel", "prize"];
+
+const DEFAULT_COLLAPSED = { clock: false, notes: false, wheel: false, prize: false };
+const DEFAULT_RW        = { notes: 40, wheel: 30, prize: 30 };
 
 function loadPeriodData() {
   try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}
@@ -24,6 +27,10 @@ function loadScheduleType() {
 }
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
+}
+function loadLayouts() {
+  try { const s = localStorage.getItem(PERIOD_LAYOUT_KEY); if (s) return JSON.parse(s); } catch (_) {}
+  return {};
 }
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -37,7 +44,7 @@ export default function App() {
   const [autoMode, setAutoMode]             = useState(true);
 
   // Widget collapse state
-  const [collapsed, setCollapsed] = useState({ clock: false, wheel: false, prize: false, notes: false });
+  const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
   const toggleCollapsed = useCallback((key) => setCollapsed(c => ({ ...c, [key]: !c[key] })), []);
 
   // Theme
@@ -47,11 +54,15 @@ export default function App() {
   const [colSplit, setColSplit] = useState(78);   // left col width %
   const [leftRow,  setLeftRow]  = useState(22);   // TextBoard height % in left col
   // Right col resizable panel flex weights (clock excluded — it's fixed height)
-  const [rW, setRW] = useState({ wheel: 40, prize: 30, notes: 30 });
+  const [rW, setRW] = useState({ ...DEFAULT_RW });
 
   const colsRef           = useRef(null);
   const leftColRef        = useRef(null);
   const rightResizableRef = useRef(null);
+
+  // Per-period layout persistence
+  const layoutsRef       = useRef(loadLayouts());
+  const justSwitchedRef  = useRef(false);
 
   const periods = schedules[scheduleType] || [];
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
@@ -70,7 +81,7 @@ export default function App() {
   // Apply theme whenever it changes
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
 
-  // ── Period detection ────────────────────────────────────────────────────────
+  // ── Period detection ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!autoMode) return;
     const detect = () => {
@@ -89,7 +100,38 @@ export default function App() {
     }
   }, [scheduleType]); // eslint-disable-line
 
-  // ── Data persistence ────────────────────────────────────────────────────────
+  // ── Per-period layout: restore when period changes ────────────────────────
+  useEffect(() => {
+    if (!periodKey) return;
+    justSwitchedRef.current = true;
+    const saved = layoutsRef.current[periodKey];
+    if (saved) {
+      setCollapsed(saved.collapsed ?? { ...DEFAULT_COLLAPSED });
+      setLeftRow(saved.leftRow ?? 22);
+      setRW(saved.rW ?? { ...DEFAULT_RW });
+      if (saved.colSplit != null) setColSplit(saved.colSplit);
+    } else {
+      setCollapsed({ ...DEFAULT_COLLAPSED });
+      setLeftRow(22);
+      setRW({ ...DEFAULT_RW });
+    }
+  }, [periodKey]);
+
+  // ── Per-period layout: save when layout changes (skip right after restore) ─
+  useEffect(() => {
+    if (!periodKey) return;
+    if (justSwitchedRef.current) {
+      justSwitchedRef.current = false;
+      return;
+    }
+    layoutsRef.current = {
+      ...layoutsRef.current,
+      [periodKey]: { collapsed, leftRow, rW, colSplit },
+    };
+    localStorage.setItem(PERIOD_LAYOUT_KEY, JSON.stringify(layoutsRef.current));
+  }, [periodKey, collapsed, leftRow, rW, colSplit]);
+
+  // ── Data persistence ──────────────────────────────────────────────────────
   const savePeriod = useCallback((key, patch) => {
     if (!key) return;
     setPeriodData(d => {
@@ -141,7 +183,7 @@ export default function App() {
 
   const handleSchedulesChange = useCallback((s) => { setSchedules(s); saveSchedules(s); }, []);
 
-  // ── Drag helpers ─────────────────────────────────────────────────────────────
+  // ── Drag helpers ──────────────────────────────────────────────────────────
   const makeDrag = (getRect, onMove) => (e) => {
     e.preventDefault();
     const rect = getRect();
@@ -161,17 +203,13 @@ export default function App() {
     (e, r) => setLeftRow(clamp((e.clientY - r.top) / r.height * 100, 5, 95)),
   ), []);
 
-  // Right column: drag between any two adjacent visible resizable panels.
-  // topKey / bottomKey are the panels above and below the divider being dragged.
   const dragRight = useCallback((topKey, bottomKey) => makeDrag(
     () => rightResizableRef.current.getBoundingClientRect(),
     (e, r) => {
       const H = r.height;
       const totalVis = RESIZABLE_RIGHT.reduce((s, k) => s + (collapsed[k] ? 0 : rW[k]), 0);
-      // Height consumed by panels ABOVE topKey
       const aboveH = RESIZABLE_RIGHT.slice(0, RESIZABLE_RIGHT.indexOf(topKey))
         .reduce((s, k) => s + (collapsed[k] ? 0 : H * rW[k] / totalVis), 0);
-      // Combined height of top+bottom panels
       const tbH = H * (rW[topKey] + rW[bottomKey]) / totalVis;
       const tbTotal = rW[topKey] + rW[bottomKey];
       const y = clamp(e.clientY - r.top - aboveH, 5, tbH - 5);
@@ -181,10 +219,11 @@ export default function App() {
   ), [rW, collapsed]);
 
   // ── Right column panels ───────────────────────────────────────────────────
+  const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
   const resizableContent = {
-    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={currentPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} wheelColors={(THEMES[currentTheme] || THEMES.midnight).wheelColors} wheelText={(THEMES[currentTheme] || THEMES.midnight).wheelText} />,
-    prize: <ProgressWidget data={currentProgress} onChange={handleProgressChange} collapsed={collapsed.prize} onToggle={() => toggleCollapsed("prize")} />,
     notes: <NoteWidget notes={currentNotes} onNoteChange={handleNoteChange} periodLabel={currentPeriod?.label} collapsed={collapsed.notes} onToggle={() => toggleCollapsed("notes")} />,
+    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={currentPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} wheelColors={wheelTheme.wheelColors} wheelText={wheelTheme.wheelText} />,
+    prize: <ProgressWidget data={currentProgress} onChange={handleProgressChange} collapsed={collapsed.prize} onToggle={() => toggleCollapsed("prize")} />,
   };
 
   return (
@@ -206,7 +245,7 @@ export default function App() {
           </div>
           <div className="drag drag-h" onMouseDown={dragLeftRow} />
           <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
-            <CameraFeed />
+            <CameraFeed onImport={() => window.location.reload()} />
           </div>
         </div>
 
@@ -238,8 +277,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      <ExportImport onImport={() => window.location.reload()} />
     </div>
   );
 }

@@ -47,9 +47,9 @@ export default function PeriodBar({
             key={p.id}
             className={`btn btn-sm period-btn ${i === currentPeriodIndex ? "period-btn-active" : "btn-ghost"}`}
             onClick={() => onPeriodSelect(i)}
-            title={`${p.label}: ${p.start}–${p.end}`}
+            title={`${p.start}–${p.end}`}
           >
-            {p.id === "L" ? "Lunch" : `P${p.id}`}
+            {p.label}
           </button>
         ))}
       </div>

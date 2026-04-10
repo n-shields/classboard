@@ -78,6 +78,10 @@
   margin: 2px 0;
 }
 
+.camera-sidebar .sidebar-spacer {
+  flex: 1;
+}
+
 /* ── Video content ── */
 .camera-content {
   flex: 1;
