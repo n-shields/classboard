@@ -5,13 +5,15 @@ import PeriodBar from "./components/PeriodBar";
 import CameraFeed from "./components/CameraFeed";
 import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
+import NoteWidget from "./components/NoteWidget";
 import ExportImport from "./components/ExportImport";
 import { loadSchedules, saveSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { applyTheme } from "./data/themes";
 import "./App.css";
 
 const PERIOD_DATA_KEY = "classboard_period_data";
-const PANEL_ORDER = ["clock", "wheel", "prize"];
+// Clock is fixed-height and not in this list
+const RESIZABLE_RIGHT = ["wheel", "prize", "notes"];
 
 function loadPeriodData() {
   try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}
@@ -35,7 +37,7 @@ export default function App() {
   const [autoMode, setAutoMode]             = useState(true);
 
   // Widget collapse state
-  const [collapsed, setCollapsed] = useState({ clock: false, wheel: false, prize: false });
+  const [collapsed, setCollapsed] = useState({ clock: false, wheel: false, prize: false, notes: false });
   const toggleCollapsed = useCallback((key) => setCollapsed(c => ({ ...c, [key]: !c[key] })), []);
 
   // Theme
@@ -44,12 +46,12 @@ export default function App() {
   // Layout
   const [colSplit, setColSplit] = useState(78);   // left col width %
   const [leftRow,  setLeftRow]  = useState(22);   // TextBoard height % in left col
-  // Right col: flex weights (proportional, ~= %)
-  const [rW, setRW] = useState({ clock: 30, wheel: 44, prize: 26 });
+  // Right col resizable panel flex weights (clock excluded — it's fixed height)
+  const [rW, setRW] = useState({ wheel: 40, prize: 30, notes: 30 });
 
-  const colsRef    = useRef(null);
-  const leftColRef = useRef(null);
-  const rightColRef = useRef(null);
+  const colsRef           = useRef(null);
+  const leftColRef        = useRef(null);
+  const rightResizableRef = useRef(null);
 
   const periods = schedules[scheduleType] || [];
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
@@ -57,6 +59,7 @@ export default function App() {
   const periodKey     = currentPeriod ? String(currentPeriod.id) : null;
 
   const currentTexts    = periodKey ? (periodData[periodKey]?.texts    ?? ["","",""]) : ["","",""];
+  const currentNotes    = periodKey ? (periodData[periodKey]?.notes    ?? ["","",""]) : ["","",""];
   const currentNames    = periodKey ? (periodData[periodKey]?.names    ?? [])          : [];
   const currentProgress = periodKey ? (periodData[periodKey]?.progress ?? null)        : null;
 
@@ -107,6 +110,17 @@ export default function App() {
     });
   }, [periodKey]);
 
+  const handleNoteChange = useCallback((tabIdx, text) => {
+    if (!periodKey) return;
+    setPeriodData(d => {
+      const existing = d[periodKey]?.notes ?? ["","",""];
+      const notes = [...existing]; notes[tabIdx] = text;
+      const next = { ...d, [periodKey]: { ...d[periodKey], notes } };
+      localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, [periodKey]);
+
   const handleNamesChange    = useCallback((names)    => savePeriod(periodKey, { names }),    [periodKey, savePeriod]);
   const handleProgressChange = useCallback((progress) => savePeriod(periodKey, { progress }), [periodKey, savePeriod]);
 
@@ -147,15 +161,15 @@ export default function App() {
     (e, r) => setLeftRow(clamp((e.clientY - r.top) / r.height * 100, 5, 95)),
   ), []);
 
-  // Right column: drag between any two adjacent visible panels.
+  // Right column: drag between any two adjacent visible resizable panels.
   // topKey / bottomKey are the panels above and below the divider being dragged.
   const dragRight = useCallback((topKey, bottomKey) => makeDrag(
-    () => rightColRef.current.getBoundingClientRect(),
+    () => rightResizableRef.current.getBoundingClientRect(),
     (e, r) => {
       const H = r.height;
-      const totalVis = PANEL_ORDER.reduce((s, k) => s + (collapsed[k] ? 0 : rW[k]), 0);
+      const totalVis = RESIZABLE_RIGHT.reduce((s, k) => s + (collapsed[k] ? 0 : rW[k]), 0);
       // Height consumed by panels ABOVE topKey
-      const aboveH = PANEL_ORDER.slice(0, PANEL_ORDER.indexOf(topKey))
+      const aboveH = RESIZABLE_RIGHT.slice(0, RESIZABLE_RIGHT.indexOf(topKey))
         .reduce((s, k) => s + (collapsed[k] ? 0 : H * rW[k] / totalVis), 0);
       // Combined height of top+bottom panels
       const tbH = H * (rW[topKey] + rW[bottomKey]) / totalVis;
@@ -167,10 +181,10 @@ export default function App() {
   ), [rW, collapsed]);
 
   // ── Right column panels ───────────────────────────────────────────────────
-  const panelContent = {
-    clock: <ClockWidget currentPeriod={currentPeriod} nextPeriod={nextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} />,
+  const resizableContent = {
     wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={currentPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} />,
     prize: <ProgressWidget data={currentProgress} onChange={handleProgressChange} collapsed={collapsed.prize} onToggle={() => toggleCollapsed("prize")} />,
+    notes: <NoteWidget notes={currentNotes} onNoteChange={handleNoteChange} periodLabel={currentPeriod?.label} collapsed={collapsed.notes} onToggle={() => toggleCollapsed("notes")} />,
   };
 
   return (
@@ -191,7 +205,7 @@ export default function App() {
             <TextBoard texts={currentTexts} onTextChange={handleTextChange} periodLabel={currentPeriod?.label} />
           </div>
           <div className="drag drag-h" onMouseDown={dragLeftRow} />
-          <div className="panel panel-flex">
+          <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
             <CameraFeed />
           </div>
         </div>
@@ -199,21 +213,29 @@ export default function App() {
         <div className="drag drag-v" onMouseDown={dragCol} />
 
         {/* ── Right column ── */}
-        <div className="col col-flex" ref={rightColRef}>
-          {PANEL_ORDER.map((key, i) => {
-            const prevKey = i > 0 ? PANEL_ORDER[i - 1] : null;
-            const showDrag = prevKey && !collapsed[prevKey] && !collapsed[key];
-            return (
-              <div key={key} style={{ display: "contents" }}>
-                {showDrag && (
-                  <div className="drag drag-h" onMouseDown={dragRight(prevKey, key)} />
-                )}
-                <div className="panel" style={collapsed[key] ? { flex: "0 0 auto" } : { flex: rW[key] }}>
-                  {panelContent[key]}
+        <div className="col col-flex">
+          {/* Clock: fixed height, not resizable */}
+          <div className="panel" style={{ flex: "0 0 auto" }}>
+            <ClockWidget currentPeriod={currentPeriod} nextPeriod={nextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} />
+          </div>
+
+          {/* Resizable panels */}
+          <div className="right-resizable" ref={rightResizableRef}>
+            {RESIZABLE_RIGHT.map((key, i) => {
+              const prevKey = i > 0 ? RESIZABLE_RIGHT[i - 1] : null;
+              const showDrag = prevKey && !collapsed[prevKey] && !collapsed[key];
+              return (
+                <div key={key} style={{ display: "contents" }}>
+                  {showDrag && (
+                    <div className="drag drag-h" onMouseDown={dragRight(prevKey, key)} />
+                  )}
+                  <div className="panel" style={collapsed[key] ? { flex: "0 0 auto" } : { flex: rW[key] }}>
+                    {resizableContent[key]}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
