@@ -76,7 +76,7 @@ export default function App() {
   const nextPeriod    = nextPeriodIndex    >= 0 ? periods[nextPeriodIndex]    : null;
   // Between periods: show the upcoming period's workspace so it can be prepped
   const displayPeriod = currentPeriod || nextPeriod;
-  const periodKey     = displayPeriod ? String(displayPeriod.id) : null;
+  const periodKey     = displayPeriod ? displayPeriod.label : null;
   // Clock always uses auto-detected period
   const clockPeriod     = clockPeriodIndex     >= 0 ? periods[clockPeriodIndex]     : null;
   const clockNextPeriod = clockNextPeriodIndex >= 0 ? periods[clockNextPeriodIndex] : null;
