@@ -2,8 +2,18 @@ import { useState } from "react";
 import "./ScheduleEditor.css";
 
 const SCHEDULE_TYPES = ["Normal", "Wednesday", "Half Day"];
+// Mon–Sun order (indices match Date.getDay())
+const DAY_LABELS = [
+  { idx: 1, label: "Mo" },
+  { idx: 2, label: "Tu" },
+  { idx: 3, label: "We" },
+  { idx: 4, label: "Th" },
+  { idx: 5, label: "Fr" },
+  { idx: 6, label: "Sa" },
+  { idx: 0, label: "Su" },
+];
 
-export default function ScheduleEditor({ schedules, onChange, onClose }) {
+export default function ScheduleEditor({ schedules, onChange, onClose, scheduleDays, onScheduleDaysChange }) {
   const [draft, setDraft] = useState(JSON.parse(JSON.stringify(schedules)));
   const [activeTab, setActiveTab] = useState(SCHEDULE_TYPES[0]);
 
@@ -48,6 +58,32 @@ export default function ScheduleEditor({ schedules, onChange, onClose }) {
             >{t}</button>
           ))}
         </div>
+
+        {scheduleDays && (
+          <div className="schedule-days">
+            <span className="days-label">Use on:</span>
+            {DAY_LABELS.map(({ idx, label }) => {
+              const checked = scheduleDays[activeTab]?.includes(idx) ?? false;
+              return (
+                <label key={idx} className="day-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      const next = {};
+                      SCHEDULE_TYPES.forEach(k => {
+                        next[k] = (scheduleDays[k] || []).filter(d => d !== idx);
+                      });
+                      if (!checked) next[activeTab] = [...next[activeTab], idx].sort((a, b) => a - b);
+                      onScheduleDaysChange(next);
+                    }}
+                  />
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+        )}
 
         <table className="schedule-table">
           <thead>

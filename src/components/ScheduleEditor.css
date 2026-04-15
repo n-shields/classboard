@@ -35,6 +35,35 @@
   padding: 4px 6px;
 }
 
+.schedule-days {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.days-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-right: 2px;
+}
+
+.day-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.day-checkbox input {
+  cursor: pointer;
+}
+
 .editor-footer {
   display: flex;
   justify-content: flex-end;

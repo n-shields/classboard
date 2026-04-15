@@ -31,6 +31,33 @@ export const DEFAULT_SCHEDULES = {
   ],
 };
 
+export const DEFAULT_SCHEDULE_DAYS = {
+  Normal: [1, 2, 4, 5],   // Mon, Tue, Thu, Fri
+  Wednesday: [3],          // Wed
+  "Half Day": [],
+};
+
+export function loadScheduleDays() {
+  try {
+    const saved = localStorage.getItem("classboard_schedule_days");
+    if (saved) return JSON.parse(saved);
+  } catch (_) {}
+  return JSON.parse(JSON.stringify(DEFAULT_SCHEDULE_DAYS));
+}
+
+export function saveScheduleDays(days) {
+  localStorage.setItem("classboard_schedule_days", JSON.stringify(days));
+}
+
+/** Returns the schedule name whose days include today, or null */
+export function getScheduleForToday(scheduleDays) {
+  const today = new Date().getDay();
+  for (const [name, days] of Object.entries(scheduleDays)) {
+    if (Array.isArray(days) && days.includes(today)) return name;
+  }
+  return null;
+}
+
 export function loadSchedules() {
   try {
     const saved = localStorage.getItem("classboard_schedules");

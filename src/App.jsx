@@ -6,7 +6,7 @@ import CameraFeed from "./components/CameraFeed";
 import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
 import NoteWidget from "./components/NoteWidget";
-import { loadSchedules, saveSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
+import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
 import "./App.css";
 
@@ -37,7 +37,11 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
-  const [scheduleType, setScheduleType]     = useState(loadScheduleType);
+  const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
+  const [scheduleType, setScheduleType]     = useState(() => {
+    const days = loadScheduleDays();
+    return getScheduleForToday(days) || loadScheduleType();
+  });
   const [periodData, setPeriodData]         = useState(loadPeriodData);
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
@@ -200,6 +204,7 @@ export default function App() {
   };
 
   const handleSchedulesChange = useCallback((s) => { setSchedules(s); saveSchedules(s); }, []);
+  const handleScheduleDaysChange = useCallback((d) => { setScheduleDays(d); saveScheduleDays(d); }, []);
 
   // ── Drag helpers ──────────────────────────────────────────────────────────
   const makeDrag = (getRect, onMove) => (e) => {
@@ -249,6 +254,7 @@ export default function App() {
       <PeriodBar
         schedules={schedules} onSchedulesChange={handleSchedulesChange}
         scheduleType={scheduleType} onScheduleTypeChange={handleScheduleTypeChange}
+        scheduleDays={scheduleDays} onScheduleDaysChange={handleScheduleDaysChange}
         currentPeriodIndex={currentPeriodIndex}
         onPeriodSelect={idx => { setCurrentPeriodIndex(idx); setNextPeriodIndex(detectNextPeriod(periods)); setAutoMode(false); }}
         autoMode={autoMode} onAutoModeChange={setAutoMode}

@@ -8,6 +8,7 @@ const SCHEDULE_TYPES = ["Normal", "Wednesday", "Half Day"];
 
 const EXPORT_KEYS = [
   "classboard_schedules", "classboard_schedule_type",
+  "classboard_schedule_days",
   "classboard_period_data", "classboard_global_theme",
   "classboard_period_layout",
 ];
@@ -31,6 +32,7 @@ function doExport() {
 export default function PeriodBar({
   schedules, onSchedulesChange,
   scheduleType, onScheduleTypeChange,
+  scheduleDays, onScheduleDaysChange,
   currentPeriodIndex, onPeriodSelect,
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
@@ -48,7 +50,7 @@ export default function PeriodBar({
       try {
         const data = JSON.parse(ev.target.result);
         const strKeys = ["classboard_schedule_type", "classboard_global_theme"];
-        const jsonKeys = ["classboard_schedules", "classboard_period_data", "classboard_period_layout"];
+        const jsonKeys = ["classboard_schedules", "classboard_schedule_days", "classboard_period_data", "classboard_period_layout"];
         strKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, data[k]); });
         jsonKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, JSON.stringify(data[k])); });
         onImport?.();
@@ -108,7 +110,11 @@ export default function PeriodBar({
       <WarningMeter />
 
       {editorOpen && (
-        <ScheduleEditor schedules={schedules} onChange={onSchedulesChange} onClose={() => setEditorOpen(false)} />
+        <ScheduleEditor
+          schedules={schedules} onChange={onSchedulesChange}
+          scheduleDays={scheduleDays} onScheduleDaysChange={onScheduleDaysChange}
+          onClose={() => setEditorOpen(false)}
+        />
       )}
     </div>
   );
