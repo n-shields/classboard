@@ -137,6 +137,27 @@
   pointer-events: none;
 }
 
+.camera-clock-overlay {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);
+  pointer-events: none;
+  letter-spacing: 0.05em;
+  z-index: 2;
+}
+
+/* Larger clock when fullscreened */
+:fullscreen .camera-clock-overlay {
+  font-size: clamp(3rem, 8vw, 7rem);
+  bottom: 32px;
+  right: 40px;
+}
+
 .camera-error {
   position: absolute;
   bottom: 8px;

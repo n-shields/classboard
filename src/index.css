@@ -103,6 +103,18 @@ input:focus, textarea:focus, select:focus {
   letter-spacing: 0.08em;
   color: var(--text-dim);
   flex-shrink: 0;
+  /* Auto-minimize support */
+  max-height: 48px;
+  overflow: hidden;
+  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
+}
+
+/* Collapse header to a thin strip when card is not hovered / focused */
+.card:not(.card--collapsed):not(:hover):not(:focus-within) .card-header {
+  max-height: 3px;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
 }
 
 .card-body {

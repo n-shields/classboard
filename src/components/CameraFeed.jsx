@@ -18,17 +18,36 @@ function saveSettings(periodKey, settings) {
   } catch (_) {}
 }
 
+function pad(n) { return String(n).padStart(2, "0"); }
+
 export default function CameraFeed({ periodKey }) {
-  const videoRef        = useRef(null);
-  const freezeCanvasRef = useRef(null);
-  const streamRef       = useRef(null);
+  const videoRef         = useRef(null);
+  const freezeCanvasRef  = useRef(null);
+  const streamRef        = useRef(null);
+  const cameraContentRef = useRef(null);
 
-  const [active,   setActive]   = useState(false);
-  const [frozen,   setFrozen]   = useState(false);
-  const [error,    setError]    = useState(null);
+  const [active,       setActive]       = useState(false);
+  const [frozen,       setFrozen]       = useState(false);
+  const [error,        setError]        = useState(null);
+  const [mirrored,     setMirrored]     = useState(() => loadSettings(periodKey).mirrored);
+  const [flippedV,     setFlippedV]     = useState(() => loadSettings(periodKey).flippedV);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showClock,    setShowClock]    = useState(false);
+  const [now,          setNow]          = useState(new Date());
 
-  const [mirrored, setMirrored] = useState(() => loadSettings(periodKey).mirrored);
-  const [flippedV, setFlippedV] = useState(() => loadSettings(periodKey).flippedV);
+  // Track browser fullscreen state
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  // Clock tick — only runs when clock overlay is enabled
+  useEffect(() => {
+    if (!showClock) return;
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [showClock]);
 
   // Reload settings when period changes
   useEffect(() => {
@@ -91,7 +110,6 @@ export default function CameraFeed({ periodKey }) {
     if (!active && !frozen) return;
     let url;
     if (frozen) {
-      // Canvas already has transforms applied
       url = freezeCanvasRef.current.toDataURL("image/png");
     } else {
       const video  = videoRef.current;
@@ -112,10 +130,20 @@ export default function CameraFeed({ periodKey }) {
     a.click();
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      cameraContentRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
   useEffect(() => () => stopCamera(), []);
 
   const flipTransform = [mirrored && "scaleX(-1)", flippedV && "scaleY(-1)"]
     .filter(Boolean).join(" ") || "none";
+
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
   return (
     <div className="card camera-feed">
@@ -153,6 +181,21 @@ export default function CameraFeed({ periodKey }) {
           title="Save image"
         >📸</button>
 
+        <div className="sidebar-divider" />
+
+        <button
+          className={`sidebar-btn ${showClock ? "sidebar-btn-active" : ""}`}
+          onClick={() => setShowClock(c => !c)}
+          title="Toggle clock overlay"
+        >🕒</button>
+
+        <button
+          className="sidebar-btn"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          style={{ fontSize: "1rem" }}
+        >{isFullscreen ? "⊡" : "⛶"}</button>
+
         {active && (
           <>
             <div className="sidebar-divider" />
@@ -165,7 +208,7 @@ export default function CameraFeed({ periodKey }) {
         )}
       </div>
 
-      <div className="camera-content">
+      <div className="camera-content" ref={cameraContentRef}>
         {error && <div className="camera-error">{error}</div>}
 
         <video
@@ -190,6 +233,10 @@ export default function CameraFeed({ periodKey }) {
         )}
 
         {frozen && <div className="freeze-badge">FROZEN</div>}
+
+        {showClock && (active || frozen) && (
+          <div className="camera-clock-overlay">{timeStr}</div>
+        )}
       </div>
     </div>
   );
