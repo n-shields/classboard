@@ -74,7 +74,9 @@ export default function App() {
   const periods = schedules[scheduleType] || [];
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
   const nextPeriod    = nextPeriodIndex    >= 0 ? periods[nextPeriodIndex]    : null;
-  const periodKey     = currentPeriod ? String(currentPeriod.id) : null;
+  // Between periods: show the upcoming period's workspace so it can be prepped
+  const displayPeriod = currentPeriod || nextPeriod;
+  const periodKey     = displayPeriod ? String(displayPeriod.id) : null;
   // Clock always uses auto-detected period
   const clockPeriod     = clockPeriodIndex     >= 0 ? periods[clockPeriodIndex]     : null;
   const clockNextPeriod = clockNextPeriodIndex >= 0 ? periods[clockNextPeriodIndex] : null;
@@ -244,8 +246,8 @@ export default function App() {
   // ── Right column panels ───────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
   const resizableContent = {
-    notes: <NoteWidget notes={currentNotes} onNoteChange={handleNoteChange} periodLabel={currentPeriod?.label} collapsed={collapsed.notes} onToggle={() => toggleCollapsed("notes")} />,
-    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={currentPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} wheelColors={wheelTheme.wheelColors} wheelText={wheelTheme.wheelText} />,
+    notes: <NoteWidget notes={currentNotes} onNoteChange={handleNoteChange} periodLabel={displayPeriod?.label} collapsed={collapsed.notes} onToggle={() => toggleCollapsed("notes")} />,
+    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={displayPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} wheelColors={wheelTheme.wheelColors} wheelText={wheelTheme.wheelText} />,
     prize: <ProgressWidget data={currentProgress} onChange={handleProgressChange} collapsed={collapsed.prize} onToggle={() => toggleCollapsed("prize")} />,
   };
 
@@ -266,7 +268,7 @@ export default function App() {
         {/* ── Left column ── */}
         <div className="col" ref={leftColRef} style={{ width: `${colSplit}%` }}>
           <div className="panel" style={{ flex: leftRow }}>
-            <TextBoard texts={currentTexts} onTextChange={handleTextChange} periodLabel={currentPeriod?.label} />
+            <TextBoard texts={currentTexts} onTextChange={handleTextChange} periodLabel={displayPeriod?.label} />
           </div>
           <div className="drag drag-h" onMouseDown={dragLeftRow} />
           <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
