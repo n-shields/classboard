@@ -18,9 +18,8 @@ function saveSettings(periodKey, settings) {
   } catch (_) {}
 }
 
-function pad(n) { return String(n).padStart(2, "0"); }
 
-export default function CameraFeed({ periodKey }) {
+export default function CameraFeed({ periodKey, clockDisplay }) {
   const videoRef         = useRef(null);
   const freezeCanvasRef  = useRef(null);
   const streamRef        = useRef(null);
@@ -33,7 +32,6 @@ export default function CameraFeed({ periodKey }) {
   const [flippedV,     setFlippedV]     = useState(() => loadSettings(periodKey).flippedV);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showClock,    setShowClock]    = useState(false);
-  const [now,          setNow]          = useState(new Date());
 
   // Track browser fullscreen state
   useEffect(() => {
@@ -41,13 +39,6 @@ export default function CameraFeed({ periodKey }) {
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
-
-  // Clock tick — only runs when clock overlay is enabled
-  useEffect(() => {
-    if (!showClock) return;
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, [showClock]);
 
   // Reload settings when period changes
   useEffect(() => {
@@ -143,8 +134,6 @@ export default function CameraFeed({ periodKey }) {
   const flipTransform = [mirrored && "scaleX(-1)", flippedV && "scaleY(-1)"]
     .filter(Boolean).join(" ") || "none";
 
-  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-
   return (
     <div className="card camera-feed">
       <div className="camera-sidebar">
@@ -180,14 +169,6 @@ export default function CameraFeed({ periodKey }) {
           disabled={!active && !frozen}
           title="Save image"
         >📸</button>
-
-        <div className="sidebar-divider" />
-
-        <button
-          className={`sidebar-btn ${showClock ? "sidebar-btn-active" : ""}`}
-          onClick={() => setShowClock(c => !c)}
-          title="Toggle clock overlay"
-        >🕒</button>
 
         <button
           className="sidebar-btn"
@@ -234,8 +215,16 @@ export default function CameraFeed({ periodKey }) {
 
         {frozen && <div className="freeze-badge">FROZEN</div>}
 
-        {showClock && (active || frozen) && (
-          <div className="camera-clock-overlay">{timeStr}</div>
+        {isFullscreen && (
+          <button
+            className={`camera-clock-btn ${showClock ? "camera-clock-btn-active" : ""}`}
+            onClick={e => { e.stopPropagation(); setShowClock(c => !c); }}
+            title={showClock ? "Hide clock overlay" : "Show clock overlay"}
+          >🕒</button>
+        )}
+
+        {isFullscreen && showClock && clockDisplay && (
+          <div className="camera-clock-overlay">{clockDisplay}</div>
         )}
       </div>
     </div>

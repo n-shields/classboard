@@ -38,8 +38,8 @@
 }
 
 .pw-cell {
-  aspect-ratio: 1;
-  border-radius: 4px;
+  height: 14px;
+  border-radius: 3px;
   background: var(--surface2);
   border: 1px solid var(--border);
   transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;

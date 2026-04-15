@@ -50,6 +50,9 @@ export default function App() {
   const [clockPeriodIndex, setClockPeriodIndex]         = useState(-1);
   const [clockNextPeriodIndex, setClockNextPeriodIndex] = useState(-1);
 
+  // Clock display string (mirrors whatever ClockWidget is showing)
+  const [clockDisplay, setClockDisplay] = useState("");
+
   // Widget collapse state
   const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
   const toggleCollapsed = useCallback((key) => setCollapsed(c => ({ ...c, [key]: !c[key] })), []);
@@ -290,7 +293,7 @@ export default function App() {
           </div>
           <div className="drag drag-h" onMouseDown={dragLeftRow} />
           <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
-            <CameraFeed periodKey={periodKey} />
+            <CameraFeed periodKey={periodKey} clockDisplay={clockDisplay} />
           </div>
         </div>
 
@@ -300,7 +303,7 @@ export default function App() {
         <div className="col col-flex">
           {/* Clock: fixed height, not resizable; always uses real-time period */}
           <div className="panel" style={{ flex: "0 0 auto" }}>
-            <ClockWidget currentPeriod={clockPeriod} nextPeriod={clockNextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} />
+            <ClockWidget currentPeriod={clockPeriod} nextPeriod={clockNextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} onDisplayChange={setClockDisplay} />
           </div>
 
           {/* Resizable panels */}

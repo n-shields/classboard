@@ -14,7 +14,7 @@ function formatSeconds(s) {
   return `${pad(m)}:${pad(sec)}`;
 }
 
-export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onToggle }) {
+export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onToggle, onDisplayChange }) {
   const [mode, setMode] = useState("Clock");
   const [now, setNow] = useState(new Date());
 
@@ -94,6 +94,16 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
 
   const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
   const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+
+  // Compute what's currently displayed so the camera overlay can mirror it
+  let displayStr = timeStr;
+  if (mode === "Period") {
+    if (currentPeriod && periodRemaining != null) displayStr = formatSeconds(Math.max(0, periodRemaining));
+    else if (nextPeriod && nextStarting != null)  displayStr = formatSeconds(Math.max(0, nextStarting));
+  } else if (mode === "Timer") {
+    displayStr = formatSeconds(timerSecs);
+  }
+  useEffect(() => { onDisplayChange?.(displayStr); }, [displayStr]); // eslint-disable-line
 
   return (
     <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
