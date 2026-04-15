@@ -272,7 +272,7 @@ export default function App() {
           </div>
           <div className="drag drag-h" onMouseDown={dragLeftRow} />
           <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
-            <CameraFeed />
+            <CameraFeed periodKey={periodKey} />
           </div>
         </div>
 

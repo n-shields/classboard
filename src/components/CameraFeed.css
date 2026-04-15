@@ -102,12 +102,22 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  width: 100%;
+  height: 100%;
   color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s;
 }
 
-.camera-placeholder span { font-size: 2.5rem; }
-.camera-placeholder p { font-size: 0.875rem; }
+.camera-placeholder:hover { color: var(--text); }
+
+.camera-placeholder span {
+  font-size: 3rem;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.camera-placeholder:hover span { opacity: 0.85; }
 
 .freeze-canvas {
   object-fit: cover;

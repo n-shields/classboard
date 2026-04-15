@@ -1,15 +1,46 @@
 import { useState, useRef, useEffect } from "react";
 import "./CameraFeed.css";
 
-export default function CameraFeed() {
-  const videoRef = useRef(null);
+const CAMERA_SETTINGS_KEY = "classboard_camera_settings";
+
+function loadSettings(periodKey) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CAMERA_SETTINGS_KEY) || "{}");
+    return all[periodKey ?? "default"] ?? { mirrored: true, flippedV: false };
+  } catch (_) { return { mirrored: true, flippedV: false }; }
+}
+
+function saveSettings(periodKey, settings) {
+  try {
+    const all = JSON.parse(localStorage.getItem(CAMERA_SETTINGS_KEY) || "{}");
+    all[periodKey ?? "default"] = settings;
+    localStorage.setItem(CAMERA_SETTINGS_KEY, JSON.stringify(all));
+  } catch (_) {}
+}
+
+export default function CameraFeed({ periodKey }) {
+  const videoRef        = useRef(null);
   const freezeCanvasRef = useRef(null);
-  const streamRef = useRef(null);
-  const [active, setActive] = useState(false);
-  const [frozen, setFrozen] = useState(false);
-  const [mirrored, setMirrored] = useState(true);
-  const [flippedV, setFlippedV] = useState(false);
-  const [error, setError] = useState(null);
+  const streamRef       = useRef(null);
+
+  const [active,   setActive]   = useState(false);
+  const [frozen,   setFrozen]   = useState(false);
+  const [error,    setError]    = useState(null);
+
+  const [mirrored, setMirrored] = useState(() => loadSettings(periodKey).mirrored);
+  const [flippedV, setFlippedV] = useState(() => loadSettings(periodKey).flippedV);
+
+  // Reload settings when period changes
+  useEffect(() => {
+    const s = loadSettings(periodKey);
+    setMirrored(s.mirrored);
+    setFlippedV(s.flippedV);
+  }, [periodKey]);
+
+  // Persist settings whenever they change
+  useEffect(() => {
+    saveSettings(periodKey, { mirrored, flippedV });
+  }, [periodKey, mirrored, flippedV]);
 
   const startCamera = async () => {
     setError(null);
@@ -43,21 +74,42 @@ export default function CameraFeed() {
   const toggleFreeze = () => {
     if (!active) return;
     if (frozen) { setFrozen(false); return; }
-    const video = videoRef.current;
+    const video  = videoRef.current;
     const canvas = freezeCanvasRef.current;
-    canvas.width = video.videoWidth || 640;
+    canvas.width  = video.videoWidth  || 640;
     canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext("2d");
-    if (mirrored || flippedV) {
+    ctx.save();
+    ctx.translate(mirrored ? canvas.width : 0, flippedV ? canvas.height : 0);
+    ctx.scale(mirrored ? -1 : 1, flippedV ? -1 : 1);
+    ctx.drawImage(video, 0, 0);
+    ctx.restore();
+    setFrozen(true);
+  };
+
+  const captureImage = () => {
+    if (!active && !frozen) return;
+    let url;
+    if (frozen) {
+      // Canvas already has transforms applied
+      url = freezeCanvasRef.current.toDataURL("image/png");
+    } else {
+      const video  = videoRef.current;
+      const canvas = document.createElement("canvas");
+      canvas.width  = video.videoWidth  || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
       ctx.save();
       ctx.translate(mirrored ? canvas.width : 0, flippedV ? canvas.height : 0);
       ctx.scale(mirrored ? -1 : 1, flippedV ? -1 : 1);
       ctx.drawImage(video, 0, 0);
       ctx.restore();
-    } else {
-      ctx.drawImage(video, 0, 0);
+      url = canvas.toDataURL("image/png");
     }
-    setFrozen(true);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `classboard-${new Date().toISOString().slice(0, 19).replace(/:/g, "-")}.png`;
+    a.click();
   };
 
   useEffect(() => () => stopCamera(), []);
@@ -95,11 +147,22 @@ export default function CameraFeed() {
         <div className="sidebar-divider" />
 
         <button
-          className={`sidebar-btn ${active ? "sidebar-btn-danger" : "sidebar-btn-active"}`}
-          onClick={active ? stopCamera : startCamera}
-          title={active ? "Stop camera" : "Start camera"}
-        >{active ? "■" : "▶"}</button>
+          className="sidebar-btn"
+          onClick={captureImage}
+          disabled={!active && !frozen}
+          title="Save image"
+        >📸</button>
 
+        {active && (
+          <>
+            <div className="sidebar-divider" />
+            <button
+              className="sidebar-btn sidebar-btn-danger"
+              onClick={stopCamera}
+              title="Stop camera"
+            >■</button>
+          </>
+        )}
       </div>
 
       <div className="camera-content">
@@ -121,15 +184,12 @@ export default function CameraFeed() {
         />
 
         {!active && !error && (
-          <div className="camera-placeholder">
+          <div className="camera-placeholder" onClick={startCamera}>
             <span>📷</span>
-            <p>Click ▶ to start</p>
           </div>
         )}
 
-        {frozen && (
-          <div className="freeze-badge">FROZEN</div>
-        )}
+        {frozen && <div className="freeze-badge">FROZEN</div>}
       </div>
     </div>
   );
