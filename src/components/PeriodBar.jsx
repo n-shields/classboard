@@ -33,7 +33,7 @@ export default function PeriodBar({
   schedules, onSchedulesChange,
   scheduleType, onScheduleTypeChange,
   scheduleDays, onScheduleDaysChange,
-  currentPeriodIndex, onPeriodSelect,
+  currentPeriodIndex, nextPeriodIndex, onPeriodSelect,
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
   onImport,
@@ -95,16 +95,20 @@ export default function PeriodBar({
 
       {/* Center: period buttons */}
       <div className="period-buttons">
-        {periods.map((p, i) => (
-          <button
-            key={p.id}
-            className={`btn btn-sm period-btn ${i === currentPeriodIndex ? "period-btn-active" : "btn-ghost"}`}
-            onClick={() => onPeriodSelect(i)}
-            title={`${p.start}–${p.end}`}
-          >
-            {p.label}
-          </button>
-        ))}
+        {periods.map((p, i) => {
+          const isActive = i === currentPeriodIndex;
+          const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
+          return (
+            <button
+              key={p.id}
+              className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
+              onClick={() => onPeriodSelect(i)}
+              title={`${p.start}–${p.end}`}
+            >
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
       <WarningMeter />

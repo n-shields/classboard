@@ -81,6 +81,12 @@
   opacity: 1 !important;
 }
 
+.period-btn-next {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  opacity: 1 !important;
+}
+
 /* Visibility toggles */
 .visibility-toggles {
   display: flex;

@@ -257,7 +257,7 @@ export default function App() {
         schedules={schedules} onSchedulesChange={handleSchedulesChange}
         scheduleType={scheduleType} onScheduleTypeChange={handleScheduleTypeChange}
         scheduleDays={scheduleDays} onScheduleDaysChange={handleScheduleDaysChange}
-        currentPeriodIndex={currentPeriodIndex}
+        currentPeriodIndex={currentPeriodIndex} nextPeriodIndex={nextPeriodIndex}
         onPeriodSelect={idx => { setCurrentPeriodIndex(idx); setNextPeriodIndex(detectNextPeriod(periods)); setAutoMode(false); }}
         autoMode={autoMode} onAutoModeChange={setAutoMode}
         currentTheme={currentTheme} onThemeChange={handleThemeChange}
