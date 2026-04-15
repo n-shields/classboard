@@ -15,6 +15,12 @@
   background: var(--surface2);
   border-right: 1px solid var(--border);
   overflow: hidden;
+  transition: width 0.18s ease, opacity 0.18s ease;
+}
+
+.textboard:not(:focus-within) .textboard-sidebar {
+  width: 3px;
+  opacity: 0;
 }
 
 .sidebar-label {

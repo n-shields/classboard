@@ -191,7 +191,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
         {!collapsed && <button className="btn btn-ghost btn-sm" onClick={openEditor}>Edit Names</button>}
       </div>
       <div className="card-body wheel-body">
-        <div className="canvas-container">
+        <div className="canvas-container" onMouseDown={e => e.preventDefault()}>
           <canvas
             ref={canvasRef}
             className={`wheel-canvas ${canSpin ? "wheel-clickable" : ""}`}

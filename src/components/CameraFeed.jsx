@@ -135,7 +135,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
     .filter(Boolean).join(" ") || "none";
 
   return (
-    <div className="card camera-feed">
+    <div className="card camera-feed" tabIndex={-1}>
       <div className="camera-sidebar">
         <div className="sidebar-label">Cam</div>
 

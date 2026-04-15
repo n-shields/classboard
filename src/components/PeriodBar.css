@@ -8,17 +8,6 @@
   flex-shrink: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
-  /* Auto-minimize support */
-  max-height: 48px;
-  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
-}
-
-.period-bar:not(:hover):not(:focus-within) {
-  max-height: 3px;
-  padding-top: 0;
-  padding-bottom: 0;
-  opacity: 0;
-  overflow: hidden;
 }
 
 .ei-group {

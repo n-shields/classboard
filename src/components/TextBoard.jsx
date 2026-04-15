@@ -10,7 +10,7 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
   const currentText = texts[activeTab] ?? "";
 
   return (
-    <div className="card textboard">
+    <div className="card textboard" tabIndex={-1}>
       <div className="textboard-sidebar">
         <div className="sidebar-label">
           {periodLabel ?? "Board"}
