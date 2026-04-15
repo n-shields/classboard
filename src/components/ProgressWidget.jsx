@@ -1,4 +1,5 @@
 import { useState } from "react";
+import WarningMeter from "./WarningMeter";
 import "./ProgressWidget.css";
 
 const DEFAULTS = { count: 0, maxSteps: 10, goalName: "Class Prize" };
@@ -69,6 +70,10 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
         {isFull && (
           <div className="pw-celebration">🏆 Goal Reached!</div>
         )}
+
+        <div className="pw-warning-row">
+          <WarningMeter />
+        </div>
       </div>
 
       {settingsOpen && (

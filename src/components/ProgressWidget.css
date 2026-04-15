@@ -102,6 +102,22 @@
   font-weight: 400;
 }
 
+/* Warning meter row */
+.pw-warning-row {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Remove the left border/margin the meter had in the top bar */
+.pw-warning-row .warning-meter {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+}
+
 /* Celebration */
 .pw-celebration {
   font-size: 0.95rem;

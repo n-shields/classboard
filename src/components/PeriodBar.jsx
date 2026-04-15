@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import ScheduleEditor from "./ScheduleEditor";
-import WarningMeter from "./WarningMeter";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import "./PeriodBar.css";
 
@@ -110,8 +109,6 @@ export default function PeriodBar({
           );
         })}
       </div>
-
-      <WarningMeter />
 
       {editorOpen && (
         <ScheduleEditor
