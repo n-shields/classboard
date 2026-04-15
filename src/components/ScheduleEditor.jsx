@@ -26,8 +26,20 @@ export default function ScheduleEditor({ schedules, onChange, onClose, scheduleD
     });
   };
 
-  const updatePeriod = (type, index, field, value) =>
-    update(d => { d[type][index][field] = value; return d; });
+  const updatePeriod = (type, index, field, value) => {
+    if (field === "label") {
+      // Sync renames across all schedules so workspaces stay consistent
+      const oldLabel = draft[type][index].label;
+      update(d => {
+        Object.values(d).forEach(periods =>
+          periods.forEach(p => { if (p.label === oldLabel) p.label = value; })
+        );
+        return d;
+      });
+    } else {
+      update(d => { d[type][index][field] = value; return d; });
+    }
+  };
 
   const addPeriod = (type) =>
     update(d => {

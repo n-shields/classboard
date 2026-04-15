@@ -93,6 +93,24 @@ export default function App() {
   // Apply theme whenever it changes
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
 
+  // ── Schedule auto-selection: re-check day of week every minute ───────────
+  // This catches midnight rollovers and fixes stale saved schedule types
+  useEffect(() => {
+    let lastDay = new Date().getDay();
+    const id = setInterval(() => {
+      const today = new Date().getDay();
+      if (today !== lastDay) {
+        lastDay = today;
+        const next = getScheduleForToday(scheduleDays);
+        if (next) {
+          setScheduleType(next);
+          localStorage.setItem("classboard_schedule_type", next);
+        }
+      }
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [scheduleDays]);
+
   // ── Period detection ──────────────────────────────────────────────────────
   // Clock period: always follows real time, never overridden by manual selection
   useEffect(() => {
