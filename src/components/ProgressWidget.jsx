@@ -32,7 +32,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const cells = Array.from({ length: maxSteps }, (_, i) => i < count);
 
   return (
-    <div className={`card progress-widget ${isFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`}>
+    <div className={`card progress-widget ${isFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header">
         <span className="header-toggle pw-title" onClick={onToggle}>
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>

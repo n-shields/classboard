@@ -96,7 +96,7 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
   const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
   return (
-    <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`}>
+    <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header">
         <span className="header-toggle" onClick={onToggle}>
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Clock

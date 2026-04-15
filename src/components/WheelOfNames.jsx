@@ -182,7 +182,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
   const canSpin = !spinning && names.length >= 2;
 
   return (
-    <div className={`card wheel-card ${collapsed ? "card--collapsed" : ""}`}>
+    <div className={`card wheel-card ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header">
         <span className="header-toggle" onClick={onToggle}>
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
