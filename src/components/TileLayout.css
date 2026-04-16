@@ -77,6 +77,22 @@
   box-sizing: border-box;
 }
 
+.tl-slot-content {
+  width: 100%;
+  height: 100%;
+}
+
+/* Collapsed slot: hide card, show only the title bar */
+.tl-slot--collapsed {
+  height: auto;
+  display: flex;
+  align-items: center;
+}
+
+.tl-slot--collapsed .tl-slot-content {
+  display: none;
+}
+
 /* ── Drag handle ── */
 .tl-drag-handle {
   position: absolute;
@@ -119,9 +135,27 @@
 }
 
 .tl-drag-handle-collapsed {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: calc(100% - 8px);
+  height: 34px;
+  padding: 0 12px;
+  gap: 8px;
+  justify-content: flex-start;
   cursor: pointer;
   opacity: 1 !important;
   color: var(--accent);
+  border-color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.tl-drag-handle-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* ── Drop overlay ── */

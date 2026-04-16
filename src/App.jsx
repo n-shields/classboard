@@ -16,13 +16,14 @@ const PERIOD_DATA_KEY   = "classboard_period_data";
 const PERIOD_LAYOUT_KEY = "classboard_period_layout";
 
 const DEFAULT_COLLAPSED = { clock: false, notes: false, wheel: false, prize: false };
+const TILE_NAMES = { clock: "Clock", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals" };
 
 function loadPeriodData() {
   try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}
   return {};
 }
 function loadScheduleType() {
-  return localStorage.getItem("classboard_schedule_type") || "Normal";
+  return localStorage.getItem("classboard_schedule_type") || "Regular";
 }
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
@@ -313,6 +314,7 @@ export default function App() {
         tiles={tiles}
         isCollapsed={id => collapsed[id] || false}
         onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
+        tileNames={TILE_NAMES}
       />
     </div>
   );

@@ -120,6 +120,14 @@ input:focus, textarea:focus, select:focus {
   opacity: 0;
 }
 
+/* Hover-only header variant (used by clock) */
+.card--header-hover:not(.card--collapsed):not(:hover) .card-header {
+  max-height: 3px;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
 .card-body {
   flex: 1;
   overflow: hidden;

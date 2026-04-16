@@ -18,7 +18,7 @@ export default function ExportImport({ onImport }) {
       if (v !== null) data[k] = JSON.parse(v);
     });
     // Also store raw string for schedule_type
-    data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Normal";
+    data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Regular";
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

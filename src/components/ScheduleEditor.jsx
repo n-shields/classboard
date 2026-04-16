@@ -18,7 +18,7 @@ export default function ScheduleEditor({
 }) {
   const [draft, setDraft]         = useState(() => JSON.parse(JSON.stringify(schedules)));
   const [draftDays, setDraftDays] = useState(() => JSON.parse(JSON.stringify(scheduleDays || {})));
-  const initTab = scheduleType || Object.keys(schedules)[0] || "Normal";
+  const initTab = scheduleType || Object.keys(schedules)[0] || "Regular";
   const [activeTab, setActiveTab]     = useState(initTab);
   const [tabNameEdit, setTabNameEdit] = useState(initTab);
   const tabNameOrigRef    = useRef(initTab);

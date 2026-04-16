@@ -16,7 +16,7 @@ function doExport() {
     const v = localStorage.getItem(k);
     if (v !== null) try { data[k] = JSON.parse(v); } catch (_) { data[k] = v; }
   });
-  data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Normal";
+  data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Regular";
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

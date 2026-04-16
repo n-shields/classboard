@@ -60,14 +60,14 @@ function splitSecs(total) {
   return { main: h > 0 ? `${pad(h)}:${pad(m)}` : `${pad(m)}`, sec: pad(s) };
 }
 
-// Clickable seconds span — dimmed when hidden, restores on click
+// Clickable seconds span — shows ":SS" when visible, "min" when hidden
 function SecSpan({ sec, show, onToggle }) {
   return (
     <span
       className={`clock-secs${show ? "" : " clock-secs--hidden"}`}
       onClick={e => { e.stopPropagation(); onToggle(); }}
       title={show ? "Click to hide seconds" : "Click to show seconds"}
-    >:{sec}</span>
+    >{show ? `:${sec}` : <span className="clock-secs-min">min</span>}</span>
   );
 }
 
@@ -180,19 +180,17 @@ export default function ClockWidget({
 
   // Wall-clock parts (used in Clock mode and as small overlay in Period/Timer)
   const hours12  = now.getHours() % 12 || 12;
-  const ampm     = now.getHours() < 12 ? "\u00a0AM" : "\u00a0PM";
   const clockHhMm = use24h
     ? `${pad(now.getHours())}:${pad(now.getMinutes())}`
     : `${hours12}:${pad(now.getMinutes())}`;
   const clockSec  = pad(now.getSeconds());
-  const clockAmpm = use24h ? "" : ampm;
 
   const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
   const fontSizeStyle = FONT_SIZE_OPTIONS.find(o => o.key === fontSize)?.clockStyle
     ?? FONT_SIZE_OPTIONS[1].clockStyle;
 
   // Build plain string for camera overlay (respects per-mode showSecs)
-  const clockTimeStr = clockHhMm + (showSecsByMode.Clock ? `:${clockSec}` : "") + clockAmpm;
+  const clockTimeStr = clockHhMm + (showSecsByMode.Clock ? `:${clockSec}` : "");
   let displayStr = clockTimeStr;
   if (mode === "Period") {
     if (currentPeriod && periodRemaining != null) {
@@ -213,18 +211,14 @@ export default function ClockWidget({
     <div className="clock-time-small">
       {clockHhMm}
       <SecSpan sec={clockSec} show={showSecsByMode.Clock} onToggle={() => toggleSecs("Clock")} />
-      {clockAmpm}
     </div>
   );
 
   return (
-    <div className={`card clock-widget card--header-bottom ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header" onClick={onToggle}>
-        <span className="header-toggle">
-          <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Clock
-        </span>
+    <div className={`card clock-widget card--header-bottom card--header-hover ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+      <div className="card-header">
         {!collapsed && (
-          <div className="clock-header-right" onClick={e => e.stopPropagation()}>
+          <div className="clock-header-right">
             <div className="clock-mode-tabs">
               {MODES.map(m => (
                 <button key={m} className={`btn btn-sm ${mode === m ? "btn-primary" : "btn-ghost"}`} onClick={() => setMode(m)}>{m}</button>
@@ -276,7 +270,6 @@ export default function ClockWidget({
             <div className="clock-time" style={{ fontSize: fontSizeStyle }}>
               {clockHhMm}
               <SecSpan sec={clockSec} show={showSecsByMode.Clock} onToggle={() => toggleSecs("Clock")} />
-              {clockAmpm}
             </div>
             <div className="clock-date">{dateStr}</div>
           </div>

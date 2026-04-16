@@ -1,5 +1,5 @@
 export const DEFAULT_SCHEDULES = {
-  Normal: [
+  Regular: [
     { id: 1, label: "P.1",      start: "08:00", end: "08:50" },
     { id: 2, label: "P.2",      start: "08:54", end: "09:44" },
     { id: 3, label: "P.3",      start: "09:48", end: "10:38" },
@@ -19,7 +19,7 @@ export const DEFAULT_SCHEDULES = {
 };
 
 export const DEFAULT_SCHEDULE_DAYS = {
-  Normal:    [1, 2, 4, 5], // Mon Tue Thu Fri
+  Regular:    [1, 2, 4, 5], // Mon Tue Thu Fri
   Wednesday: [3],           // Wed
 };
 
