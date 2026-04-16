@@ -62,20 +62,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const title = bars.length === 1 ? bars[0].title : "Progress";
 
   return (
-    <div className={`card progress-widget card--header-bottom ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header" onClick={onToggle}>
-        <span className="header-toggle pw-title">
-          <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
-          {title}
-        </span>
-        {!collapsed && (
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={e => e.stopPropagation()}>
-            {anyFull && <span className="pw-badge">🎉</span>}
-            <button className="btn btn-ghost btn-sm" onClick={openEdit} title="Edit goals">⚙</button>
-          </div>
-        )}
-      </div>
-
+    <div className={`card progress-widget ${anyFull ? "pw-full" : ""}`} tabIndex={-1}>
       <div className="card-body pw-body">
         {bars.map((bar, barIdx) => {
           const isFull = bar.count >= bar.steps;
@@ -99,15 +86,8 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
             </div>
           );
         })}
-        <button
-          className="btn btn-ghost btn-sm pw-add-btn"
-          onClick={() => {
-            const nextId = Math.max(0, ...bars.map(b => b.id)) + 1;
-            saveBars([...bars, { id: nextId, title: `Goal ${bars.length + 1}`, steps: 10, count: 0, color: DEFAULT_COLOR }]);
-          }}
-          title="Add another goal bar"
-        >+ Add Goal</button>
       </div>
+        <button className="pw-settings-btn" onClick={openEdit} title="Edit goals">⚙</button>
 
       {editOpen && (
         <div
