@@ -75,8 +75,13 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
       ctx.rotate(textRotation);
 
       const name = names[i];
-      const maxWidth = radius * 0.72;
-      const fontSize = Math.min(15, Math.max(8, maxWidth / (name.length * 0.62)));
+      const maxWidth  = radius * 0.72;
+      // Arc height at the text's radial position — limits font when segments are narrow
+      const arcHeight = segAngle * textRadius;
+      const byWidth   = maxWidth / Math.max(name.length, 1) / 0.58;
+      const byHeight  = arcHeight * 0.62;
+      const byRadius  = radius * 0.13;  // absolute upper bound scales with wheel size
+      const fontSize  = Math.max(radius * 0.022, Math.min(byWidth, byHeight, byRadius));
       ctx.font = `bold ${fontSize}px Segoe UI`;
       ctx.fillStyle = wheelText;
       ctx.textAlign = "center";
