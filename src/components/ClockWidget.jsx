@@ -172,7 +172,7 @@ export default function ClockWidget({
   useEffect(() => { onDisplayChange?.(displayStr); }, [displayStr]); // eslint-disable-line
 
   return (
-    <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+    <div className={`card clock-widget card--header-bottom ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header" onClick={onToggle}>
         <span className="header-toggle">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Clock

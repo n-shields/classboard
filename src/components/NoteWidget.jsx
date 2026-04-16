@@ -11,7 +11,7 @@ export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodL
   const currentText = notes[activeTab] ?? "";
 
   return (
-    <div className={`card note-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+    <div className={`card note-widget card--header-bottom ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header" onClick={onToggle}>
         <span className="header-toggle">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Notes

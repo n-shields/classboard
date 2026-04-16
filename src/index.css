@@ -131,6 +131,18 @@ input:focus, textarea:focus, select:focus {
 .card--collapsed .card-body { display: none; }
 .card--collapsed .card-header { border-bottom: none; }
 
+/* Header-at-bottom variant */
+.card--header-bottom {
+  flex-direction: column-reverse;
+}
+.card--header-bottom .card-header {
+  border-bottom: none;
+  border-top: 1px solid var(--border);
+}
+.card--header-bottom.card--collapsed .card-header {
+  border-top: none;
+}
+
 /* Clickable collapse toggle in card header */
 .header-toggle {
   cursor: pointer;

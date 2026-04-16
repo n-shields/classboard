@@ -62,7 +62,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const title = bars.length === 1 ? bars[0].title : "Progress";
 
   return (
-    <div className={`card progress-widget ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+    <div className={`card progress-widget card--header-bottom ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header" onClick={onToggle}>
         <span className="header-toggle pw-title">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
