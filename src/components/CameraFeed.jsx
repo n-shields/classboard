@@ -19,7 +19,14 @@ function saveSettings(periodKey, settings) {
 }
 
 
-export default function CameraFeed({ periodKey, clockDisplay }) {
+const OVERLAY_FONT_SIZES = {
+  sm: { normal: "clamp(0.9rem, 2vw, 1.5rem)",   fullscreen: "clamp(1.2rem, 3vw, 2.5rem)"  },
+  md: { normal: "clamp(1.2rem, 3vw, 2rem)",     fullscreen: "clamp(2rem, 6vw, 5rem)"      },
+  lg: { normal: "clamp(1.6rem, 4vw, 2.8rem)",   fullscreen: "clamp(2.8rem, 8vw, 7rem)"    },
+  xl: { normal: "clamp(2.2rem, 6vw, 4rem)",     fullscreen: "clamp(4rem, 11vw, 9rem)"     },
+};
+
+export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "md" }) {
   const videoRef         = useRef(null);
   const freezeCanvasRef  = useRef(null);
   const streamRef        = useRef(null);
@@ -135,8 +142,61 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
   const flipTransform = [mirrored && "scaleX(-1)", flippedV && "scaleY(-1)"]
     .filter(Boolean).join(" ") || "none";
 
+  const overlayFontSize = (OVERLAY_FONT_SIZES[clockFontSize] ?? OVERLAY_FONT_SIZES.md)[isFullscreen ? "fullscreen" : "normal"];
+
   return (
     <div className="card camera-feed" tabIndex={-1}>
+      <div className="camera-content" ref={cameraContentRef} onClick={() => setShowControls(v => !v)}>
+        {error && <div className="camera-error">{error}</div>}
+
+        <video
+          ref={videoRef}
+          className="camera-video"
+          style={{ transform: flipTransform, display: active && !frozen ? "block" : "none" }}
+          autoPlay
+          playsInline
+          muted
+        />
+
+        <canvas
+          ref={freezeCanvasRef}
+          className="camera-video freeze-canvas"
+          style={{ display: frozen ? "block" : "none" }}
+        />
+
+        {!active && !error && (
+          <div className="camera-placeholder">
+            <span onClick={e => { e.stopPropagation(); startCamera(); }} title="Start camera">📷</span>
+          </div>
+        )}
+
+        {frozen && <div className="freeze-badge">FROZEN</div>}
+
+        {/* Fullscreen toggle — bottom-right overlay */}
+        <button
+          className="camera-fullscreen-btn"
+          onClick={e => { e.stopPropagation(); toggleFullscreen(); }}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >{isFullscreen ? "⊡" : "⛶"}</button>
+
+        {/* Clock overlay — top-right; clicking it hides it; ghost icon re-shows it */}
+        {isFullscreen && showClock && clockDisplay && (
+          <div
+            className="camera-clock-overlay"
+            style={{ fontSize: overlayFontSize }}
+            onClick={e => { e.stopPropagation(); setShowClock(false); }}
+            title="Click to hide"
+          >{clockDisplay}</div>
+        )}
+        {isFullscreen && !showClock && (
+          <button
+            className="camera-clock-restore"
+            onClick={e => { e.stopPropagation(); setShowClock(true); }}
+            title="Show clock overlay"
+          >🕒</button>
+        )}
+      </div>
+
       <div className={`camera-sidebar${showControls ? "" : " camera-sidebar--hidden"}`}>
         <div className="sidebar-label">Cam</div>
 
@@ -180,56 +240,6 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
               title="Stop camera"
             >■</button>
           </>
-        )}
-      </div>
-
-      <div className="camera-content" ref={cameraContentRef} onClick={() => setShowControls(v => !v)}>
-        {error && <div className="camera-error">{error}</div>}
-
-        <video
-          ref={videoRef}
-          className="camera-video"
-          style={{ transform: flipTransform, display: active && !frozen ? "block" : "none" }}
-          autoPlay
-          playsInline
-          muted
-        />
-
-        <canvas
-          ref={freezeCanvasRef}
-          className="camera-video freeze-canvas"
-          style={{ display: frozen ? "block" : "none" }}
-        />
-
-        {!active && !error && (
-          <div className="camera-placeholder">
-            <span onClick={e => { e.stopPropagation(); startCamera(); }} title="Start camera">📷</span>
-          </div>
-        )}
-
-        {frozen && <div className="freeze-badge">FROZEN</div>}
-
-        {/* Fullscreen toggle — bottom-right overlay */}
-        <button
-          className="camera-fullscreen-btn"
-          onClick={e => { e.stopPropagation(); toggleFullscreen(); }}
-          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-        >{isFullscreen ? "⊡" : "⛶"}</button>
-
-        {/* Clock overlay — top-right; clicking it hides it; ghost icon re-shows it */}
-        {isFullscreen && showClock && clockDisplay && (
-          <div
-            className="camera-clock-overlay"
-            onClick={e => { e.stopPropagation(); setShowClock(false); }}
-            title="Click to hide"
-          >{clockDisplay}</div>
-        )}
-        {isFullscreen && !showClock && (
-          <button
-            className="camera-clock-restore"
-            onClick={e => { e.stopPropagation(); setShowClock(true); }}
-            title="Show clock overlay"
-          >🕒</button>
         )}
       </div>
     </div>

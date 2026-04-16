@@ -17,6 +17,7 @@
   justify-content: center;
   min-height: 0;
   width: 100%;
+  position: relative;
 }
 
 .wheel-canvas {
@@ -34,19 +35,28 @@
   box-shadow: 0 0 40px rgba(91, 141, 238, 0.4);
 }
 
-.wheel-winner {
-  flex-shrink: 0;
-  font-size: 1.1rem;
-  padding: 8px 16px;
-  background: var(--surface2);
-  border: 1px solid var(--accent2);
-  border-radius: 8px;
-  color: var(--accent2);
+.wheel-winner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(2rem, 8cqw, 5rem);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 4px 24px rgba(0,0,0,0.95), 0 0 50px rgba(0,0,0,0.7);
+  letter-spacing: 0.02em;
   text-align: center;
-  animation: pop 0.3s ease-out;
+  padding: 8px;
+  pointer-events: none;
+  animation: winner-fade 2s ease-out forwards;
+  z-index: 2;
 }
 
-@keyframes pop {
-  from { transform: scale(0.8); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
+@keyframes winner-fade {
+  0%   { opacity: 0; transform: scale(0.6); }
+  12%  { opacity: 1; transform: scale(1.08); }
+  22%  { opacity: 1; transform: scale(1);   }
+  65%  { opacity: 1; }
+  100% { opacity: 0; }
 }

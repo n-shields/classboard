@@ -8,7 +8,49 @@
   padding: 12px;
 }
 
+.clock-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .clock-mode-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.clock-settings-btn {
+  font-size: 0.9rem;
+  padding: 2px 6px;
+}
+
+/* Settings panel */
+.clock-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+.clock-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.clock-settings-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.clock-settings-group {
   display: flex;
   gap: 4px;
 }
@@ -24,7 +66,7 @@
 }
 
 .clock-time {
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  font-size: clamp(2.5rem, 5vw, 4.5rem); /* overridden inline by settings */
   font-weight: 700;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;

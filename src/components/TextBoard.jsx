@@ -11,6 +11,17 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
 
   return (
     <div className="card textboard" tabIndex={-1}>
+      <div className="textboard-content">
+        <textarea
+          className="textboard-textarea"
+          value={currentText}
+          onChange={e => onTextChange(activeTab, e.target.value)}
+          placeholder={`Announcement ${activeTab + 1}${periodLabel ? ` — ${periodLabel}` : ""}…`}
+          style={{ fontSize: `${fontSize}px`, lineHeight: 1.3 }}
+          spellCheck={false}
+        />
+      </div>
+
       <div className="textboard-sidebar">
         <div className="sidebar-label">
           {periodLabel ?? "Board"}
@@ -49,17 +60,6 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
           onClick={() => onTextChange(activeTab, "")}
           title="Clear this tab"
         >✕</button>
-      </div>
-
-      <div className="textboard-content">
-        <textarea
-          className="textboard-textarea"
-          value={currentText}
-          onChange={e => onTextChange(activeTab, e.target.value)}
-          placeholder={`Announcement ${activeTab + 1}${periodLabel ? ` — ${periodLabel}` : ""}…`}
-          style={{ fontSize: `${fontSize}px`, lineHeight: 1.3 }}
-          spellCheck={false}
-        />
       </div>
     </div>
   );

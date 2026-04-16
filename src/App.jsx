@@ -50,6 +50,7 @@ export default function App() {
 
   // Clock display string (mirrors whatever ClockWidget is showing)
   const [clockDisplay, setClockDisplay] = useState("");
+  const [clockFontSize, setClockFontSize] = useState("md");
 
   // Widget collapse state
   const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
@@ -242,6 +243,7 @@ export default function App() {
         collapsed={collapsed.clock}
         onToggle={() => toggleCollapsed("clock")}
         onDisplayChange={setClockDisplay}
+        onSettingsChange={s => setClockFontSize(s.fontSize)}
       />
     ),
     text: (
@@ -255,6 +257,7 @@ export default function App() {
       <CameraFeed
         periodKey={periodKey}
         clockDisplay={clockDisplay}
+        clockFontSize={clockFontSize}
       />
     ),
     notes: (

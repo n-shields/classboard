@@ -203,12 +203,12 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
             onClick={spin}
             title={names.length < 2 ? "Add at least 2 names" : "Click to spin!"}
           />
+          {winner && (
+            <div className="wheel-winner-overlay" onAnimationEnd={() => setWinner(null)}>
+              {winner}
+            </div>
+          )}
         </div>
-        {winner && (
-          <div className="wheel-winner">
-            🎉 <strong>{winner}</strong>
-          </div>
-        )}
       </div>
 
       {editOpen && (

@@ -3,7 +3,7 @@
   flex-direction: row;
 }
 
-/* ── Left sidebar ── */
+/* ── Right sidebar ── */
 .textboard-sidebar {
   width: 44px;
   flex-shrink: 0;
@@ -13,7 +13,7 @@
   padding: 8px 0;
   gap: 5px;
   background: var(--surface2);
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   overflow: hidden;
   transition: width 0.18s ease, opacity 0.18s ease;
 }

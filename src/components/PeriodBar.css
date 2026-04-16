@@ -1,17 +1,17 @@
 /* ── Hover trigger zone ── */
 .toolbar-trigger {
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
   height: 8px;
   z-index: 200;
 }
 
-/* ── Top toolbar ── */
+/* ── Bottom toolbar ── */
 .period-toolbar {
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
   z-index: 199;
@@ -20,9 +20,9 @@
   gap: 5px;
   padding: 6px 12px;
   background: var(--surface2);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-  transform: translateY(-110%);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.35);
+  transform: translateY(110%);
   opacity: 0;
   transition: transform 0.2s ease, opacity 0.15s ease;
   flex-wrap: nowrap;

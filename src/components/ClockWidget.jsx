@@ -4,6 +4,42 @@ import "./ClockWidget.css";
 
 const MODES = ["Clock", "Period", "Timer"];
 
+const CLOCK_SETTINGS_KEY = "classboard_clock_settings";
+
+export const FONT_SIZE_OPTIONS = [
+  { key: "sm", label: "S",  clockStyle: "clamp(1.5rem, 3vw, 3rem)"    },
+  { key: "md", label: "M",  clockStyle: "clamp(2.5rem, 5vw, 4.5rem)"  },
+  { key: "lg", label: "L",  clockStyle: "clamp(3.5rem, 7vw, 6rem)"    },
+  { key: "xl", label: "XL", clockStyle: "clamp(5rem, 10vw, 9rem)"     },
+];
+
+function loadClockSettings() {
+  try {
+    const s = localStorage.getItem(CLOCK_SETTINGS_KEY);
+    if (s) return { fontSize: "md", use24h: true, timerSound: false, ...JSON.parse(s) };
+  } catch (_) {}
+  return { fontSize: "md", use24h: true, timerSound: false };
+}
+
+function saveClockSettings(settings) {
+  try { localStorage.setItem(CLOCK_SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
+}
+
+function playBeep() {
+  try {
+    const ctx = new AudioContext();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+    osc.start();
+    osc.stop(ctx.currentTime + 1.5);
+  } catch (_) {}
+}
+
 function pad(n) { return String(n).padStart(2, "0"); }
 
 function formatSeconds(s) {
@@ -14,16 +50,32 @@ function formatSeconds(s) {
   return `${pad(m)}:${pad(sec)}`;
 }
 
-export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onToggle, onDisplayChange }) {
+export default function ClockWidget({
+  currentPeriod, nextPeriod, collapsed, onToggle,
+  onDisplayChange, onSettingsChange,
+}) {
   const [mode, setMode] = useState("Clock");
   const [now, setNow] = useState(new Date());
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const initSettings = loadClockSettings();
+  const [fontSize,    setFontSize]    = useState(initSettings.fontSize);
+  const [use24h,      setUse24h]      = useState(initSettings.use24h);
+  const [timerSound,  setTimerSound]  = useState(initSettings.timerSound);
 
   // Timer state
-  const [timerSecs, setTimerSecs] = useState(10 * 60);
-  const [timerInput, setTimerInput] = useState("10:00");
+  const [timerSecs,    setTimerSecs]    = useState(10 * 60);
+  const [timerInput,   setTimerInput]   = useState("10:00");
   const [timerRunning, setTimerRunning] = useState(false);
-  const [timerDone, setTimerDone] = useState(false);
+  const [timerDone,    setTimerDone]    = useState(false);
   const timerRef = useRef(null);
+
+  // Persist settings and notify parent whenever they change
+  useEffect(() => {
+    const settings = { fontSize, use24h, timerSound };
+    saveClockSettings(settings);
+    onSettingsChange?.(settings);
+  }, [fontSize, use24h, timerSound]); // eslint-disable-line
 
   // Clock tick
   useEffect(() => {
@@ -50,6 +102,11 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
     }
     return () => clearInterval(timerRef.current);
   }, [timerRunning]);
+
+  // Sound on timer done
+  useEffect(() => {
+    if (timerDone && timerSound) playBeep();
+  }, [timerDone]); // eslint-disable-line
 
   const setPreset = useCallback((minutes) => {
     const secs = minutes * 60;
@@ -89,13 +146,22 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
     if (!timerRunning) setTimerInput(formatSeconds(timerSecs));
   }, [timerSecs, timerRunning]);
 
-  const periodRemaining = currentPeriod ? secondsUntilEnd(currentPeriod) : null;
-  const nextStarting    = nextPeriod    ? secondsUntilStart(nextPeriod)   : null;
+  const periodRemaining = currentPeriod ? secondsUntilEnd(currentPeriod)   : null;
+  const nextStarting    = nextPeriod    ? secondsUntilStart(nextPeriod)     : null;
 
-  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  // Time string respects 12/24h setting
+  const hours12 = now.getHours() % 12 || 12;
+  const ampm    = now.getHours() < 12 ? " AM" : " PM";
+  const timeStr = use24h
+    ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    : `${hours12}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${ampm}`;
+
   const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
-  // Compute what's currently displayed so the camera overlay can mirror it
+  const fontSizeStyle = FONT_SIZE_OPTIONS.find(o => o.key === fontSize)?.clockStyle
+    ?? FONT_SIZE_OPTIONS[1].clockStyle;
+
+  // Compute display string for camera overlay
   let displayStr = timeStr;
   if (mode === "Period") {
     if (currentPeriod && periodRemaining != null) displayStr = formatSeconds(Math.max(0, periodRemaining));
@@ -112,18 +178,56 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Clock
         </span>
         {!collapsed && (
-          <div className="clock-mode-tabs" onClick={e => e.stopPropagation()}>
-            {MODES.map(m => (
-              <button key={m} className={`btn btn-sm ${mode === m ? "btn-primary" : "btn-ghost"}`} onClick={() => setMode(m)}>{m}</button>
-            ))}
+          <div className="clock-header-right" onClick={e => e.stopPropagation()}>
+            <div className="clock-mode-tabs">
+              {MODES.map(m => (
+                <button key={m} className={`btn btn-sm ${mode === m ? "btn-primary" : "btn-ghost"}`} onClick={() => setMode(m)}>{m}</button>
+              ))}
+            </div>
+            <button
+              className={`btn btn-ghost btn-sm clock-settings-btn ${settingsOpen ? "btn-primary" : ""}`}
+              onClick={() => setSettingsOpen(o => !o)}
+              title="Clock settings"
+            >⚙</button>
           </div>
         )}
       </div>
 
+      {settingsOpen && !collapsed && (
+        <div className="clock-settings-panel">
+          <div className="clock-settings-row">
+            <span className="clock-settings-label">Size</span>
+            <div className="clock-settings-group">
+              {FONT_SIZE_OPTIONS.map(o => (
+                <button
+                  key={o.key}
+                  className={`btn btn-sm ${fontSize === o.key ? "btn-primary" : "btn-ghost"}`}
+                  onClick={() => setFontSize(o.key)}
+                >{o.label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="clock-settings-row">
+            <span className="clock-settings-label">Format</span>
+            <div className="clock-settings-group">
+              <button className={`btn btn-sm ${use24h ? "btn-primary" : "btn-ghost"}`}  onClick={() => setUse24h(true)}>24h</button>
+              <button className={`btn btn-sm ${!use24h ? "btn-primary" : "btn-ghost"}`} onClick={() => setUse24h(false)}>12h</button>
+            </div>
+          </div>
+          <div className="clock-settings-row">
+            <span className="clock-settings-label">Timer sound</span>
+            <div className="clock-settings-group">
+              <button className={`btn btn-sm ${timerSound ? "btn-primary" : "btn-ghost"}`}  onClick={() => setTimerSound(true)}>On</button>
+              <button className={`btn btn-sm ${!timerSound ? "btn-primary" : "btn-ghost"}`} onClick={() => setTimerSound(false)}>Off</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card-body clock-body">
         {mode === "Clock" && (
           <div className="clock-display">
-            <div className="clock-time">{timeStr}</div>
+            <div className="clock-time" style={{ fontSize: fontSizeStyle }}>{timeStr}</div>
             <div className="clock-date">{dateStr}</div>
           </div>
         )}
@@ -133,7 +237,7 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
             {currentPeriod ? (
               <>
                 <div className="clock-label">{currentPeriod.label}</div>
-                <div className={`clock-time ${periodRemaining < 120 ? "clock-warn" : ""}`}>
+                <div className={`clock-time ${periodRemaining < 120 ? "clock-warn" : ""}`} style={{ fontSize: fontSizeStyle }}>
                   {formatSeconds(periodRemaining)}
                 </div>
                 <div className="clock-sublabel">remaining</div>
@@ -141,7 +245,7 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
             ) : nextPeriod ? (
               <>
                 <div className="clock-label clock-between">Next: {nextPeriod.label}</div>
-                <div className="clock-time clock-next">
+                <div className="clock-time clock-next" style={{ fontSize: fontSizeStyle }}>
                   {formatSeconds(nextStarting)}
                 </div>
                 <div className="clock-sublabel">until start</div>
@@ -155,7 +259,7 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
 
         {mode === "Timer" && (
           <div className="clock-display timer-display">
-            <div className={`clock-time ${timerDone ? "clock-warn" : ""}`}>
+            <div className={`clock-time ${timerDone ? "clock-warn" : ""}`} style={{ fontSize: fontSizeStyle }}>
               {timerRunning
                 ? formatSeconds(timerSecs)
                 : <input className="timer-input" value={timerInput}
