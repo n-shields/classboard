@@ -1,14 +1,10 @@
-export const TILE_IDS = ['periodbar', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize'];
+export const TILE_IDS = ['clock', 'text', 'camera', 'notes', 'wheel', 'prize'];
 
 export const DEFAULT_LAYOUT = {
   dir: 'h', ratio: 0.78,
   a: {
     dir: 'v', ratio: 0.22,
-    a: {
-      dir: 'h', ratio: 0.20,   // periodbar left | text right
-      a: 'periodbar',
-      b: 'text',
-    },
+    a: 'text',
     b: 'camera',
   },
   b: {

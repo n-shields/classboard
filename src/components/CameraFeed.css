@@ -18,7 +18,7 @@
   transition: width 0.18s ease, opacity 0.18s ease;
 }
 
-.camera-feed:not(:focus-within) .camera-sidebar {
+.camera-sidebar--hidden {
   width: 3px;
   opacity: 0;
 }

@@ -30,8 +30,9 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
   const [error,        setError]        = useState(null);
   const [mirrored,     setMirrored]     = useState(() => loadSettings(periodKey).mirrored);
   const [flippedV,     setFlippedV]     = useState(() => loadSettings(periodKey).flippedV);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showClock,    setShowClock]    = useState(false);
+  const [isFullscreen,   setIsFullscreen]   = useState(false);
+  const [showClock,      setShowClock]      = useState(false);
+  const [showControls,   setShowControls]   = useState(false);
 
   // Track browser fullscreen state
   useEffect(() => {
@@ -136,7 +137,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
 
   return (
     <div className="card camera-feed" tabIndex={-1}>
-      <div className="camera-sidebar">
+      <div className={`camera-sidebar${showControls ? "" : " camera-sidebar--hidden"}`}
         <div className="sidebar-label">Cam</div>
 
         <div className="sidebar-section">
@@ -182,7 +183,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
         )}
       </div>
 
-      <div className="camera-content" ref={cameraContentRef}>
+      <div className="camera-content" ref={cameraContentRef} onClick={() => setShowControls(v => !v)}>
         {error && <div className="camera-error">{error}</div>}
 
         <video
@@ -202,7 +203,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
 
         {!active && !error && (
           <div className="camera-placeholder">
-            <span onClick={startCamera} title="Start camera">📷</span>
+            <span onClick={e => { e.stopPropagation(); startCamera(); }} title="Start camera">📷</span>
           </div>
         )}
 
@@ -211,7 +212,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
         {/* Fullscreen toggle — bottom-right overlay */}
         <button
           className="camera-fullscreen-btn"
-          onClick={toggleFullscreen}
+          onClick={e => { e.stopPropagation(); toggleFullscreen(); }}
           title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
         >{isFullscreen ? "⊡" : "⛶"}</button>
 
@@ -219,7 +220,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
         {isFullscreen && showClock && clockDisplay && (
           <div
             className="camera-clock-overlay"
-            onClick={() => setShowClock(false)}
+            onClick={e => { e.stopPropagation(); setShowClock(false); }}
             title="Click to hide"
           >{clockDisplay}</div>
         )}

@@ -1,88 +1,90 @@
-.period-bar-card {
-  height: 100%;
+/* ── Hover trigger zone ── */
+.toolbar-trigger {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  z-index: 200;
 }
 
-.pb-active-label {
-  font-size: 0.75rem;
-  color: var(--accent);
-  margin-left: 6px;
-  font-weight: 600;
-}
-
-/* Card body */
-.pb-body {
-  padding: 8px;
-  gap: 6px;
+/* ── Top toolbar ── */
+.period-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 199;
   display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  transform: translateY(-110%);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-/* Import/export footer — pinned to bottom */
-.pb-footer {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: auto;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
+.period-toolbar--visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ── Toolbar controls ── */
+.tb-btn {
   flex-shrink: 0;
 }
 
-/* Controls row */
-.pb-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+.tb-select {
+  padding: 4px 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  max-width: 120px;
+  flex-shrink: 0;
 }
 
+.tb-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
 
+/* Theme dot button */
+.tb-theme-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.tb-theme-dot:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+/* Import/export */
 .ei-btn {
   font-size: 0.8rem;
   padding: 3px 7px;
 }
 
-.schedule-select {
-  padding: 4px 6px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  max-width: 110px;
-}
-
-/* Theme picker */
-.theme-picker {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-left: 1px solid var(--border);
-  padding-left: 6px;
-}
-
-.theme-swatch {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.2);
-  flex-shrink: 0;
-}
-
-.theme-select {
-  max-width: 100px;
-}
-
-/* Period buttons */
-.period-buttons {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
+/* ── Period buttons ── */
 .period-btn {
   background: var(--surface);
   color: var(--text-dim);
   border: 1px solid var(--border);
   min-width: 42px;
+  flex-shrink: 0;
 }
 
 .period-btn-active {
