@@ -1,8 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./ScheduleEditor.css";
 
-const SCHEDULE_TYPES = ["Normal", "Wednesday", "Half Day"];
-// Mon–Sun order (indices match Date.getDay())
 const DAY_LABELS = [
   { idx: 1, label: "Mo" },
   { idx: 2, label: "Tu" },
@@ -13,11 +11,27 @@ const DAY_LABELS = [
   { idx: 0, label: "Su" },
 ];
 
-export default function ScheduleEditor({ schedules, onChange, onClose, scheduleDays, onScheduleDaysChange }) {
-  const [draft, setDraft] = useState(JSON.parse(JSON.stringify(schedules)));
-  const [activeTab, setActiveTab] = useState(SCHEDULE_TYPES[0]);
+export default function ScheduleEditor({
+  schedules, onChange, onClose,
+  scheduleDays, onScheduleDaysChange,
+  scheduleType, onScheduleTypeChange,
+}) {
+  const [draft, setDraft]         = useState(() => JSON.parse(JSON.stringify(schedules)));
+  const [draftDays, setDraftDays] = useState(() => JSON.parse(JSON.stringify(scheduleDays || {})));
+  const initTab = scheduleType || Object.keys(schedules)[0] || "Normal";
+  const [activeTab, setActiveTab]     = useState(initTab);
+  const [tabNameEdit, setTabNameEdit] = useState(initTab);
+  const tabNameOrigRef    = useRef(initTab);
+  const overlayMouseDown  = useRef(false);
 
-  // Update draft and immediately persist via onChange
+  // Sync name input when user clicks a different tab
+  useEffect(() => {
+    setTabNameEdit(activeTab);
+    tabNameOrigRef.current = activeTab;
+  }, [activeTab]);
+
+  const scheduleNames = Object.keys(draft);
+
   const update = (updater) => {
     setDraft(prev => {
       const next = updater(JSON.parse(JSON.stringify(prev)));
@@ -26,9 +40,16 @@ export default function ScheduleEditor({ schedules, onChange, onClose, scheduleD
     });
   };
 
+  const updateDays = (updater) => {
+    setDraftDays(prev => {
+      const next = updater(JSON.parse(JSON.stringify(prev)));
+      onScheduleDaysChange(next);
+      return next;
+    });
+  };
+
   const updatePeriod = (type, index, field, value) => {
     if (field === "label") {
-      // Sync renames across all schedules so workspaces stay consistent
       const oldLabel = draft[type][index].label;
       update(d => {
         Object.values(d).forEach(periods =>
@@ -56,38 +77,102 @@ export default function ScheduleEditor({ schedules, onChange, onClose, scheduleD
   const removePeriod = (type, index) =>
     update(d => { d[type].splice(index, 1); return d; });
 
+  const renameSchedule = (oldName, newName) => {
+    update(d => Object.fromEntries(Object.entries(d).map(([k, v]) => [k === oldName ? newName : k, v])));
+    updateDays(d => Object.fromEntries(Object.entries(d).map(([k, v]) => [k === oldName ? newName : k, v])));
+    setActiveTab(newName);
+    if (scheduleType === oldName) onScheduleTypeChange?.(newName);
+  };
+
+  const addSchedule = () => {
+    let name = "New Schedule";
+    let i = 2;
+    while (Object.keys(draft).includes(name)) name = `New Schedule ${i++}`;
+    update(d => { d[name] = [{ id: 1, label: "Period 1", start: "08:00", end: "09:00" }]; return d; });
+    updateDays(d => { d[name] = []; return d; });
+    setActiveTab(name);
+  };
+
+  const deleteSchedule = (name) => {
+    const names = Object.keys(draft);
+    if (names.length <= 1) return;
+    update(d => { const nd = { ...d }; delete nd[name]; return nd; });
+    updateDays(d => { const nd = { ...d }; delete nd[name]; return nd; });
+    const remaining = names.filter(n => n !== name);
+    if (activeTab === name) setActiveTab(remaining[0]);
+    if (scheduleType === name) onScheduleTypeChange?.(remaining[0]);
+  };
+
+  const handleTabNameBlur = () => {
+    const trimmed = tabNameEdit.trim();
+    const original = tabNameOrigRef.current;
+    if (!trimmed || trimmed === original) { setTabNameEdit(original); return; }
+    // Reject if name already exists (for a different tab)
+    if (Object.keys(draft).filter(k => k !== original).includes(trimmed)) { setTabNameEdit(original); return; }
+    renameSchedule(original, trimmed);
+    tabNameOrigRef.current = trimmed;
+  };
+
+  const activePeriods = draft[activeTab] || [];
+
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div
+      className="modal-overlay"
+      onMouseDown={e => { overlayMouseDown.current = e.target === e.currentTarget; }}
+      onClick={e => { if (e.target === e.currentTarget && overlayMouseDown.current) onClose(); }}
+    >
       <div className="modal schedule-editor">
         <h2>Edit Bell Schedules</h2>
 
         <div className="schedule-tabs">
-          {SCHEDULE_TYPES.map(t => (
+          {scheduleNames.map(t => (
             <button
               key={t}
               className={`btn btn-sm ${activeTab === t ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab(t)}
             >{t}</button>
           ))}
+          <button className="btn btn-ghost btn-sm" onClick={addSchedule}>+ New</button>
+        </div>
+
+        <div className="schedule-tab-name-row">
+          <span className="days-label">Name:</span>
+          <input
+            className="schedule-tab-input"
+            value={tabNameEdit}
+            onChange={e => setTabNameEdit(e.target.value)}
+            onBlur={handleTabNameBlur}
+            onKeyDown={e => {
+              if (e.key === "Enter") e.target.blur();
+              if (e.key === "Escape") { setTabNameEdit(tabNameOrigRef.current); e.target.blur(); }
+            }}
+          />
+          {scheduleNames.length > 1 && (
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => deleteSchedule(activeTab)}
+              title="Delete this schedule"
+            >Delete</button>
+          )}
         </div>
 
         {scheduleDays && (
           <div className="schedule-days">
             <span className="days-label">Use on:</span>
             {DAY_LABELS.map(({ idx, label }) => {
-              const checked = scheduleDays[activeTab]?.includes(idx) ?? false;
+              const checked = draftDays[activeTab]?.includes(idx) ?? false;
               return (
                 <label key={idx} className="day-checkbox">
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => {
-                      const next = {};
-                      SCHEDULE_TYPES.forEach(k => {
-                        next[k] = (scheduleDays[k] || []).filter(d => d !== idx);
+                      updateDays(d => {
+                        const next = {};
+                        Object.keys(d).forEach(k => { next[k] = (d[k] || []).filter(day => day !== idx); });
+                        if (!checked) next[activeTab] = [...(next[activeTab] || []), idx].sort((a, b) => a - b);
+                        return next;
                       });
-                      if (!checked) next[activeTab] = [...next[activeTab], idx].sort((a, b) => a - b);
-                      onScheduleDaysChange(next);
                     }}
                   />
                   {label}
@@ -107,7 +192,7 @@ export default function ScheduleEditor({ schedules, onChange, onClose, scheduleD
             </tr>
           </thead>
           <tbody>
-            {draft[activeTab].map((p, i) => (
+            {activePeriods.map((p, i) => (
               <tr key={i}>
                 <td>
                   <input

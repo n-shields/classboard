@@ -183,15 +183,15 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
 
   return (
     <div className={`card wheel-card ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header">
-        <span className="header-toggle" onClick={onToggle}>
+      <div className="card-header" onClick={onToggle}>
+        <span className="header-toggle">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
           {periodLabel ? `Names — ${periodLabel}` : "Wheel of Names"}
         </span>
-        {!collapsed && <button className="btn btn-ghost btn-sm" onClick={openEditor}>Edit Names</button>}
+        {!collapsed && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); openEditor(); }}>Edit Names</button>}
       </div>
       <div className="card-body wheel-body">
-        <div className="canvas-container" onMouseDown={e => e.preventDefault()}>
+        <div className="canvas-container" onMouseDown={e => { if (e.target === canvasRef.current) e.preventDefault(); }}>
           <canvas
             ref={canvasRef}
             className={`wheel-canvas ${canSpin ? "wheel-clickable" : ""}`}

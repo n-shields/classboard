@@ -112,19 +112,16 @@
   width: 100%;
   height: 100%;
   color: var(--text-dim);
-  cursor: pointer;
-  transition: color 0.15s;
 }
-
-.camera-placeholder:hover { color: var(--text); }
 
 .camera-placeholder span {
   font-size: 3rem;
   opacity: 0.5;
-  transition: opacity 0.15s;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
 }
 
-.camera-placeholder:hover span { opacity: 0.85; }
+.camera-placeholder span:hover { opacity: 0.9; transform: scale(1.1); }
 
 .freeze-canvas {
   object-fit: cover;
@@ -144,51 +141,88 @@
   pointer-events: none;
 }
 
-/* Clock toggle button — only rendered when fullscreen (via React) */
-.camera-clock-btn {
+/* Fullscreen toggle — always visible overlay at bottom-right */
+.camera-fullscreen-btn {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  bottom: 12px;
+  right: 12px;
   z-index: 3;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 6px;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 1.2rem;
-  width: 40px;
-  height: 40px;
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
   padding: 0;
 }
-.camera-clock-btn:hover { background: rgba(0, 0, 0, 0.65); color: #fff; opacity: 1; }
-.camera-clock-btn-active {
-  background: rgba(255, 255, 255, 0.2) !important;
-  color: #fff !important;
-}
+.camera-content:hover .camera-fullscreen-btn { opacity: 1; }
+.camera-fullscreen-btn:hover { background: rgba(0, 0, 0, 0.7); color: #fff; opacity: 1 !important; }
 
+/* Clock overlay — top-right, clickable to dismiss */
 .camera-clock-overlay {
   position: absolute;
-  bottom: 16px;
+  top: 16px;
   right: 16px;
-  font-size: clamp(1.5rem, 4vw, 3rem);
+  font-size: clamp(1.2rem, 3vw, 2rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #fff;
   text-shadow: 0 2px 8px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);
-  pointer-events: none;
   letter-spacing: 0.05em;
-  z-index: 2;
+  z-index: 3;
+  cursor: pointer;
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.camera-clock-overlay:hover {
+  background: rgba(0,0,0,0.55);
+}
+.camera-clock-overlay:hover::after {
+  content: " ✕";
+  font-size: 0.7em;
+  opacity: 0.7;
+}
+
+/* Ghost restore button when clock is hidden */
+.camera-clock-restore {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  padding: 0;
+}
+.camera-clock-restore:hover {
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 1 !important;
 }
 
 /* Larger clock when fullscreened */
 :fullscreen .camera-clock-overlay {
-  font-size: clamp(3rem, 8vw, 7rem);
-  bottom: 32px;
-  right: 40px;
+  font-size: clamp(2rem, 6vw, 5rem);
+  top: 24px;
+  right: 32px;
 }
 
 .camera-error {

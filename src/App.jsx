@@ -6,17 +6,16 @@ import CameraFeed from "./components/CameraFeed";
 import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
 import NoteWidget from "./components/NoteWidget";
+import TileLayout from "./components/TileLayout";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
+import { loadLayout, saveLayout } from "./data/layout";
 import "./App.css";
 
 const PERIOD_DATA_KEY   = "classboard_period_data";
 const PERIOD_LAYOUT_KEY = "classboard_period_layout";
-// Notes above wheel
-const RESIZABLE_RIGHT = ["notes", "wheel", "prize"];
 
-const DEFAULT_COLLAPSED = { clock: false, notes: false, wheel: false, prize: false };
-const DEFAULT_RW        = { notes: 40, wheel: 30, prize: 30 };
+const DEFAULT_COLLAPSED = { periodbar: false, clock: false, notes: false, wheel: false, prize: false };
 
 function loadPeriodData() {
   try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}
@@ -33,8 +32,6 @@ function loadLayouts() {
   return {};
 }
 
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
 export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
@@ -46,6 +43,7 @@ export default function App() {
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
+
   // Clock always tracks real time regardless of manual period selection
   const [clockPeriodIndex, setClockPeriodIndex]         = useState(-1);
   const [clockNextPeriodIndex, setClockNextPeriodIndex] = useState(-1);
@@ -60,26 +58,19 @@ export default function App() {
   // Theme
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
 
-  // Layout
-  const [colSplit, setColSplit] = useState(78);   // left col width %
-  const [leftRow,  setLeftRow]  = useState(22);   // TextBoard height % in left col
-  // Right col resizable panel flex weights (clock excluded — it's fixed height)
-  const [rW, setRW] = useState({ ...DEFAULT_RW });
+  // Layout tree
+  const [layout, setLayout] = useState(loadLayout);
 
-  const colsRef           = useRef(null);
-  const leftColRef        = useRef(null);
-  const rightResizableRef = useRef(null);
-
-  // Per-period layout persistence
-  const layoutsRef       = useRef(loadLayouts());
-  const justSwitchedRef  = useRef(false);
+  const layoutsRef      = useRef(loadLayouts());
+  const justSwitchedRef = useRef(false);
 
   const periods = schedules[scheduleType] || [];
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
   const nextPeriod    = nextPeriodIndex    >= 0 ? periods[nextPeriodIndex]    : null;
-  // Between periods: show the upcoming period's workspace so it can be prepped
-  const displayPeriod = currentPeriod || nextPeriod;
+  // Fall back to period 0 when nothing is active and nothing is upcoming
+  const displayPeriod = currentPeriod || nextPeriod || (periods.length > 0 ? periods[0] : null);
   const periodKey     = displayPeriod ? displayPeriod.label : null;
+
   // Clock always uses auto-detected period
   const clockPeriod     = clockPeriodIndex     >= 0 ? periods[clockPeriodIndex]     : null;
   const clockNextPeriod = clockNextPeriodIndex >= 0 ? periods[clockNextPeriodIndex] : null;
@@ -90,14 +81,13 @@ export default function App() {
   const currentProgress = periodKey ? (periodData[periodKey]?.progress ?? null)        : null;
 
   // Per-period theme overrides global
-  const periodTheme = periodKey ? periodData[periodKey]?.theme : null;
+  const periodTheme  = periodKey ? periodData[periodKey]?.theme : null;
   const currentTheme = periodTheme || globalTheme;
 
   // Apply theme whenever it changes
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
 
-  // ── Schedule auto-selection: re-check day of week every minute ───────────
-  // This catches midnight rollovers and fixes stale saved schedule types
+  // ── Schedule auto-selection ──────────────────────────────────────────────
   useEffect(() => {
     let lastDay = new Date().getDay();
     const id = setInterval(() => {
@@ -114,8 +104,7 @@ export default function App() {
     return () => clearInterval(id);
   }, [scheduleDays]);
 
-  // ── Period detection ──────────────────────────────────────────────────────
-  // Clock period: always follows real time, never overridden by manual selection
+  // ── Period detection ─────────────────────────────────────────────────────
   useEffect(() => {
     const detect = () => {
       setClockPeriodIndex(detectCurrentPeriod(periods));
@@ -126,7 +115,6 @@ export default function App() {
     return () => clearInterval(id);
   }, [periods]);
 
-  // Content period: follows real time only when autoMode is on
   useEffect(() => {
     if (!autoMode) return;
     const detect = () => {
@@ -145,38 +133,41 @@ export default function App() {
     }
   }, [scheduleType]); // eslint-disable-line
 
-  // ── Per-period layout: restore when period changes ────────────────────────
+  // ── Per-period layout: restore on period change ──────────────────────────
   useEffect(() => {
     if (!periodKey) return;
     justSwitchedRef.current = true;
     const saved = layoutsRef.current[periodKey];
-    if (saved) {
-      setCollapsed(saved.collapsed ?? { ...DEFAULT_COLLAPSED });
-      setLeftRow(saved.leftRow ?? 22);
-      setRW(saved.rW ?? { ...DEFAULT_RW });
-      if (saved.colSplit != null) setColSplit(saved.colSplit);
+    if (saved?.collapsed) {
+      setCollapsed({ ...DEFAULT_COLLAPSED, ...saved.collapsed });
     } else {
       setCollapsed({ ...DEFAULT_COLLAPSED });
-      setLeftRow(22);
-      setRW({ ...DEFAULT_RW });
     }
   }, [periodKey]);
 
-  // ── Per-period layout: save when layout changes (skip right after restore) ─
+  // ── Per-period layout: save on collapse change ───────────────────────────
   useEffect(() => {
     if (!periodKey) return;
-    if (justSwitchedRef.current) {
-      justSwitchedRef.current = false;
-      return;
-    }
-    layoutsRef.current = {
-      ...layoutsRef.current,
-      [periodKey]: { collapsed, leftRow, rW, colSplit },
-    };
+    if (justSwitchedRef.current) { justSwitchedRef.current = false; return; }
+    layoutsRef.current = { ...layoutsRef.current, [periodKey]: { collapsed } };
     localStorage.setItem(PERIOD_LAYOUT_KEY, JSON.stringify(layoutsRef.current));
-  }, [periodKey, collapsed, leftRow, rW, colSplit]);
+  }, [periodKey, collapsed]);
 
-  // ── Data persistence ──────────────────────────────────────────────────────
+  // ── Layout persistence ───────────────────────────────────────────────────
+  const handleLayoutChange = useCallback((updater) => {
+    if (typeof updater === "function") {
+      setLayout(prev => {
+        const next = updater(prev);
+        saveLayout(next);
+        return next;
+      });
+    } else {
+      setLayout(updater);
+      saveLayout(updater);
+    }
+  }, []);
+
+  // ── Data persistence ─────────────────────────────────────────────────────
   const savePeriod = useCallback((key, patch) => {
     if (!key) return;
     setPeriodData(d => {
@@ -221,110 +212,107 @@ export default function App() {
     }
   }, [periodKey, savePeriod]);
 
-  const handleScheduleTypeChange = (type) => {
+  const handleScheduleTypeChange = useCallback((type) => {
+    if (type === scheduleType) return;
+    // Preserve the currently displayed period if its label exists in the new schedule
+    const newPeriods = schedules[type] || [];
+    if (periodKey) {
+      const idx = newPeriods.findIndex(p => p.label === periodKey);
+      if (idx >= 0) {
+        setCurrentPeriodIndex(idx);
+        setNextPeriodIndex(detectNextPeriod(newPeriods));
+        setAutoMode(false);
+      }
+    }
     setScheduleType(type);
     localStorage.setItem("classboard_schedule_type", type);
-  };
+  }, [scheduleType, schedules, periodKey]);
 
   const handleSchedulesChange = useCallback((s) => { setSchedules(s); saveSchedules(s); }, []);
   const handleScheduleDaysChange = useCallback((d) => { setScheduleDays(d); saveScheduleDays(d); }, []);
 
-  // ── Drag helpers ──────────────────────────────────────────────────────────
-  const makeDrag = (getRect, onMove) => (e) => {
-    e.preventDefault();
-    const rect = getRect();
-    const move = (ev) => onMove(ev, rect);
-    const up   = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  };
-
-  const dragCol = useCallback(makeDrag(
-    () => colsRef.current.getBoundingClientRect(),
-    (e, r) => setColSplit(clamp((e.clientX - r.left) / r.width * 100, 10, 90)),
-  ), []);
-
-  const dragLeftRow = useCallback(makeDrag(
-    () => leftColRef.current.getBoundingClientRect(),
-    (e, r) => setLeftRow(clamp((e.clientY - r.top) / r.height * 100, 5, 95)),
-  ), []);
-
-  const dragRight = useCallback((topKey, bottomKey) => makeDrag(
-    () => rightResizableRef.current.getBoundingClientRect(),
-    (e, r) => {
-      const H = r.height;
-      const totalVis = RESIZABLE_RIGHT.reduce((s, k) => s + (collapsed[k] ? 0 : rW[k]), 0);
-      const aboveH = RESIZABLE_RIGHT.slice(0, RESIZABLE_RIGHT.indexOf(topKey))
-        .reduce((s, k) => s + (collapsed[k] ? 0 : H * rW[k] / totalVis), 0);
-      const tbH = H * (rW[topKey] + rW[bottomKey]) / totalVis;
-      const tbTotal = rW[topKey] + rW[bottomKey];
-      const y = clamp(e.clientY - r.top - aboveH, 5, tbH - 5);
-      const newTop = tbTotal * y / tbH;
-      setRW(w => ({ ...w, [topKey]: Math.max(1, newTop), [bottomKey]: Math.max(1, tbTotal - newTop) }));
-    },
-  ), [rW, collapsed]);
-
-  // ── Right column panels ───────────────────────────────────────────────────
+  // ── Tile content map ─────────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
-  const resizableContent = {
-    notes: <NoteWidget notes={currentNotes} onNoteChange={handleNoteChange} periodLabel={displayPeriod?.label} collapsed={collapsed.notes} onToggle={() => toggleCollapsed("notes")} />,
-    wheel: <WheelOfNames names={currentNames} onNamesChange={handleNamesChange} periodLabel={displayPeriod?.label} collapsed={collapsed.wheel} onToggle={() => toggleCollapsed("wheel")} wheelColors={wheelTheme.wheelColors} wheelText={wheelTheme.wheelText} />,
-    prize: <ProgressWidget data={currentProgress} onChange={handleProgressChange} collapsed={collapsed.prize} onToggle={() => toggleCollapsed("prize")} />,
+
+  const tiles = {
+    periodbar: (
+      <PeriodBar
+        schedules={schedules}            onSchedulesChange={handleSchedulesChange}
+        scheduleType={scheduleType}      onScheduleTypeChange={handleScheduleTypeChange}
+        scheduleDays={scheduleDays}      onScheduleDaysChange={handleScheduleDaysChange}
+        currentPeriodIndex={currentPeriodIndex}
+        nextPeriodIndex={nextPeriodIndex}
+        onPeriodSelect={idx => {
+          setCurrentPeriodIndex(idx);
+          setNextPeriodIndex(detectNextPeriod(periods));
+          setAutoMode(false);
+        }}
+        autoMode={autoMode}              onAutoModeChange={setAutoMode}
+        currentTheme={currentTheme}      onThemeChange={handleThemeChange}
+        onImport={() => window.location.reload()}
+        collapsed={collapsed.periodbar}  onToggle={() => toggleCollapsed("periodbar")}
+      />
+    ),
+    clock: (
+      <ClockWidget
+        currentPeriod={clockPeriod}
+        nextPeriod={clockNextPeriod}
+        collapsed={collapsed.clock}
+        onToggle={() => toggleCollapsed("clock")}
+        onDisplayChange={setClockDisplay}
+      />
+    ),
+    text: (
+      <TextBoard
+        texts={currentTexts}
+        onTextChange={handleTextChange}
+        periodLabel={displayPeriod?.label}
+      />
+    ),
+    camera: (
+      <CameraFeed
+        periodKey={periodKey}
+        clockDisplay={clockDisplay}
+      />
+    ),
+    notes: (
+      <NoteWidget
+        notes={currentNotes}
+        onNoteChange={handleNoteChange}
+        periodLabel={displayPeriod?.label}
+        collapsed={collapsed.notes}
+        onToggle={() => toggleCollapsed("notes")}
+      />
+    ),
+    wheel: (
+      <WheelOfNames
+        names={currentNames}
+        onNamesChange={handleNamesChange}
+        periodLabel={displayPeriod?.label}
+        collapsed={collapsed.wheel}
+        onToggle={() => toggleCollapsed("wheel")}
+        wheelColors={wheelTheme.wheelColors}
+        wheelText={wheelTheme.wheelText}
+      />
+    ),
+    prize: (
+      <ProgressWidget
+        data={currentProgress}
+        onChange={handleProgressChange}
+        collapsed={collapsed.prize}
+        onToggle={() => toggleCollapsed("prize")}
+      />
+    ),
   };
 
   return (
     <div className="app">
-      <PeriodBar
-        schedules={schedules} onSchedulesChange={handleSchedulesChange}
-        scheduleType={scheduleType} onScheduleTypeChange={handleScheduleTypeChange}
-        scheduleDays={scheduleDays} onScheduleDaysChange={handleScheduleDaysChange}
-        currentPeriodIndex={currentPeriodIndex} nextPeriodIndex={nextPeriodIndex}
-        onPeriodSelect={idx => { setCurrentPeriodIndex(idx); setNextPeriodIndex(detectNextPeriod(periods)); setAutoMode(false); }}
-        autoMode={autoMode} onAutoModeChange={setAutoMode}
-        currentTheme={currentTheme} onThemeChange={handleThemeChange}
-        onImport={() => window.location.reload()}
+      <TileLayout
+        layout={layout}
+        onLayoutChange={handleLayoutChange}
+        tiles={tiles}
+        isCollapsed={id => collapsed[id] || false}
       />
-
-      <div className="columns" ref={colsRef}>
-        {/* ── Left column ── */}
-        <div className="col" ref={leftColRef} style={{ width: `${colSplit}%` }}>
-          <div className="panel" style={{ flex: leftRow }}>
-            <TextBoard texts={currentTexts} onTextChange={handleTextChange} periodLabel={displayPeriod?.label} />
-          </div>
-          <div className="drag drag-h" onMouseDown={dragLeftRow} />
-          <div className="panel" style={{ flex: Math.max(5, 100 - leftRow) }}>
-            <CameraFeed periodKey={periodKey} clockDisplay={clockDisplay} />
-          </div>
-        </div>
-
-        <div className="drag drag-v" onMouseDown={dragCol} />
-
-        {/* ── Right column ── */}
-        <div className="col col-flex">
-          {/* Clock: fixed height, not resizable; always uses real-time period */}
-          <div className="panel" style={{ flex: "0 0 auto" }}>
-            <ClockWidget currentPeriod={clockPeriod} nextPeriod={clockNextPeriod} collapsed={collapsed.clock} onToggle={() => toggleCollapsed("clock")} onDisplayChange={setClockDisplay} />
-          </div>
-
-          {/* Resizable panels */}
-          <div className="right-resizable" ref={rightResizableRef}>
-            {RESIZABLE_RIGHT.map((key, i) => {
-              const prevKey = i > 0 ? RESIZABLE_RIGHT[i - 1] : null;
-              const showDrag = prevKey && !collapsed[prevKey] && !collapsed[key];
-              return (
-                <div key={key} style={{ display: "contents" }}>
-                  {showDrag && (
-                    <div className="drag drag-h" onMouseDown={dragRight(prevKey, key)} />
-                  )}
-                  <div className="panel" style={collapsed[key] ? { flex: "0 0 auto" } : { flex: rW[key] }}>
-                    {resizableContent[key]}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

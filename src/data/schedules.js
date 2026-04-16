@@ -1,40 +1,13 @@
 export const DEFAULT_SCHEDULES = {
   Normal: [
-    { id: 1, label: "Period 1", start: "07:45", end: "08:35" },
-    { id: 2, label: "Period 2", start: "08:39", end: "09:29" },
-    { id: 3, label: "Period 3", start: "09:33", end: "10:23" },
-    { id: 4, label: "Period 4", start: "10:27", end: "11:17" },
-    { id: "L", label: "Lunch",    start: "11:17", end: "11:52" },
-    { id: 5, label: "Period 5", start: "11:52", end: "12:42" },
-    { id: 6, label: "Period 6", start: "12:46", end: "13:36" },
-    { id: 7, label: "Period 7", start: "13:40", end: "14:30" },
-  ],
-  Wednesday: [
-    { id: 1, label: "Period 1", start: "07:45", end: "08:25" },
-    { id: 2, label: "Period 2", start: "08:29", end: "09:09" },
-    { id: 3, label: "Period 3", start: "09:13", end: "09:53" },
-    { id: 4, label: "Period 4", start: "09:57", end: "10:37" },
-    { id: "L", label: "Lunch",    start: "10:37", end: "11:07" },
-    { id: 5, label: "Period 5", start: "11:07", end: "11:47" },
-    { id: 6, label: "Period 6", start: "11:51", end: "12:31" },
-    { id: 7, label: "Period 7", start: "12:35", end: "13:15" },
-  ],
-  "Half Day": [
-    { id: 1, label: "Period 1", start: "07:45", end: "08:12" },
-    { id: 2, label: "Period 2", start: "08:15", end: "08:42" },
-    { id: 3, label: "Period 3", start: "08:45", end: "09:12" },
-    { id: 4, label: "Period 4", start: "09:15", end: "09:42" },
-    { id: "L", label: "Lunch",    start: "09:42", end: "10:07" },
-    { id: 5, label: "Period 5", start: "10:07", end: "10:34" },
-    { id: 6, label: "Period 6", start: "10:37", end: "11:04" },
-    { id: 7, label: "Period 7", start: "11:07", end: "11:34" },
+    { id: 1, label: "Period 1", start: "08:00", end: "09:30" },
+    { id: 2, label: "Period 2", start: "09:35", end: "11:05" },
+    { id: 3, label: "Period 3", start: "12:00", end: "13:30" },
   ],
 };
 
 export const DEFAULT_SCHEDULE_DAYS = {
-  Normal: [1, 2, 4, 5],   // Mon, Tue, Thu, Fri
-  Wednesday: [3],          // Wed
-  "Half Day": [],
+  Normal: [],
 };
 
 export function loadScheduleDays() {

@@ -12,12 +12,12 @@ export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodL
 
   return (
     <div className={`card note-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header">
-        <span className="header-toggle" onClick={onToggle}>
+      <div className="card-header" onClick={onToggle}>
+        <span className="header-toggle">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Notes
         </span>
         {!collapsed && (
-          <div className="note-header-controls">
+          <div className="note-header-controls" onClick={e => e.stopPropagation()}>
             {TAB_LABELS.map((label, i) => (
               <button
                 key={i}

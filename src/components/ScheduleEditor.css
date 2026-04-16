@@ -64,6 +64,21 @@
   cursor: pointer;
 }
 
+.schedule-tab-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.schedule-tab-input {
+  font-size: 0.875rem;
+  padding: 4px 8px;
+  flex: 1;
+  max-width: 220px;
+  min-width: 80px;
+}
+
 .editor-footer {
   display: flex;
   justify-content: flex-end;

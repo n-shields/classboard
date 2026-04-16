@@ -107,12 +107,12 @@ export default function ClockWidget({ currentPeriod, nextPeriod, collapsed, onTo
 
   return (
     <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header">
-        <span className="header-toggle" onClick={onToggle}>
+      <div className="card-header" onClick={onToggle}>
+        <span className="header-toggle">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>Clock
         </span>
         {!collapsed && (
-          <div className="clock-mode-tabs">
+          <div className="clock-mode-tabs" onClick={e => e.stopPropagation()}>
             {MODES.map(m => (
               <button key={m} className={`btn btn-sm ${mode === m ? "btn-primary" : "btn-ghost"}`} onClick={() => setMode(m)}>{m}</button>
             ))}

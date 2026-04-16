@@ -104,6 +104,8 @@ input:focus, textarea:focus, select:focus {
   letter-spacing: 0.08em;
   color: var(--text-dim);
   flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
   /* Auto-minimize support */
   max-height: 48px;
   overflow: hidden;

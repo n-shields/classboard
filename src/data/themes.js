@@ -15,7 +15,7 @@ const LIGHT_WHEEL = [
 export const THEMES = {
   // ── Dark themes ──────────────────────────────────────────────────────────
   midnight: {
-    name: "Midnight",
+    name: "Dark Blue",
     swatch: "#5b8dee",
     wheelColors: DARK_WHEEL,
     wheelText: "#ffffff",
@@ -29,7 +29,7 @@ export const THEMES = {
     "--accent2":  "#c084fc",
   },
   crimson: {
-    name: "Crimson",
+    name: "Dark Red",
     swatch: "#f87171",
     wheelColors: DARK_WHEEL,
     wheelText: "#ffffff",
@@ -43,7 +43,7 @@ export const THEMES = {
     "--accent2":  "#fb923c",
   },
   forest: {
-    name: "Forest",
+    name: "Dark Green",
     swatch: "#4ade80",
     wheelColors: DARK_WHEEL,
     wheelText: "#ffffff",
@@ -57,7 +57,7 @@ export const THEMES = {
     "--accent2":  "#86efac",
   },
   ocean: {
-    name: "Ocean",
+    name: "Dark Teal",
     swatch: "#38bdf8",
     wheelColors: DARK_WHEEL,
     wheelText: "#ffffff",
@@ -71,7 +71,7 @@ export const THEMES = {
     "--accent2":  "#67e8f9",
   },
   sunset: {
-    name: "Sunset",
+    name: "Dark Orange",
     swatch: "#fb923c",
     wheelColors: DARK_WHEEL,
     wheelText: "#ffffff",
@@ -85,7 +85,7 @@ export const THEMES = {
     "--accent2":  "#fbbf24",
   },
   violet: {
-    name: "Violet",
+    name: "Dark Purple",
     swatch: "#c084fc",
     wheelColors: DARK_WHEEL,
     wheelText: "#ffffff",
@@ -101,7 +101,7 @@ export const THEMES = {
 
   // ── Light / pastel themes ─────────────────────────────────────────────────
   chalk: {
-    name: "Chalk",
+    name: "Light Blue",
     swatch: "#3451c4",
     wheelColors: LIGHT_WHEEL,
     wheelText: "#ffffff",
@@ -115,7 +115,7 @@ export const THEMES = {
     "--accent2":  "#6d3fc4",
   },
   paper: {
-    name: "Paper",
+    name: "Light Teal",
     swatch: "#0b7fa0",
     wheelColors: LIGHT_WHEEL,
     wheelText: "#ffffff",
@@ -129,7 +129,7 @@ export const THEMES = {
     "--accent2":  "#0d9488",
   },
   sunrise: {
-    name: "Sunrise",
+    name: "Light Orange",
     swatch: "#b84010",
     wheelColors: LIGHT_WHEEL,
     wheelText: "#ffffff",
@@ -143,7 +143,7 @@ export const THEMES = {
     "--accent2":  "#b06010",
   },
   sky: {
-    name: "Sky",
+    name: "Sky Blue",
     swatch: "#1060a4",
     wheelColors: LIGHT_WHEEL,
     wheelText: "#ffffff",
@@ -157,7 +157,7 @@ export const THEMES = {
     "--accent2":  "#0d80c4",
   },
   mint: {
-    name: "Mint",
+    name: "Light Green",
     swatch: "#0a7040",
     wheelColors: LIGHT_WHEEL,
     wheelText: "#ffffff",

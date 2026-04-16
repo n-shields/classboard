@@ -1,116 +1,161 @@
-import { useState } from "react";
-import WarningMeter from "./WarningMeter";
+import { useState, useRef } from "react";
 import "./ProgressWidget.css";
 
-const DEFAULTS = { count: 0, maxSteps: 10, goalName: "Class Prize" };
+const DEFAULT_BAR = { id: 1, title: "Class Prize", steps: 10, count: 0 };
+
+function migrateBars(data) {
+  if (!data) return [{ ...DEFAULT_BAR }];
+  if (Array.isArray(data)) return data;
+  // Migrate old format { count, maxSteps, goalName }
+  return [{ id: 1, title: data.goalName || "Class Prize", steps: data.maxSteps || 10, count: data.count || 0 }];
+}
 
 export default function ProgressWidget({ data, onChange, collapsed, onToggle }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [draftName, setDraftName] = useState("");
-  const [draftSteps, setDraftSteps] = useState("");
+  const bars = migrateBars(data);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const overlayMouseDown = useRef(false);
 
-  const { count = 0, maxSteps = 10, goalName = "Class Prize" } = data ?? DEFAULTS;
-  const isFull = count >= maxSteps;
+  const saveBars = (newBars) => onChange(newBars);
 
-  const set = (patch) => onChange({ ...DEFAULTS, ...data, ...patch });
-
-  const increment = () => { if (!isFull) set({ count: count + 1 }); };
-  const decrement = () => { if (count > 0) set({ count: count - 1 }); };
-
-  const openSettings = () => {
-    setDraftName(goalName);
-    setDraftSteps(String(maxSteps));
-    setSettingsOpen(true);
+  // Click a cell: fill up to index, or unfill if already at exactly that index
+  const handleCellClick = (barIdx, cellIdx) => {
+    const bar = bars[barIdx];
+    const newCount = bar.count === cellIdx + 1 ? cellIdx : cellIdx + 1;
+    const newBars = bars.map((b, i) => i === barIdx ? { ...b, count: newCount } : b);
+    saveBars(newBars);
   };
 
-  const saveSettings = () => {
-    const steps = Math.max(1, Math.min(50, parseInt(draftSteps) || maxSteps));
-    set({ goalName: draftName.trim() || goalName, maxSteps: steps, count: Math.min(count, steps) });
-    setSettingsOpen(false);
+  const openEdit = () => {
+    setDraft(JSON.parse(JSON.stringify(bars)));
+    setEditOpen(true);
   };
 
-  const cells = Array.from({ length: maxSteps }, (_, i) => i < count);
+  const addBar = () => {
+    const nextId = Math.max(0, ...draft.map(b => b.id)) + 1;
+    setDraft([...draft, { id: nextId, title: `Goal ${draft.length + 1}`, steps: 10, count: 0 }]);
+  };
+
+  const updateDraft = (i, field, value) => {
+    setDraft(d => d.map((b, idx) => idx === i ? { ...b, [field]: value } : b));
+  };
+
+  const removeDraft = (i) => {
+    setDraft(d => d.filter((_, idx) => idx !== i));
+  };
+
+  const saveEdit = () => {
+    const cleaned = draft
+      .map(b => ({
+        ...b,
+        title: b.title.trim() || "Goal",
+        steps: Math.max(1, Math.min(50, parseInt(b.steps) || 10)),
+        count: Math.min(b.count, Math.max(1, Math.min(50, parseInt(b.steps) || 10))),
+      }))
+      .filter((_, i) => i === 0 || draft[i]); // keep at least one
+    saveBars(cleaned.length ? cleaned : [{ ...DEFAULT_BAR }]);
+    setEditOpen(false);
+  };
+
+  const anyFull = bars.some(b => b.count >= b.steps);
+  const title = bars.length === 1 ? bars[0].title : "Progress";
 
   return (
-    <div className={`card progress-widget ${isFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header">
-        <span className="header-toggle pw-title" onClick={onToggle}>
+    <div className={`card progress-widget ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+      <div className="card-header" onClick={onToggle}>
+        <span className="header-toggle pw-title">
           <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
-          {goalName}
+          {title}
         </span>
         {!collapsed && (
-          <div style={{ display: "flex", gap: 6 }}>
-            {isFull && <span className="pw-badge">🎉</span>}
-            <button className="btn btn-ghost btn-sm" onClick={openSettings} title="Settings">⚙</button>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+            {anyFull && <span className="pw-badge">🎉</span>}
+            <button className="btn btn-ghost btn-sm" onClick={openEdit} title="Edit goals">⚙</button>
           </div>
         )}
       </div>
 
       <div className="card-body pw-body">
-        <div className="pw-cells" style={{ "--cols": Math.min(maxSteps, 10) }}>
-          {cells.map((filled, i) => (
-            <div key={i} className={`pw-cell ${filled ? "pw-cell-on" : ""} ${isFull ? "pw-cell-full" : ""}`} />
-          ))}
-        </div>
-
-        <div className="pw-controls">
-          <button
-            className="btn pw-btn pw-minus"
-            onClick={decrement}
-            disabled={count === 0}
-          >−</button>
-          <span className="pw-count">{count}<span className="pw-max">/{maxSteps}</span></span>
-          <button
-            className="btn pw-btn pw-plus"
-            onClick={increment}
-            disabled={isFull}
-          >+</button>
-        </div>
-
-        {isFull && (
-          <div className="pw-celebration">🏆 Goal Reached!</div>
-        )}
-
-        <div className="pw-warning-row">
-          <WarningMeter />
-        </div>
+        {bars.map((bar, barIdx) => {
+          const isFull = bar.count >= bar.steps;
+          return (
+            <div key={bar.id} className={`pw-bar ${isFull ? "pw-bar-full" : ""}`}>
+              {bars.length > 1 && (
+                <div className="pw-bar-title">{bar.title}</div>
+              )}
+              <div className="pw-cells" style={{ "--cols": Math.min(bar.steps, 10) }}>
+                {Array.from({ length: bar.steps }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`pw-cell ${i < bar.count ? "pw-cell-on" : ""} ${isFull ? "pw-cell-full" : ""}`}
+                    onClick={() => handleCellClick(barIdx, i)}
+                    title={i < bar.count ? "Click to unfill" : "Click to fill"}
+                  />
+                ))}
+              </div>
+              {isFull && <div className="pw-celebration">🏆 {bar.title}!</div>}
+            </div>
+          );
+        })}
+        <button
+          className="btn btn-ghost btn-sm pw-add-btn"
+          onClick={() => {
+            const nextId = Math.max(0, ...bars.map(b => b.id)) + 1;
+            saveBars([...bars, { id: nextId, title: `Goal ${bars.length + 1}`, steps: 10, count: 0 }]);
+          }}
+          title="Add another goal bar"
+        >+ Add Goal</button>
       </div>
 
-      {settingsOpen && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSettingsOpen(false)}>
-          <div className="modal" style={{ minWidth: 280 }}>
-            <h2>Prize Settings</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-              <label style={{ fontSize: "0.85rem" }}>
-                Goal name
-                <input
-                  style={{ display: "block", width: "100%", marginTop: 4 }}
-                  value={draftName}
-                  onChange={e => setDraftName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && saveSettings()}
-                />
-              </label>
-              <label style={{ fontSize: "0.85rem" }}>
-                Steps until prize (1–50)
-                <input
-                  type="number"
-                  min="1"
-                  max="50"
-                  style={{ display: "block", width: "100%", marginTop: 4 }}
-                  value={draftSteps}
-                  onChange={e => setDraftSteps(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && saveSettings()}
-                />
-              </label>
-              <button
-                className="btn btn-danger btn-sm"
-                style={{ alignSelf: "flex-start" }}
-                onClick={() => { set({ count: 0 }); setSettingsOpen(false); }}
-              >Reset Progress</button>
+      {editOpen && (
+        <div
+          className="modal-overlay"
+          onMouseDown={e => { overlayMouseDown.current = e.target === e.currentTarget; }}
+          onClick={e => { if (e.target === e.currentTarget && overlayMouseDown.current) setEditOpen(false); }}
+        >
+          <div className="modal pw-edit-modal">
+            <h2>Edit Goals</h2>
+            <div className="pw-edit-list">
+              {draft.map((bar, i) => (
+                <div key={bar.id} className="pw-edit-row">
+                  <input
+                    className="pw-edit-title"
+                    value={bar.title}
+                    onChange={e => updateDraft(i, "title", e.target.value)}
+                    placeholder="Goal name"
+                  />
+                  <input
+                    className="pw-edit-steps"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={bar.steps}
+                    onChange={e => updateDraft(i, "steps", e.target.value)}
+                    title="Steps (1–50)"
+                  />
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => updateDraft(i, "count", 0)}
+                    title="Reset count"
+                  >↺</button>
+                  {draft.length > 1 && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removeDraft(i)}
+                      title="Remove"
+                    >✕</button>
+                  )}
+                </div>
+              ))}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
-              <button className="btn btn-ghost" onClick={() => setSettingsOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSettings}>Save</button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ marginTop: 10 }}
+              onClick={addBar}
+            >+ Add Goal</button>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+              <button className="btn btn-ghost" onClick={() => setEditOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveEdit}>Save</button>
             </div>
           </div>
         </div>

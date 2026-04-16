@@ -3,13 +3,11 @@ import ScheduleEditor from "./ScheduleEditor";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import "./PeriodBar.css";
 
-const SCHEDULE_TYPES = ["Normal", "Wednesday", "Half Day"];
-
 const EXPORT_KEYS = [
   "classboard_schedules", "classboard_schedule_type",
   "classboard_schedule_days",
   "classboard_period_data", "classboard_global_theme",
-  "classboard_period_layout",
+  "classboard_period_layout", "classboard_layout",
 ];
 
 function doExport() {
@@ -36,10 +34,25 @@ export default function PeriodBar({
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
   onImport,
+  collapsed, onToggle,
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const fileRef = useRef(null);
   const periods = schedules[scheduleType] || [];
+  const scheduleNames = Object.keys(schedules);
+
+  const addSchedule = () => {
+    let name = "New Schedule";
+    let i = 2;
+    while (scheduleNames.includes(name)) name = `New Schedule ${i++}`;
+    const newSchedules = {
+      ...schedules,
+      [name]: [{ id: 1, label: "Period 1", start: "08:00", end: "09:00" }],
+    };
+    onSchedulesChange(newSchedules);
+    onScheduleTypeChange(name);
+    setEditorOpen(true);
+  };
 
   const handleImportFile = (e) => {
     const file = e.target.files[0];
@@ -49,7 +62,8 @@ export default function PeriodBar({
       try {
         const data = JSON.parse(ev.target.result);
         const strKeys = ["classboard_schedule_type", "classboard_global_theme"];
-        const jsonKeys = ["classboard_schedules", "classboard_schedule_days", "classboard_period_data", "classboard_period_layout"];
+        const jsonKeys = ["classboard_schedules", "classboard_schedule_days",
+          "classboard_period_data", "classboard_period_layout", "classboard_layout"];
         strKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, data[k]); });
         jsonKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, JSON.stringify(data[k])); });
         onImport?.();
@@ -62,58 +76,87 @@ export default function PeriodBar({
   };
 
   return (
-    <div className="period-bar">
-      {/* Far left: export / import */}
-      <div className="ei-group">
-        <button className="btn btn-ghost btn-sm ei-btn" onClick={doExport} title="Export all data to JSON">↓ Export</button>
-        <button className="btn btn-ghost btn-sm ei-btn" onClick={() => fileRef.current.click()} title="Import data from JSON">↑ Import</button>
-        <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
+    <div className={`card period-bar-card ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+      <div className="card-header" onClick={onToggle}>
+        <span className="header-toggle">
+          <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
+          {scheduleType}
+        </span>
+        {collapsed && (() => {
+          const p = currentPeriodIndex >= 0 ? periods[currentPeriodIndex]
+                  : nextPeriodIndex >= 0   ? periods[nextPeriodIndex]
+                  : null;
+          return p ? <span className="pb-active-label">{p.label}</span> : null;
+        })()}
       </div>
 
-      {/* Schedule controls */}
-      <div className="period-bar-left">
-        <select className="schedule-select" value={scheduleType} onChange={e => onScheduleTypeChange(e.target.value)}>
-          {SCHEDULE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <button className={`btn btn-sm ${autoMode ? "btn-primary" : "btn-ghost"}`} onClick={() => onAutoModeChange(!autoMode)} title="Auto-detect period">Auto</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => setEditorOpen(true)}>Edit Schedule</button>
+      <div className="card-body pb-body">
+        {/* Controls row */}
+        <div className="pb-controls">
+          <div className="ei-group">
+            <button className="btn btn-ghost btn-sm ei-btn" onClick={doExport} title="Export all data">↓</button>
+            <button className="btn btn-ghost btn-sm ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑</button>
+            <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
+          </div>
 
-        {/* Theme picker */}
-        <div className="theme-picker">
-          <div className="theme-swatch" style={{ background: THEMES[currentTheme]?.swatch }} title="Color theme" />
           <select
-            className="schedule-select theme-select"
-            value={currentTheme}
-            onChange={e => onThemeChange(e.target.value)}
-            title="Color theme"
+            className="schedule-select"
+            value={scheduleType}
+            onChange={e => onScheduleTypeChange(e.target.value)}
           >
-            {THEME_KEYS.map(k => <option key={k} value={k}>{THEMES[k].name}</option>)}
+            {scheduleNames.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-        </div>
-      </div>
 
-      {/* Center: period buttons */}
-      <div className="period-buttons">
-        {periods.map((p, i) => {
-          const isActive = i === currentPeriodIndex;
-          const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
-          return (
-            <button
-              key={p.id}
-              className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
-              onClick={() => onPeriodSelect(i)}
-              title={`${p.start}–${p.end}`}
+          <button className="btn btn-ghost btn-sm" onClick={addSchedule} title="Add new schedule">+</button>
+
+          <button
+            className={`btn btn-sm ${autoMode ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => onAutoModeChange(!autoMode)}
+            title="Auto-detect period from time"
+          >Auto</button>
+
+          <button className="btn btn-ghost btn-sm" onClick={() => setEditorOpen(true)}>Edit</button>
+
+          <div className="theme-picker">
+            <div className="theme-swatch" style={{ background: THEMES[currentTheme]?.swatch }} />
+            <select
+              className="schedule-select theme-select"
+              value={currentTheme}
+              onChange={e => onThemeChange(e.target.value)}
+              title="Color theme"
             >
-              {p.label}
-            </button>
-          );
-        })}
+              {THEME_KEYS.map(k => <option key={k} value={k}>{THEMES[k].name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Period buttons */}
+        <div className="period-buttons">
+          {periods.map((p, i) => {
+            const isActive = i === currentPeriodIndex;
+            const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
+            return (
+              <button
+                key={p.id}
+                className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
+                onClick={() => onPeriodSelect(i)}
+                title={`${p.start}–${p.end}`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {editorOpen && (
         <ScheduleEditor
-          schedules={schedules} onChange={onSchedulesChange}
-          scheduleDays={scheduleDays} onScheduleDaysChange={onScheduleDaysChange}
+          schedules={schedules}
+          onChange={onSchedulesChange}
+          scheduleDays={scheduleDays}
+          onScheduleDaysChange={onScheduleDaysChange}
+          scheduleType={scheduleType}
+          onScheduleTypeChange={onScheduleTypeChange}
           onClose={() => setEditorOpen(false)}
         />
       )}

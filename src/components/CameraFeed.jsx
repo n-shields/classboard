@@ -170,13 +170,6 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
           title="Save image"
         >📸</button>
 
-        <button
-          className="sidebar-btn"
-          onClick={toggleFullscreen}
-          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-          style={{ fontSize: "1rem" }}
-        >{isFullscreen ? "⊡" : "⛶"}</button>
-
         {active && (
           <>
             <div className="sidebar-divider" />
@@ -208,23 +201,34 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
         />
 
         {!active && !error && (
-          <div className="camera-placeholder" onClick={startCamera}>
-            <span>📷</span>
+          <div className="camera-placeholder">
+            <span onClick={startCamera} title="Start camera">📷</span>
           </div>
         )}
 
         {frozen && <div className="freeze-badge">FROZEN</div>}
 
-        {isFullscreen && (
-          <button
-            className={`camera-clock-btn ${showClock ? "camera-clock-btn-active" : ""}`}
-            onClick={e => { e.stopPropagation(); setShowClock(c => !c); }}
-            title={showClock ? "Hide clock overlay" : "Show clock overlay"}
-          >🕒</button>
-        )}
+        {/* Fullscreen toggle — bottom-right overlay */}
+        <button
+          className="camera-fullscreen-btn"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >{isFullscreen ? "⊡" : "⛶"}</button>
 
+        {/* Clock overlay — top-right; clicking it hides it; ghost icon re-shows it */}
         {isFullscreen && showClock && clockDisplay && (
-          <div className="camera-clock-overlay">{clockDisplay}</div>
+          <div
+            className="camera-clock-overlay"
+            onClick={() => setShowClock(false)}
+            title="Click to hide"
+          >{clockDisplay}</div>
+        )}
+        {isFullscreen && !showClock && (
+          <button
+            className="camera-clock-restore"
+            onClick={e => { e.stopPropagation(); setShowClock(true); }}
+            title="Show clock overlay"
+          >🕒</button>
         )}
       </div>
     </div>
