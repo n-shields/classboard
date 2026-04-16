@@ -15,7 +15,7 @@ import "./App.css";
 const PERIOD_DATA_KEY   = "classboard_period_data";
 const PERIOD_LAYOUT_KEY = "classboard_period_layout";
 
-const DEFAULT_COLLAPSED = { clock: false, notes: false, wheel: false, prize: false };
+const DEFAULT_COLLAPSED = { clock: false, notes: false };
 
 function loadPeriodData() {
   try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}
@@ -312,6 +312,7 @@ export default function App() {
         onLayoutChange={handleLayoutChange}
         tiles={tiles}
         isCollapsed={id => collapsed[id] || false}
+        onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
       />
     </div>
   );

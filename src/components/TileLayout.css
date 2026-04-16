@@ -118,6 +118,12 @@
   border-color: var(--accent);
 }
 
+.tl-drag-handle-collapsed {
+  cursor: pointer;
+  opacity: 1 !important;
+  color: var(--accent);
+}
+
 /* ── Drop overlay ── */
 .tl-drop-overlay {
   position: absolute;

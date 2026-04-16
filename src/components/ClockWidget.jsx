@@ -62,6 +62,7 @@ export default function ClockWidget({
   const [fontSize,    setFontSize]    = useState(initSettings.fontSize);
   const [use24h,      setUse24h]      = useState(initSettings.use24h);
   const [timerSound,  setTimerSound]  = useState(initSettings.timerSound);
+  const [showSeconds, setShowSeconds] = useState(initSettings.showSeconds ?? true);
 
   // Timer state
   const [timerSecs,    setTimerSecs]    = useState(10 * 60);
@@ -72,10 +73,10 @@ export default function ClockWidget({
 
   // Persist settings and notify parent whenever they change
   useEffect(() => {
-    const settings = { fontSize, use24h, timerSound };
+    const settings = { fontSize, use24h, timerSound, showSeconds };
     saveClockSettings(settings);
     onSettingsChange?.(settings);
-  }, [fontSize, use24h, timerSound]); // eslint-disable-line
+  }, [fontSize, use24h, timerSound, showSeconds]); // eslint-disable-line
 
   // Clock tick
   useEffect(() => {
@@ -152,9 +153,10 @@ export default function ClockWidget({
   // Time string respects 12/24h setting
   const hours12 = now.getHours() % 12 || 12;
   const ampm    = now.getHours() < 12 ? " AM" : " PM";
+  const secStr  = showSeconds ? `:${pad(now.getSeconds())}` : "";
   const timeStr = use24h
-    ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-    : `${hours12}:${pad(now.getMinutes())}:${pad(now.getSeconds())}${ampm}`;
+    ? `${pad(now.getHours())}:${pad(now.getMinutes())}${secStr}`
+    : `${hours12}:${pad(now.getMinutes())}${secStr}${ampm}`;
 
   const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
 
@@ -212,6 +214,13 @@ export default function ClockWidget({
             <div className="clock-settings-group">
               <button className={`btn btn-sm ${use24h ? "btn-primary" : "btn-ghost"}`}  onClick={() => setUse24h(true)}>24h</button>
               <button className={`btn btn-sm ${!use24h ? "btn-primary" : "btn-ghost"}`} onClick={() => setUse24h(false)}>12h</button>
+            </div>
+          </div>
+          <div className="clock-settings-row">
+            <span className="clock-settings-label">Seconds</span>
+            <div className="clock-settings-group">
+              <button className={`btn btn-sm ${showSeconds ? "btn-primary" : "btn-ghost"}`}  onClick={() => setShowSeconds(true)}>On</button>
+              <button className={`btn btn-sm ${!showSeconds ? "btn-primary" : "btn-ghost"}`} onClick={() => setShowSeconds(false)}>Off</button>
             </div>
           </div>
           <div className="clock-settings-row">

@@ -46,23 +46,26 @@ function DropOverlay({ tileId, onDrop }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, onMove } = useContext(DragCtx);
+  const { dragging, setDragging, onMove, onToggle, isCollapsed } = useContext(DragCtx);
+  const collapsed = isCollapsed(id);
+  const didDrag = useRef(false);
 
   return (
     <div className="tl-slot">
       <div
-        className={`tl-drag-handle ${dragging === id ? "tl-drag-handle-dragging" : ""}`}
+        className={`tl-drag-handle ${dragging === id ? "tl-drag-handle-dragging" : ""} ${collapsed ? "tl-drag-handle-collapsed" : ""}`}
         draggable
         onDragStart={e => {
+          didDrag.current = true;
           e.dataTransfer.setData("text/plain", id);
           e.dataTransfer.effectAllowed = "move";
-          // Delay so the browser captures the element before hiding
           setTimeout(() => setDragging(id), 0);
         }}
-        onDragEnd={() => setDragging(null)}
-        title="Drag to reposition"
+        onDragEnd={() => { setDragging(null); }}
+        onClick={() => { if (!didDrag.current) onToggle?.(id); didDrag.current = false; }}
+        title={collapsed ? "Click to expand" : "Drag to reposition · click to minimize"}
       >
-        ⠿
+        {collapsed ? "▶" : "⠿"}
       </div>
       {dragging && dragging !== id && (
         <DropOverlay tileId={id} onDrop={(fromId, side) => onMove(fromId, id, side)} />
@@ -149,7 +152,7 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 
 // ── Root export ───────────────────────────────────────────────────────────────
 
-export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed }) {
+export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle }) {
   const [dragging, setDragging] = useState(null);
 
   const onMove = useCallback((fromId, toId, side) => {
@@ -157,7 +160,7 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed 
   }, [onLayoutChange]);
 
   return (
-    <DragCtx.Provider value={{ dragging, setDragging, onMove }}>
+    <DragCtx.Provider value={{ dragging, setDragging, onMove, onToggle, isCollapsed }}>
       <div className="tl-root">
         <LayoutNode
           node={layout}
