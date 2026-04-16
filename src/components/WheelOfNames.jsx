@@ -187,14 +187,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
   const canSpin = !spinning && names.length >= 2;
 
   return (
-    <div className={`card wheel-card card--header-bottom ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header" onClick={onToggle}>
-        <span className="header-toggle">
-          <span className="header-chevron">{collapsed ? "▶" : "▼"}</span>
-          {periodLabel ? `Names — ${periodLabel}` : "Wheel of Names"}
-        </span>
-        {!collapsed && <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); openEditor(); }}>Edit Names</button>}
-      </div>
+    <div className="card wheel-card" tabIndex={-1}>
       <div className="card-body wheel-body">
         <div className="canvas-container" onMouseDown={e => { if (e.target === canvasRef.current) e.preventDefault(); }}>
           <canvas
@@ -209,6 +202,11 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
             </div>
           )}
         </div>
+        <button
+          className="wheel-settings-btn"
+          onClick={openEditor}
+          title="Edit names"
+        >⚙</button>
       </div>
 
       {editOpen && (

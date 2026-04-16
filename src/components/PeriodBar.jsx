@@ -122,10 +122,8 @@ export default function PeriodBar({
           title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
         />
 
-        <div className="tb-divider" />
-
-        {/* Import / export */}
-        <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={doExport} title="Export all data">↓ Export</button>
+        {/* Import / export — pinned right */}
+        <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
         <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
         <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
       </div>
