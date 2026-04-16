@@ -1,13 +1,26 @@
 export const DEFAULT_SCHEDULES = {
   Normal: [
-    { id: 1, label: "Period 1", start: "08:00", end: "09:30" },
-    { id: 2, label: "Period 2", start: "09:35", end: "11:05" },
-    { id: 3, label: "Period 3", start: "12:00", end: "13:30" },
+    { id: 1, label: "P.1",      start: "08:00", end: "08:50" },
+    { id: 2, label: "P.2",      start: "08:54", end: "09:44" },
+    { id: 3, label: "P.3",      start: "09:48", end: "10:38" },
+    { id: 4, label: "Advisory", start: "10:42", end: "11:12" },
+    { id: 5, label: "P.4",      start: "11:16", end: "12:06" },
+    { id: 6, label: "P.5",      start: "12:42", end: "13:32" },
+    { id: 7, label: "P.6",      start: "13:36", end: "14:26" },
+  ],
+  Wednesday: [
+    { id: 1, label: "P.1", start: "08:00", end: "08:45" },
+    { id: 2, label: "P.2", start: "08:49", end: "09:34" },
+    { id: 3, label: "P.3", start: "09:38", end: "10:23" },
+    { id: 4, label: "P.4", start: "10:27", end: "11:12" },
+    { id: 5, label: "P.5", start: "11:16", end: "12:01" },
+    { id: 6, label: "P.6", start: "12:41", end: "13:26" },
   ],
 };
 
 export const DEFAULT_SCHEDULE_DAYS = {
-  Normal: [],
+  Normal:    [1, 2, 4, 5], // Mon Tue Thu Fri
+  Wednesday: [3],           // Wed
 };
 
 export function loadScheduleDays() {

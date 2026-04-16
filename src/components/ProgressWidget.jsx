@@ -1,13 +1,14 @@
 import { useState, useRef } from "react";
 import "./ProgressWidget.css";
 
-const DEFAULT_BAR = { id: 1, title: "Class Prize", steps: 10, count: 0 };
+const DEFAULT_BAR = { id: 1, title: "Class Prize", steps: 10, count: 0, color: "#facc15" };
+const DEFAULT_COLOR = "#facc15";
 
 function migrateBars(data) {
   if (!data) return [{ ...DEFAULT_BAR }];
-  if (Array.isArray(data)) return data;
+  if (Array.isArray(data)) return data.map(b => ({ color: DEFAULT_COLOR, ...b }));
   // Migrate old format { count, maxSteps, goalName }
-  return [{ id: 1, title: data.goalName || "Class Prize", steps: data.maxSteps || 10, count: data.count || 0 }];
+  return [{ id: 1, title: data.goalName || "Class Prize", steps: data.maxSteps || 10, count: data.count || 0, color: DEFAULT_COLOR }];
 }
 
 export default function ProgressWidget({ data, onChange, collapsed, onToggle }) {
@@ -33,7 +34,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
 
   const addBar = () => {
     const nextId = Math.max(0, ...draft.map(b => b.id)) + 1;
-    setDraft([...draft, { id: nextId, title: `Goal ${draft.length + 1}`, steps: 10, count: 0 }]);
+    setDraft([...draft, { id: nextId, title: `Goal ${draft.length + 1}`, steps: 10, count: 0, color: DEFAULT_COLOR }]);
   };
 
   const updateDraft = (i, field, value) => {
@@ -78,10 +79,11 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
       <div className="card-body pw-body">
         {bars.map((bar, barIdx) => {
           const isFull = bar.count >= bar.steps;
+          const color = bar.color || DEFAULT_COLOR;
           return (
-            <div key={bar.id} className={`pw-bar ${isFull ? "pw-bar-full" : ""}`}>
+            <div key={bar.id} className={`pw-bar ${isFull ? "pw-bar-full" : ""}`} style={{ "--bar-color": color }}>
               {bars.length > 1 && (
-                <div className="pw-bar-title">{bar.title}</div>
+                <div className="pw-bar-title" style={{ color }}>{bar.title}</div>
               )}
               <div className="pw-cells" style={{ "--cols": Math.min(bar.steps, 10) }}>
                 {Array.from({ length: bar.steps }, (_, i) => (
@@ -93,7 +95,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
                   />
                 ))}
               </div>
-              {isFull && <div className="pw-celebration">🏆 {bar.title}!</div>}
+              {isFull && <div className="pw-celebration" style={{ color }}>🏆 {bar.title}!</div>}
             </div>
           );
         })}
@@ -101,7 +103,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
           className="btn btn-ghost btn-sm pw-add-btn"
           onClick={() => {
             const nextId = Math.max(0, ...bars.map(b => b.id)) + 1;
-            saveBars([...bars, { id: nextId, title: `Goal ${bars.length + 1}`, steps: 10, count: 0 }]);
+            saveBars([...bars, { id: nextId, title: `Goal ${bars.length + 1}`, steps: 10, count: 0, color: DEFAULT_COLOR }]);
           }}
           title="Add another goal bar"
         >+ Add Goal</button>
@@ -118,6 +120,13 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
             <div className="pw-edit-list">
               {draft.map((bar, i) => (
                 <div key={bar.id} className="pw-edit-row">
+                  <input
+                    className="pw-edit-color"
+                    type="color"
+                    value={bar.color || DEFAULT_COLOR}
+                    onChange={e => updateDraft(i, "color", e.target.value)}
+                    title="Bar color"
+                  />
                   <input
                     className="pw-edit-title"
                     value={bar.title}

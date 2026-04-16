@@ -70,9 +70,10 @@
 }
 
 .pw-cell-on {
-  background: #facc15;
-  border-color: #eab308;
-  box-shadow: 0 0 6px rgba(250, 204, 21, 0.4);
+  background: var(--bar-color, #facc15);
+  border-color: var(--bar-color, #facc15);
+  box-shadow: 0 0 6px var(--bar-color, #facc15);
+  opacity: 0.9;
 }
 
 .pw-cell-full {
@@ -80,8 +81,8 @@
 }
 
 @keyframes cell-pulse {
-  from { box-shadow: 0 0 4px rgba(250,204,21,0.3); }
-  to   { box-shadow: 0 0 12px rgba(250,204,21,0.7); }
+  from { box-shadow: 0 0 4px var(--bar-color, #facc15); opacity: 0.8; }
+  to   { box-shadow: 0 0 14px var(--bar-color, #facc15); opacity: 1; }
 }
 
 .pw-add-btn {
@@ -117,6 +118,17 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.pw-edit-color {
+  width: 32px;
+  height: 28px;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .pw-edit-title {
