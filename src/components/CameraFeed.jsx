@@ -137,7 +137,7 @@ export default function CameraFeed({ periodKey, clockDisplay }) {
 
   return (
     <div className="card camera-feed" tabIndex={-1}>
-      <div className={`camera-sidebar${showControls ? "" : " camera-sidebar--hidden"}`}
+      <div className={`camera-sidebar${showControls ? "" : " camera-sidebar--hidden"}`}>
         <div className="sidebar-label">Cam</div>
 
         <div className="sidebar-section">
