@@ -4,21 +4,22 @@ export const DEFAULT_LAYOUT = {
   dir: 'h', ratio: 0.78,
   a: {
     dir: 'v', ratio: 0.22,
-    a: 'text', b: 'camera',
+    a: {
+      dir: 'h', ratio: 0.20,   // periodbar left | text right
+      a: 'periodbar',
+      b: 'text',
+    },
+    b: 'camera',
   },
   b: {
-    dir: 'v', ratio: 0.16,
-    a: 'periodbar',
+    dir: 'v', ratio: 0.28,
+    a: 'clock',
     b: {
-      dir: 'v', ratio: 0.28,
-      a: 'clock',
+      dir: 'v', ratio: 0.38,
+      a: 'notes',
       b: {
-        dir: 'v', ratio: 0.38,
-        a: 'notes',
-        b: {
-          dir: 'v', ratio: 0.5,
-          a: 'wheel', b: 'prize',
-        },
+        dir: 'v', ratio: 0.5,
+        a: 'wheel', b: 'prize',
       },
     },
   },
@@ -78,7 +79,7 @@ export function validateLayout(node) {
 
 export function loadLayout() {
   try {
-    const saved = localStorage.getItem('classboard_layout');
+    const saved = localStorage.getItem('classboard_layout_v2');
     if (saved) {
       const layout = JSON.parse(saved);
       if (validateLayout(layout)) return layout;
@@ -88,5 +89,5 @@ export function loadLayout() {
 }
 
 export function saveLayout(layout) {
-  localStorage.setItem('classboard_layout', JSON.stringify(layout));
+  localStorage.setItem('classboard_layout_v2', JSON.stringify(layout));
 }

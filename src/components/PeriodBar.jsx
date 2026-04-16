@@ -93,12 +93,6 @@ export default function PeriodBar({
       <div className="card-body pb-body">
         {/* Controls row */}
         <div className="pb-controls">
-          <div className="ei-group">
-            <button className="btn btn-ghost btn-sm ei-btn" onClick={doExport} title="Export all data">↓</button>
-            <button className="btn btn-ghost btn-sm ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑</button>
-            <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
-          </div>
-
           <select
             className="schedule-select"
             value={scheduleType}
@@ -146,6 +140,13 @@ export default function PeriodBar({
               </button>
             );
           })}
+        </div>
+
+        {/* Import / export — pinned to bottom */}
+        <div className="pb-footer">
+          <button className="btn btn-ghost btn-sm ei-btn" onClick={doExport} title="Export all data">↓ Export</button>
+          <button className="btn btn-ghost btn-sm ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
+          <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
         </div>
       </div>
 

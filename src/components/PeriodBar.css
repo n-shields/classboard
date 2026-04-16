@@ -15,6 +15,18 @@
   gap: 6px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Import/export footer — pinned to bottom */
+.pb-footer {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 /* Controls row */
@@ -25,14 +37,6 @@
   flex-wrap: wrap;
 }
 
-.ei-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  padding-right: 6px;
-  border-right: 1px solid var(--border);
-}
 
 .ei-btn {
   font-size: 0.8rem;
