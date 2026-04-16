@@ -65,6 +65,24 @@
   width: 100%;
 }
 
+/* Clickable seconds — always rendered, dimmed when hidden */
+.clock-secs {
+  cursor: pointer;
+  user-select: none;
+  border-radius: 3px;
+  transition: opacity 0.2s, background 0.15s;
+  padding: 0 1px;
+}
+.clock-secs:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.clock-secs--hidden {
+  opacity: 0.12;
+}
+.clock-secs--hidden:hover {
+  opacity: 0.35;
+}
+
 .clock-time {
   font-size: clamp(2.5rem, 5vw, 4.5rem); /* overridden inline by settings */
   font-weight: 700;

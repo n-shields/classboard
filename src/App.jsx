@@ -15,7 +15,7 @@ import "./App.css";
 const PERIOD_DATA_KEY   = "classboard_period_data";
 const PERIOD_LAYOUT_KEY = "classboard_period_layout";
 
-const DEFAULT_COLLAPSED = { clock: false, notes: false };
+const DEFAULT_COLLAPSED = { clock: false, notes: false, wheel: false, prize: false };
 
 function loadPeriodData() {
   try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}

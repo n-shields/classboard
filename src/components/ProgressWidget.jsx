@@ -62,7 +62,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const title = bars.length === 1 ? bars[0].title : "Progress";
 
   return (
-    <div className={`card progress-widget ${anyFull ? "pw-full" : ""}`} tabIndex={-1}>
+    <div className={`card progress-widget ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-body pw-body">
         {bars.map((bar, barIdx) => {
           const isFull = bar.count >= bar.steps;

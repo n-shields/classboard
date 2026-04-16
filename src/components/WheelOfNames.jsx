@@ -187,7 +187,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
   const canSpin = !spinning && names.length >= 2;
 
   return (
-    <div className="card wheel-card" tabIndex={-1}>
+    <div className={`card wheel-card ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-body wheel-body">
         <div className="canvas-container" onMouseDown={e => { if (e.target === canvasRef.current) e.preventDefault(); }}>
           <canvas
