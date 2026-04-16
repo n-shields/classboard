@@ -1,23 +1,50 @@
-// Wheel segment colors for dark-background themes
-const DARK_WHEEL = [
-  "#e94560", "#0f3460", "#533483", "#1a7431",
-  "#b5451b", "#1a5276", "#76448a", "#1e8bc3",
-  "#27ae60", "#e67e22", "#c0392b", "#2980b9",
-];
+function hexToHsl(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  return [h * 360, s * 100, l * 100];
+}
 
-// Wheel segment colors for light-background themes (darker so white text reads well)
-const LIGHT_WHEEL = [
-  "#2563eb", "#dc2626", "#16a34a", "#d97706",
-  "#7c3aed", "#db2777", "#0891b2", "#65a30d",
-  "#ea580c", "#4f46e5", "#0f766e", "#be185d",
-];
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return "#" + [f(0), f(8), f(4)]
+    .map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+}
+
+// Generate 12 wheel segment colors rooted at the theme's accent hue.
+// Hues are evenly distributed around the full wheel starting from the accent,
+// with alternating saturation/lightness to add visual depth.
+function wheelColors(accentHex) {
+  const [h] = hexToHsl(accentHex);
+  return Array.from({ length: 12 }, (_, i) => {
+    const hue = (h + i * 30) % 360;
+    const sat = 62 + (i % 3) * 8;   // cycles 62 → 70 → 78
+    const lit = 36 + (i % 2) * 8;   // alternates 36 ↔ 44
+    return hslToHex(hue, sat, lit);
+  });
+}
 
 export const THEMES = {
   // ── Dark themes ──────────────────────────────────────────────────────────
   midnight: {
     name: "Dark Blue",
     swatch: "#5b8dee",
-    wheelColors: DARK_WHEEL,
+    wheelColors: wheelColors("#5b8dee"),
     wheelText: "#ffffff",
     "--bg":       "#0d0d1a",
     "--surface":  "#141428",
@@ -31,7 +58,7 @@ export const THEMES = {
   crimson: {
     name: "Dark Red",
     swatch: "#f87171",
-    wheelColors: DARK_WHEEL,
+    wheelColors: wheelColors("#f87171"),
     wheelText: "#ffffff",
     "--bg":       "#180a0a",
     "--surface":  "#241010",
@@ -45,7 +72,7 @@ export const THEMES = {
   forest: {
     name: "Dark Green",
     swatch: "#4ade80",
-    wheelColors: DARK_WHEEL,
+    wheelColors: wheelColors("#4ade80"),
     wheelText: "#ffffff",
     "--bg":       "#091510",
     "--surface":  "#0f2018",
@@ -59,7 +86,7 @@ export const THEMES = {
   ocean: {
     name: "Dark Teal",
     swatch: "#38bdf8",
-    wheelColors: DARK_WHEEL,
+    wheelColors: wheelColors("#38bdf8"),
     wheelText: "#ffffff",
     "--bg":       "#08121c",
     "--surface":  "#0e1e2e",
@@ -73,7 +100,7 @@ export const THEMES = {
   sunset: {
     name: "Dark Orange",
     swatch: "#fb923c",
-    wheelColors: DARK_WHEEL,
+    wheelColors: wheelColors("#fb923c"),
     wheelText: "#ffffff",
     "--bg":       "#180e08",
     "--surface":  "#261610",
@@ -87,7 +114,7 @@ export const THEMES = {
   violet: {
     name: "Dark Purple",
     swatch: "#c084fc",
-    wheelColors: DARK_WHEEL,
+    wheelColors: wheelColors("#c084fc"),
     wheelText: "#ffffff",
     "--bg":       "#100a1a",
     "--surface":  "#181028",
@@ -103,7 +130,7 @@ export const THEMES = {
   chalk: {
     name: "Light Blue",
     swatch: "#3451c4",
-    wheelColors: LIGHT_WHEEL,
+    wheelColors: wheelColors("#3451c4"),
     wheelText: "#ffffff",
     "--bg":       "#d8def0",
     "--surface":  "#e4eaf8",
@@ -117,7 +144,7 @@ export const THEMES = {
   paper: {
     name: "Light Teal",
     swatch: "#0b7fa0",
-    wheelColors: LIGHT_WHEEL,
+    wheelColors: wheelColors("#0b7fa0"),
     wheelText: "#ffffff",
     "--bg":       "#cce4ea",
     "--surface":  "#d8eef4",
@@ -131,7 +158,7 @@ export const THEMES = {
   sunrise: {
     name: "Light Orange",
     swatch: "#b84010",
-    wheelColors: LIGHT_WHEEL,
+    wheelColors: wheelColors("#b84010"),
     wheelText: "#ffffff",
     "--bg":       "#edd8ca",
     "--surface":  "#f5e4d8",
@@ -145,7 +172,7 @@ export const THEMES = {
   sky: {
     name: "Sky Blue",
     swatch: "#1060a4",
-    wheelColors: LIGHT_WHEEL,
+    wheelColors: wheelColors("#1060a4"),
     wheelText: "#ffffff",
     "--bg":       "#c8dff2",
     "--surface":  "#d8ecfc",
@@ -159,7 +186,7 @@ export const THEMES = {
   mint: {
     name: "Light Green",
     swatch: "#0a7040",
-    wheelColors: LIGHT_WHEEL,
+    wheelColors: wheelColors("#0a7040"),
     wheelText: "#ffffff",
     "--bg":       "#bce4d0",
     "--surface":  "#cceedd",
