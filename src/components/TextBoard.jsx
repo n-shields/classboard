@@ -1,13 +1,15 @@
 import { useState } from "react";
 import "./TextBoard.css";
 
-const TAB_LABELS = ["1", "2", "3"];
+const PAGE_COUNT = 3;
 
 export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLabel }) {
   const [activeTab, setActiveTab] = useState(0);
   const [fontSize, setFontSize] = useState(48);
 
   const currentText = texts[activeTab] ?? "";
+  const prevPage = () => setActiveTab(t => (t - 1 + PAGE_COUNT) % PAGE_COUNT);
+  const nextPage = () => setActiveTab(t => (t + 1) % PAGE_COUNT);
 
   return (
     <div className="card textboard" tabIndex={-1}>
@@ -20,25 +22,17 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
           style={{ fontSize: `${fontSize}px`, lineHeight: 1.3 }}
           spellCheck={false}
         />
+        <div className="textboard-page-nav">
+          <button className="textboard-nav-btn" onClick={prevPage} onMouseDown={e => e.preventDefault()} title="Previous page" tabIndex={-1}>‹</button>
+          <span className="textboard-page-indicator">{activeTab + 1}/{PAGE_COUNT}</span>
+          <button className="textboard-nav-btn" onClick={nextPage} onMouseDown={e => e.preventDefault()} title="Next page" tabIndex={-1}>›</button>
+        </div>
       </div>
 
       <div className="textboard-sidebar">
         <div className="sidebar-label">
           {periodLabel ?? "Board"}
         </div>
-
-        <div className="sidebar-section">
-          {TAB_LABELS.map((label, i) => (
-            <button
-              key={i}
-              className={`sidebar-btn ${activeTab === i ? "sidebar-btn-active" : ""}`}
-              onClick={() => setActiveTab(i)}
-              title={`Announcement ${label}`}
-            >{label}</button>
-          ))}
-        </div>
-
-        <div className="sidebar-divider" />
 
         <div className="sidebar-section">
           <button

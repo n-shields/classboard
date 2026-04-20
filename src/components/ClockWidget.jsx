@@ -18,9 +18,9 @@ const DEFAULT_SHOW_SECS = { Clock: true, Period: true, Timer: true };
 function loadClockSettings() {
   try {
     const s = localStorage.getItem(CLOCK_SETTINGS_KEY);
-    if (s) return { fontSize: "md", use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS, ...JSON.parse(s) };
+    if (s) return { fontSize: "md", use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS, showSmallClock: true, ...JSON.parse(s) };
   } catch (_) {}
-  return { fontSize: "md", use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS };
+  return { fontSize: "md", use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS, showSmallClock: true };
 }
 
 function saveClockSettings(settings) {
@@ -52,22 +52,24 @@ function formatSeconds(s) {
   return `${pad(m)}:${pad(sec)}`;
 }
 
-// Split total seconds into { main: "MM" or "HH:MM", sec: "SS" }
+// Split total seconds into { main: "M" or "MM" or "HH:MM", sec: "SS" }
+// No leading zero on minutes when there are no hours (e.g. 9:45 not 09:45)
 function splitSecs(total) {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  return { main: h > 0 ? `${pad(h)}:${pad(m)}` : `${pad(m)}`, sec: pad(s) };
+  return { main: h > 0 ? `${pad(h)}:${pad(m)}` : `${m}`, sec: pad(s) };
 }
 
-// Clickable seconds span — shows ":SS" when visible, "min" when hidden
+// Seconds span — only rendered when shown; click to hide
 function SecSpan({ sec, show, onToggle }) {
+  if (!show) return null;
   return (
     <span
-      className={`clock-secs${show ? "" : " clock-secs--hidden"}`}
+      className="clock-secs"
       onClick={e => { e.stopPropagation(); onToggle(); }}
-      title={show ? "Click to hide seconds" : "Click to show seconds"}
-    >{show ? `:${sec}` : <span className="clock-secs-min">min</span>}</span>
+      title="Click to hide seconds"
+    >:{sec}</span>
   );
 }
 
@@ -76,14 +78,16 @@ export default function ClockWidget({
   onDisplayChange, onSettingsChange,
 }) {
   const [mode, setMode] = useState("Clock");
+  const cycleMode = (dir) => setMode(m => MODES[(MODES.indexOf(m) + dir + MODES.length) % MODES.length]);
   const [now, setNow] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const initSettings = loadClockSettings();
-  const [fontSize,       setFontSize]       = useState(initSettings.fontSize);
-  const [use24h,         setUse24h]         = useState(initSettings.use24h);
-  const [timerSound,     setTimerSound]     = useState(initSettings.timerSound);
-  const [showSecsByMode, setShowSecsByMode] = useState({
+  const [fontSize,        setFontSize]        = useState(initSettings.fontSize);
+  const [use24h,          setUse24h]          = useState(initSettings.use24h);
+  const [timerSound,      setTimerSound]      = useState(initSettings.timerSound);
+  const [showSmallClock,  setShowSmallClock]  = useState(initSettings.showSmallClock ?? true);
+  const [showSecsByMode,  setShowSecsByMode]  = useState({
     ...DEFAULT_SHOW_SECS,
     ...initSettings.showSecsByMode,
   });
@@ -97,14 +101,15 @@ export default function ClockWidget({
   const [timerInput,   setTimerInput]   = useState("10:00");
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerDone,    setTimerDone]    = useState(false);
-  const timerRef = useRef(null);
+  const timerRef       = useRef(null);
+  const lastDurationRef = useRef(10 * 60);
 
   // Persist settings and notify parent whenever they change
   useEffect(() => {
-    const settings = { fontSize, use24h, timerSound, showSecsByMode };
+    const settings = { fontSize, use24h, timerSound, showSecsByMode, showSmallClock };
     saveClockSettings(settings);
     onSettingsChange?.(settings);
-  }, [fontSize, use24h, timerSound, showSecsByMode]); // eslint-disable-line
+  }, [fontSize, use24h, timerSound, showSecsByMode, showSmallClock]); // eslint-disable-line
 
   // Clock tick
   useEffect(() => {
@@ -157,9 +162,24 @@ export default function ClockWidget({
     setTimerDone(false);
   };
 
+  const startTimer = () => {
+    lastDurationRef.current = timerSecs;
+    setTimerRunning(true);
+    setTimerDone(false);
+  };
+
+  const restartTimer = () => {
+    const secs = lastDurationRef.current;
+    setTimerSecs(secs);
+    setTimerInput(formatSeconds(secs));
+    setTimerDone(false);
+    setTimerRunning(true);
+  };
+
   const toggleTimer = () => {
-    if (timerDone) { setTimerDone(false); setTimerRunning(true); }
-    else setTimerRunning(r => !r);
+    if (timerDone) { restartTimer(); }
+    else if (timerRunning) { setTimerRunning(false); }
+    else { startTimer(); }
   };
 
   const resetTimer = () => {
@@ -180,12 +200,16 @@ export default function ClockWidget({
 
   // Wall-clock parts (used in Clock mode and as small overlay in Period/Timer)
   const hours12  = now.getHours() % 12 || 12;
-  const clockHhMm = use24h
-    ? `${pad(now.getHours())}:${pad(now.getMinutes())}`
-    : `${hours12}:${pad(now.getMinutes())}`;
+  const clockHh  = use24h ? pad(now.getHours()) : String(hours12);
+  const clockMm  = pad(now.getMinutes());
+  const clockHhMm = `${clockHh}:${clockMm}`;
   const clockSec  = pad(now.getSeconds());
+  const toggleHourFormat = () => {
+    const next = !use24h;
+    setUse24h(next);
+  };
 
-  const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  const dateStr = `${now.getMonth() + 1}/${now.getDate()}/${String(now.getFullYear()).slice(2)}`;
   const fontSizeStyle = FONT_SIZE_OPTIONS.find(o => o.key === fontSize)?.clockStyle
     ?? FONT_SIZE_OPTIONS[1].clockStyle;
 
@@ -206,72 +230,72 @@ export default function ClockWidget({
   }
   useEffect(() => { onDisplayChange?.(displayStr); }, [displayStr]); // eslint-disable-line
 
-  // Small wall-clock shown inside Period/Timer modes
-  const SmallClock = (
+  // Fixed date+time line for Period mode — no seconds, always visible
+  const PeriodDateLine = (
     <div className="clock-time-small">
-      {clockHhMm}
-      <SecSpan sec={clockSec} show={showSecsByMode.Clock} onToggle={() => toggleSecs("Clock")} />
+      <span className="clock-small-date">{dateStr}&nbsp;&nbsp;</span>
+      <span className="clock-hour-toggle" onClick={toggleHourFormat} title="Click to toggle 12/24h">{clockHh}</span>:{clockMm}
+    </div>
+  );
+
+  // Toggleable date+time for Timer mode — date + time on one line, click to toggle
+  const TimerSmallClock = (
+    <div
+      className={`clock-small-toggle ${showSmallClock ? "clock-small-toggle--on" : "clock-small-toggle--off"}`}
+      onClick={() => setShowSmallClock(v => !v)}
+      title={showSmallClock ? "Click to hide time/date" : "Click to show time/date"}
+    >
+      <div className="clock-time-small">
+        {showSmallClock && <span className="clock-small-date">{dateStr}&nbsp;&nbsp;</span>}
+        <span className="clock-hour-toggle" onClick={e => { e.stopPropagation(); toggleHourFormat(); }} title="Click to toggle 12/24h">{clockHh}</span>
+        <span className="clock-min-toggle" onClick={e => { e.stopPropagation(); toggleSecs("Timer"); }} title={showSecsByMode.Timer ? "Click to hide seconds" : "Click to show seconds"}>:{clockMm}</span>
+        <SecSpan sec={clockSec} show={showSecsByMode.Timer} onToggle={() => toggleSecs("Timer")} />
+      </div>
     </div>
   );
 
   return (
-    <div className={`card clock-widget card--header-bottom card--header-hover ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
-      <div className="card-header">
-        {!collapsed && (
-          <div className="clock-header-right">
-            <div className="clock-mode-tabs">
-              {MODES.map(m => (
-                <button key={m} className={`btn btn-sm ${mode === m ? "btn-primary" : "btn-ghost"}`} onClick={() => setMode(m)}>{m}</button>
-              ))}
+    <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+      <div className="card-body clock-body">
+        {/* Mode cycle arrows — top right, appear on hover */}
+        <div className="clock-mode-nav">
+          <button className="clock-nav-btn" onClick={() => cycleMode(-1)} onMouseDown={e => e.preventDefault()} tabIndex={-1} title="Previous mode">‹</button>
+          <span className="clock-mode-label">{mode}</span>
+          <button className="clock-nav-btn" onClick={() => cycleMode(1)} onMouseDown={e => e.preventDefault()} tabIndex={-1} title="Next mode">›</button>
+        </div>
+
+        {/* Settings panel */}
+        {settingsOpen && (
+          <div className="clock-settings-panel">
+            <div className="clock-settings-row">
+              <span className="clock-settings-label">Size</span>
+              <div className="clock-settings-group">
+                {FONT_SIZE_OPTIONS.map(o => (
+                  <button
+                    key={o.key}
+                    className={`btn btn-sm ${fontSize === o.key ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => setFontSize(o.key)}
+                  >{o.label}</button>
+                ))}
+              </div>
             </div>
-            <button
-              className={`btn btn-ghost btn-sm clock-settings-btn ${settingsOpen ? "btn-primary" : ""}`}
-              onClick={() => setSettingsOpen(o => !o)}
-              title="Clock settings"
-            >⚙</button>
+            <div className="clock-settings-row">
+              <span className="clock-settings-label">Timer sound</span>
+              <div className="clock-settings-group">
+                <button className={`btn btn-sm ${timerSound ? "btn-primary" : "btn-ghost"}`}  onClick={() => setTimerSound(true)}>On</button>
+                <button className={`btn btn-sm ${!timerSound ? "btn-primary" : "btn-ghost"}`} onClick={() => setTimerSound(false)}>Off</button>
+              </div>
+            </div>
           </div>
         )}
-      </div>
-
-      {settingsOpen && !collapsed && (
-        <div className="clock-settings-panel">
-          <div className="clock-settings-row">
-            <span className="clock-settings-label">Size</span>
-            <div className="clock-settings-group">
-              {FONT_SIZE_OPTIONS.map(o => (
-                <button
-                  key={o.key}
-                  className={`btn btn-sm ${fontSize === o.key ? "btn-primary" : "btn-ghost"}`}
-                  onClick={() => setFontSize(o.key)}
-                >{o.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="clock-settings-row">
-            <span className="clock-settings-label">Format</span>
-            <div className="clock-settings-group">
-              <button className={`btn btn-sm ${use24h ? "btn-primary" : "btn-ghost"}`}  onClick={() => setUse24h(true)}>24h</button>
-              <button className={`btn btn-sm ${!use24h ? "btn-primary" : "btn-ghost"}`} onClick={() => setUse24h(false)}>12h</button>
-            </div>
-          </div>
-          <div className="clock-settings-row">
-            <span className="clock-settings-label">Timer sound</span>
-            <div className="clock-settings-group">
-              <button className={`btn btn-sm ${timerSound ? "btn-primary" : "btn-ghost"}`}  onClick={() => setTimerSound(true)}>On</button>
-              <button className={`btn btn-sm ${!timerSound ? "btn-primary" : "btn-ghost"}`} onClick={() => setTimerSound(false)}>Off</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="card-body clock-body">
         {mode === "Clock" && (
           <div className="clock-display">
+            <div className="clock-date clock-date--large">{dateStr}</div>
             <div className="clock-time" style={{ fontSize: fontSizeStyle }}>
-              {clockHhMm}
+              <span className="clock-hour-toggle" onClick={toggleHourFormat} title="Click to toggle 12/24h">{clockHh}</span>
+              <span className="clock-min-toggle" onClick={e => { e.stopPropagation(); toggleSecs("Clock"); }} title={showSecsByMode.Clock ? "Click to hide seconds" : "Click to show seconds"}>:{clockMm}</span>
               <SecSpan sec={clockSec} show={showSecsByMode.Clock} onToggle={() => toggleSecs("Clock")} />
             </div>
-            <div className="clock-date">{dateStr}</div>
           </div>
         )}
 
@@ -280,12 +304,14 @@ export default function ClockWidget({
           const nxt = splitSecs(Math.max(0, nextStarting ?? 0));
           return (
             <div className="clock-display">
+              {PeriodDateLine}
               {currentPeriod ? (
                 <>
                   <div className="clock-label">{currentPeriod.label}</div>
                   <div className={`clock-time ${periodRemaining < 120 ? "clock-warn" : ""}`} style={{ fontSize: fontSizeStyle }}>
-                    {rem.main}
+                    <span className="clock-min-toggle" onClick={() => toggleSecs("Period")} title={showSecsByMode.Period ? "Click to hide seconds" : "Click to show seconds"}>{rem.main}</span>
                     <SecSpan sec={rem.sec} show={showSecsByMode.Period} onToggle={() => toggleSecs("Period")} />
+                    {!showSecsByMode.Period && <span className="clock-unit-label">min</span>}
                   </div>
                   <div className="clock-sublabel">remaining</div>
                 </>
@@ -293,15 +319,15 @@ export default function ClockWidget({
                 <>
                   <div className="clock-label clock-between">Next: {nextPeriod.label}</div>
                   <div className="clock-time clock-next" style={{ fontSize: fontSizeStyle }}>
-                    {nxt.main}
+                    <span className="clock-min-toggle" onClick={() => toggleSecs("Period")} title={showSecsByMode.Period ? "Click to hide seconds" : "Click to show seconds"}>{nxt.main}</span>
                     <SecSpan sec={nxt.sec} show={showSecsByMode.Period} onToggle={() => toggleSecs("Period")} />
+                    {!showSecsByMode.Period && <span className="clock-unit-label">min</span>}
                   </div>
                   <div className="clock-sublabel">until start</div>
                 </>
               ) : (
                 <div className="clock-noperiod">School day complete</div>
               )}
-              {SmallClock}
             </div>
           );
         })()}
@@ -310,10 +336,11 @@ export default function ClockWidget({
           const t = splitSecs(timerSecs);
           return (
             <div className="clock-display timer-display">
+              {TimerSmallClock}
               <div className={`clock-time ${timerDone ? "clock-warn" : ""}`} style={{ fontSize: fontSizeStyle }}>
                 {timerRunning ? (
                   <>
-                    {t.main}
+                    <span className="clock-min-toggle" onClick={() => toggleSecs("Timer")} title={showSecsByMode.Timer ? "Click to hide seconds" : "Click to show seconds"}>{t.main}</span>
                     <SecSpan sec={t.sec} show={showSecsByMode.Timer} onToggle={() => toggleSecs("Timer")} />
                   </>
                 ) : (
@@ -326,17 +353,26 @@ export default function ClockWidget({
               </div>
               {timerDone && <div className="clock-label" style={{ color: "var(--warn)" }}>Time's up!</div>}
               <div className="timer-controls">
-                <button className="btn btn-ghost btn-sm" onClick={() => setPreset(10)}>10 min</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setPreset(15)}>15 min</button>
+                {[1, 2, 5, 10, 15].map(m => (
+                  <button key={m} className="btn btn-ghost btn-sm" onClick={() => setPreset(m)}>{m}</button>
+                ))}
                 <button className={`btn btn-sm ${timerRunning ? "btn-danger" : "btn-primary"}`} onClick={toggleTimer}>
                   {timerRunning ? "Stop" : timerDone ? "Restart" : "Start"}
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={resetTimer}>Reset</button>
               </div>
-              {SmallClock}
             </div>
           );
         })()}
+
+        {/* Settings gear — bottom right, appear on hover */}
+        <button
+          className={`clock-gear-btn ${settingsOpen ? "clock-gear-btn--active" : ""}`}
+          onClick={() => setSettingsOpen(o => !o)}
+          onMouseDown={e => e.preventDefault()}
+          tabIndex={-1}
+          title="Clock settings"
+        >⚙</button>
       </div>
     </div>
   );

@@ -23,6 +23,39 @@ export const DEFAULT_SCHEDULE_DAYS = {
   Wednesday: [3],           // Wed
 };
 
+/** One-time migration: rename "Normal" → "Regular" in all stored schedule data */
+function migrateNormalToRegular() {
+  try {
+    // schedule type string
+    const type = localStorage.getItem("classboard_schedule_type");
+    if (type === "Normal") localStorage.setItem("classboard_schedule_type", "Regular");
+
+    // schedules object
+    const rawS = localStorage.getItem("classboard_schedules");
+    if (rawS) {
+      const s = JSON.parse(rawS);
+      if ("Normal" in s) {
+        s.Regular = s.Regular ?? s.Normal;
+        delete s.Normal;
+        localStorage.setItem("classboard_schedules", JSON.stringify(s));
+      }
+    }
+
+    // schedule days object
+    const rawD = localStorage.getItem("classboard_schedule_days");
+    if (rawD) {
+      const d = JSON.parse(rawD);
+      if ("Normal" in d) {
+        d.Regular = d.Regular ?? d.Normal;
+        delete d.Normal;
+        localStorage.setItem("classboard_schedule_days", JSON.stringify(d));
+      }
+    }
+  } catch (_) {}
+}
+
+migrateNormalToRegular();
+
 export function loadScheduleDays() {
   try {
     const saved = localStorage.getItem("classboard_schedule_days");

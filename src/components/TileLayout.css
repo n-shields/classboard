@@ -47,7 +47,7 @@
 }
 
 .tl-handle-h {
-  width: 4px;
+  width: 0;
   cursor: col-resize;
 }
 .tl-handle-h::before {
@@ -57,7 +57,7 @@
 }
 
 .tl-handle-v {
-  height: 4px;
+  height: 0;
   cursor: row-resize;
 }
 .tl-handle-v::before {
@@ -69,6 +69,8 @@
 /* ── Tile slot ── */
 .tl-slot {
   position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -78,14 +80,15 @@
 }
 
 .tl-slot-content {
-  width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 /* Collapsed slot: hide card, show only the title bar */
 .tl-slot--collapsed {
   height: auto;
-  display: flex;
+  flex-direction: row;
   align-items: center;
 }
 

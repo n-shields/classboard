@@ -76,16 +76,19 @@
   text-shadow: 0 4px 24px rgba(0,0,0,0.95), 0 0 50px rgba(0,0,0,0.7);
   letter-spacing: 0.02em;
   text-align: center;
-  padding: 8px;
+  padding: 12px;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   pointer-events: none;
-  animation: winner-fade 2s ease-out forwards;
+  animation: winner-fade 2.5s ease-out forwards;
   z-index: 2;
 }
 
 @keyframes winner-fade {
   0%   { opacity: 0; transform: scale(0.6); }
-  12%  { opacity: 1; transform: scale(1.08); }
-  22%  { opacity: 1; transform: scale(1);   }
+  10%  { opacity: 1; transform: scale(1.08); }
+  18%  { opacity: 1; transform: scale(1);   }
   65%  { opacity: 1; }
   100% { opacity: 0; }
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./NoteWidget.css";
 
-const TAB_LABELS = ["1", "2", "3"];
+const PAGE_COUNT = 3;
 const DEFAULT_FONT = 20;
 
 export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodLabel, collapsed, onToggle }) {
@@ -10,22 +10,16 @@ export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodL
 
   const currentText = notes[activeTab] ?? "";
 
+  const prevPage = () => setActiveTab(t => (t - 1 + PAGE_COUNT) % PAGE_COUNT);
+  const nextPage = () => setActiveTab(t => (t + 1) % PAGE_COUNT);
+
   return (
     <div className={`card note-widget card--header-bottom ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-header">
         {!collapsed && (
           <div className="note-header-controls">
-            {TAB_LABELS.map((label, i) => (
-              <button
-                key={i}
-                className={`btn btn-sm ${activeTab === i ? "btn-primary" : "btn-ghost"}`}
-                onClick={() => setActiveTab(i)}
-                title={`Notes page ${label}`}
-              >{label}</button>
-            ))}
-            <div className="note-divider" />
             <button className="btn btn-ghost btn-sm" onClick={() => setFontSize(f => Math.min(72, f + 4))} title="Larger text">A+</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setFontSize(f => Math.max(10, f - 4))} title="Smaller text">A-</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setFontSize(f => Math.max(10, f - 4))} title="Smaller text">A−</button>
             <div className="note-divider" />
             <button className="btn btn-ghost btn-sm note-clear-btn" onClick={() => onNoteChange(activeTab, "")} title="Clear this page">✕</button>
           </div>
@@ -40,6 +34,11 @@ export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodL
           style={{ fontSize: `${fontSize}px`, lineHeight: 1.4 }}
           spellCheck={false}
         />
+        <div className="note-page-nav">
+          <button className="note-nav-btn" onClick={prevPage} onMouseDown={e => e.preventDefault()} title="Previous page" tabIndex={-1}>‹</button>
+          <span className="note-page-indicator">{activeTab + 1}/{PAGE_COUNT}</span>
+          <button className="note-nav-btn" onClick={nextPage} onMouseDown={e => e.preventDefault()} title="Next page" tabIndex={-1}>›</button>
+        </div>
       </div>
     </div>
   );

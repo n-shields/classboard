@@ -23,6 +23,53 @@
   padding: 0;
   flex: 1;
   min-height: 0;
+  position: relative;
+}
+
+.note-page-nav {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.note-widget:hover .note-page-nav {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.note-nav-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.note-nav-btn:hover {
+  color: var(--accent);
+  background: var(--surface);
+}
+
+.note-page-indicator {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  min-width: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .note-textarea {

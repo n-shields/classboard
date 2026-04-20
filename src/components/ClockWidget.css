@@ -1,27 +1,87 @@
 .clock-widget {
   height: 100%;
+  position: relative;
 }
 
 .clock-body {
   align-items: center;
   justify-content: center;
   padding: 12px;
+  position: relative;
 }
 
-.clock-header-right {
+/* Mode cycle arrows — top right */
+.clock-mode-nav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.clock-mode-tabs {
-  display: flex;
   gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 2;
+}
+.clock-widget:hover .clock-mode-nav {
+  opacity: 1;
+}
+.clock-nav-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+.clock-nav-btn:hover {
+  color: var(--accent);
+  background: var(--surface);
+}
+.clock-mode-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-dim);
+  min-width: 34px;
+  text-align: center;
 }
 
-.clock-settings-btn {
+/* Settings gear — bottom right */
+.clock-gear-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.9rem;
-  padding: 2px 6px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  z-index: 2;
+}
+.clock-widget:hover .clock-gear-btn {
+  opacity: 1;
+}
+.clock-gear-btn:hover,
+.clock-gear-btn--active {
+  background: rgba(0,0,0,0.5);
+  color: rgba(255,255,255,0.9);
+  opacity: 1 !important;
 }
 
 /* Settings panel */
@@ -32,6 +92,7 @@
   padding: 8px 12px;
   background: var(--surface2);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .clock-settings-row {
@@ -65,6 +126,29 @@
   width: 100%;
 }
 
+/* Clickable minutes — toggles seconds visibility */
+.clock-min-toggle {
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+  padding: 0 1px;
+  user-select: none;
+}
+.clock-min-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Clickable hour — toggles 12/24h format */
+.clock-hour-toggle {
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+  padding: 0 1px;
+}
+.clock-hour-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* Clickable seconds — always rendered, dimmed when hidden */
 .clock-secs {
   cursor: pointer;
@@ -76,21 +160,6 @@
 .clock-secs:hover {
   background: rgba(255, 255, 255, 0.08);
 }
-.clock-secs--hidden {
-  opacity: 0.45;
-}
-.clock-secs--hidden:hover {
-  opacity: 0.7;
-}
-
-.clock-secs-min {
-  font-size: 0.38em;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: lowercase;
-  vertical-align: middle;
-  margin-left: 2px;
-}
 
 .clock-time {
   font-size: clamp(2.5rem, 5vw, 4.5rem); /* overridden inline by settings */
@@ -99,6 +168,16 @@
   font-variant-numeric: tabular-nums;
   color: var(--accent);
   line-height: 1;
+}
+
+.clock-unit-label {
+  font-size: 0.32em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  vertical-align: middle;
+  margin-left: 4px;
+  opacity: 0.75;
 }
 
 .clock-warn {
@@ -112,8 +191,20 @@
 }
 
 .clock-date {
-  font-size: 1rem;
+  font-size: 1.15rem;
+  font-weight: 500;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.clock-date--large {
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+}
+
+.clock-small-date {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 .clock-label {
@@ -146,7 +237,28 @@
   font-size: 0.85rem;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+/* Toggleable small clock area in Period/Timer modes */
+.clock-small-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px 8px;
+  transition: background 0.15s;
+  user-select: none;
   margin-top: 4px;
+}
+.clock-small-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.clock-small-toggle--off {
+  opacity: 0.3;
+}
+.clock-small-toggle--off:hover {
+  opacity: 0.6;
 }
 
 /* Timer */
