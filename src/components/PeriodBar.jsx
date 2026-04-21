@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import LZString from "lz-string";
 import ScheduleEditor from "./ScheduleEditor";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import "./PeriodBar.css";
@@ -33,10 +34,7 @@ function doExport() {
 }
 
 function encodeData(data) {
-  // UTF-8-safe base64, URL-safe alphabet, no padding
-  const json    = JSON.stringify(data);
-  const b64     = btoa(unescape(encodeURIComponent(json)));
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return LZString.compressToEncodedURIComponent(JSON.stringify(data));
 }
 
 export default function PeriodBar({

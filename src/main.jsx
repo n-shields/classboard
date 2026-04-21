@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import LZString from 'lz-string'
 import './index.css'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
@@ -9,7 +10,8 @@ import ErrorBoundary from './components/ErrorBoundary.jsx'
   try {
     const param = new URLSearchParams(window.location.search).get('s');
     if (!param) return;
-    const json = decodeURIComponent(escape(atob(param.replace(/-/g, '+').replace(/_/g, '/'))));
+    const json = LZString.decompressFromEncodedURIComponent(param);
+    if (!json) return;
     const data = JSON.parse(json);
     Object.entries(data).forEach(([key, value]) => {
       if (typeof key === 'string' && key.startsWith('classboard_')) {
