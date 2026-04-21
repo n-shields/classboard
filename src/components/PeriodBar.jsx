@@ -4,21 +4,14 @@ import ScheduleEditor from "./ScheduleEditor";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import "./PeriodBar.css";
 
-const EXPORT_KEYS = [
-  "classboard_schedules", "classboard_schedule_type",
-  "classboard_schedule_days",
-  "classboard_period_data", "classboard_global_theme",
-  "classboard_period_layout", "classboard_layout",
-  "classboard_period_layout_trees", "classboard_camera_settings",
-];
-
 function collectData() {
   const data = {};
-  EXPORT_KEYS.forEach(k => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k?.startsWith("classboard_")) continue;
     const v = localStorage.getItem(k);
     if (v !== null) try { data[k] = JSON.parse(v); } catch (_) { data[k] = v; }
-  });
-  data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Regular";
+  }
   return data;
 }
 
@@ -80,11 +73,10 @@ export default function PeriodBar({
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        const strKeys  = ["classboard_schedule_type", "classboard_global_theme"];
-        const jsonKeys = ["classboard_schedules", "classboard_schedule_days",
-          "classboard_period_data", "classboard_period_layout", "classboard_layout"];
-        strKeys.forEach(k  => { if (data[k] != null) localStorage.setItem(k, data[k]); });
-        jsonKeys.forEach(k => { if (data[k] != null) localStorage.setItem(k, JSON.stringify(data[k])); });
+        Object.entries(data).forEach(([k, v]) => {
+          if (!k.startsWith("classboard_") || v == null) return;
+          localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+        });
         onImport?.();
       } catch (err) {
         alert("Could not read file: " + err.message);
