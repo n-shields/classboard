@@ -55,6 +55,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [preview,     setPreview]     = useState(null);
   const [selected,    setSelected]    = useState(new Set());
   const [marquee,     setMarquee]     = useState(null);
+  const [fullscreen,  setFullscreen]  = useState(false);
 
   const canvasRef       = useRef(null);
   const wrapRef         = useRef(null);
@@ -358,7 +359,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const specialVisible = { __door__: showDoor, __teacher__: showTeacher };
 
   return (
-    <div className="seating-overlay">
+    <div className={`seating-overlay${fullscreen ? " seating-overlay--fullscreen" : ""}`}>
       <div className="seating-toolbar">
         <span className="seating-title">{periodLabel ? `${periodLabel} — Seating` : "Seating Chart"}</span>
         <button className="seating-tb-btn" onClick={cycleRotation} title="Rotate view 90°">⟳ {rotation}°</button>
@@ -390,6 +391,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           style={{ opacity: rects.length ? 1 : 0.35 }}
         >Clear</button>
 
+        <button
+          className="seating-tb-btn seating-tb-btn--fullscreen"
+          onClick={() => setFullscreen(v => !v)}
+          title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >{fullscreen ? "⊡" : "⛶"}</button>
         <button className="seating-tb-btn seating-tb-btn--save"   onClick={handleSave}   title="Save and close">Save</button>
         <button className="seating-tb-btn seating-tb-btn--cancel" onClick={handleCancel} title="Cancel changes (Escape)">Cancel</button>
       </div>

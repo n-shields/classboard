@@ -4,3 +4,10 @@
   height: 100vh;
   overflow: hidden;
 }
+
+.app-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}

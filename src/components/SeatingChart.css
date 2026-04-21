@@ -1,11 +1,16 @@
 .seating-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 1000;
+  z-index: 10;
   background: var(--bg, #0f172a);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.seating-overlay--fullscreen {
+  position: fixed;
+  z-index: 1000;
 }
 
 .seating-toolbar {
@@ -285,9 +290,15 @@
   border-color: #4f52d8;
 }
 
+/* Fullscreen toggle */
+.seating-tb-btn--fullscreen {
+  margin-left: auto;
+  font-size: 1rem;
+  padding: 4px 8px;
+}
+
 /* Save / Cancel buttons — pinned to right */
 .seating-tb-btn--save {
-  margin-left: auto;
   background: rgba(99, 102, 241, 0.15);
   border-color: var(--accent, #6366f1);
   color: var(--accent, #6366f1);

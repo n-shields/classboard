@@ -366,22 +366,24 @@ export default function App() {
         onImport={() => window.location.reload()}
         onOpenSeatingChart={() => setShowSeatingChart(true)}
       />
-      <TileLayout
-        layout={layout}
-        onLayoutChange={handleLayoutChange}
-        tiles={tiles}
-        isCollapsed={id => collapsed[id] || false}
-        onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
-        tileNames={TILE_NAMES}
-      />
-      {showSeatingChart && (
-        <SeatingChart
-          names={currentNames}
-          periodLabel={displayPeriod?.label}
-          periodKey={periodKey}
-          onClose={() => setShowSeatingChart(false)}
+      <div className="app-body">
+        <TileLayout
+          layout={layout}
+          onLayoutChange={handleLayoutChange}
+          tiles={tiles}
+          isCollapsed={id => collapsed[id] || false}
+          onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
+          tileNames={TILE_NAMES}
         />
-      )}
+        {showSeatingChart && (
+          <SeatingChart
+            names={currentNames}
+            periodLabel={displayPeriod?.label}
+            periodKey={periodKey}
+            onClose={() => setShowSeatingChart(false)}
+          />
+        )}
+      </div>
     </div>
   );
 }
