@@ -52,6 +52,7 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const [showControls, setShowControls] = useState(false);
   const [ignoreCh,     setIgnoreCh]     = useState({ r: false, g: false, b: false });
   const [grayMode,     setGrayMode]     = useState(null); // null | "gray" | "bw"
+  const [negative,     setNegative]     = useState(false);
   const [levels,       setLevels]       = useState(DEFAULT_LEVELS);
   const [showLevels,   setShowLevels]   = useState(false);
   const [histogram,    setHistogram]    = useState(null);
@@ -77,6 +78,7 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
     hasSvgFilter ? "url(#cam-main-filter)" : "",
     grayMode ? "grayscale(1)" : "",
     grayMode === "bw" ? "contrast(1000%)" : "",
+    negative ? "invert(1)" : "",
   ].filter(Boolean).join(" ") || undefined;
 
   // Fullscreen tracking
@@ -416,16 +418,22 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
         >▤</button>
 
         <div className="camera-channel-btns">
-          {/* B&W — half-black/half-white circle, filled when active */}
+          {/* Negative — half-inverted circle */}
+          <button
+            className={`camera-ch-btn camera-ch-btn--neg ${negative ? "camera-ch-btn--neg-on" : ""}`}
+            onClick={() => setNegative(v => !v)}
+            title="Negative"
+          />
+          {/* B&W — half-black/half-white circle */}
           <button
             className={`camera-ch-btn camera-ch-btn--bw ${grayMode === "bw" ? "camera-ch-btn--bw-on" : ""}`}
             onClick={() => toggleGray("bw")}
             title="Black & white"
           />
-          {/* Grayscale — gray circle, filled when active */}
+          {/* Grayscale — light gray circle */}
           <button
             className={`camera-ch-btn ${grayMode !== "gray" ? "camera-ch-btn--off" : ""}`}
-            style={{ "--ch-color": "#aaaaaa" }}
+            style={{ "--ch-color": "#d4d4d4" }}
             onClick={() => toggleGray("gray")}
             title="Grayscale"
           />

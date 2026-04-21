@@ -12,17 +12,17 @@ function pad(n) { return String(n).padStart(2, "0"); }
 
 function loadFormat() {
   return FORMATS.includes(localStorage.getItem(DATE_FORMAT_KEY))
-    ? localStorage.getItem(DATE_FORMAT_KEY) : "long";
+    ? localStorage.getItem(DATE_FORMAT_KEY) : "mdy";
 }
 
 const DEFAULT_FONT_SIZES = { time: 3.5, day: 0.85, date: 1.2 };
 
 function loadWidgetSettings() {
   try {
-    return { showTime: true, showDate: true, use24h: true, showSecs: true,
+    return { showTime: true, showDate: true, use24h: false, showSecs: true,
       fontSizes: { ...DEFAULT_FONT_SIZES },
       ...JSON.parse(localStorage.getItem(DATE_WIDGET_KEY) || "{}") };
-  } catch (_) { return { showTime: true, showDate: true, use24h: true, showSecs: true, fontSizes: { ...DEFAULT_FONT_SIZES } }; }
+  } catch (_) { return { showTime: true, showDate: true, use24h: false, showSecs: true, fontSizes: { ...DEFAULT_FONT_SIZES } }; }
 }
 
 function saveWidgetSettings(s) {

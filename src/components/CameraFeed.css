@@ -344,6 +344,19 @@
   opacity: 0.5;
 }
 
+.camera-ch-btn--neg {
+  background: linear-gradient(135deg, #eee 50%, #111 50%);
+  border-color: #888;
+  opacity: 0.5;
+}
+.camera-ch-btn--neg:hover {
+  opacity: 0.8;
+}
+.camera-ch-btn--neg-on {
+  opacity: 1 !important;
+  border-color: #ccc;
+}
+
 .camera-ch-btn--bw {
   background: linear-gradient(135deg, #111 50%, #eee 50%);
   border-color: #888;
