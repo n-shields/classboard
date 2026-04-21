@@ -74,11 +74,16 @@
 
 .seating-canvas-wrap {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  cursor: grab;
+}
+
+.seating-canvas-wrap:active {
+  cursor: grabbing;
 }
 
 .seating-fullscreen-btn {
@@ -286,15 +291,6 @@
   background: rgba(99, 102, 241, 0.08);
 }
 
-/* Marquee selection box */
-.seating-marquee {
-  position: absolute;
-  border: 1px dashed rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.05);
-  pointer-events: none;
-  box-sizing: border-box;
-  z-index: 4;
-}
 
 /* Rect mode active — filled accent button */
 .seating-tb-btn--rect-on {

@@ -53,8 +53,8 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [rects,       setRects]       = useState(() => loadRects(periodKey));
   const [drawMode,    setDrawMode]    = useState(false);
   const [preview,     setPreview]     = useState(null);
-  const [selected,    setSelected]    = useState(new Set());
-  const [marquee,     setMarquee]     = useState(null);
+  const [selected,     setSelected]     = useState(new Set());
+  const [pan,          setPan]          = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const canvasRef       = useRef(null);
@@ -64,14 +64,17 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const dragging        = useRef(null);
   // resizing.current: { rectId, handle, startX, startY, origRect:{x,y,w,h} }
   const resizing        = useRef(null);
+  // panningRef.current: { startX, startY, origPan:{x,y} }
+  const panningRef      = useRef(null);
   const drawStartRef    = useRef(null);
-  const marqueeStartRef = useRef(null);
   const initialStateRef = useRef(null);
   // Always-current refs so event handlers don't need positions/rects as deps
   const positionsRef    = useRef(positions);
   const rectsRef        = useRef(rects);
+  const panRef          = useRef(pan);
   useEffect(() => { positionsRef.current = positions; });
   useEffect(() => { rectsRef.current = rects; });
+  useEffect(() => { panRef.current = pan; });
 
   // Snapshot on open for cancel
   useEffect(() => {
@@ -112,7 +115,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, []);
 
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
-  const resetPositions = () => { setPositions(initPositions(names, null)); setZoom(1); };
+  const resetPositions = () => { setPositions(initPositions(names, null)); setZoom(1); setPan({ x: 0, y: 0 }); };
 
   const randomize = () => {
     setPositions(prev => {
@@ -233,14 +236,12 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     resizing.current = { rectId, handle, startX: e.clientX, startY: e.clientY, origRect: { x: r.x, y: r.y, w: r.w, h: r.h } };
   }, [drawMode]);
 
-  // Canvas mousedown (empty space): start marquee, clear selection
+  // Canvas mousedown (empty space): start panning
   const onCanvasMouseDown = useCallback((e) => {
     if (drawMode) return;
     e.preventDefault();
-    const pt = screenToCanvas(e.clientX, e.clientY);
-    marqueeStartRef.current = pt;
-    setMarquee({ x: pt.x, y: pt.y, w: 0, h: 0 });
-  }, [drawMode, screenToCanvas]);
+    panningRef.current = { startX: e.clientX, startY: e.clientY, origPan: { ...panRef.current } };
+  }, [drawMode]);
 
   // Combined drag + marquee effect
   useEffect(() => {
@@ -274,36 +275,21 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         if (handle.includes("e")) { w = snapV(o.w + dx); if (w < MIN) w = MIN; }
         setRects(prev => prev.map(r => r.id === rectId ? { ...r, x, y, w, h } : r));
       }
-      if (marqueeStartRef.current) {
-        const pt = screenToCanvas(e.clientX, e.clientY);
-        const s  = marqueeStartRef.current;
-        setMarquee({ x: Math.min(s.x, pt.x), y: Math.min(s.y, pt.y), w: Math.abs(pt.x - s.x), h: Math.abs(pt.y - s.y) });
+      if (panningRef.current) {
+        const { startX, startY, origPan } = panningRef.current;
+        setPan({ x: origPan.x + e.clientX - startX, y: origPan.y + e.clientY - startY });
       }
     };
 
     const onUp = (e) => {
-      dragging.current  = null;
-      resizing.current  = null;
-      if (marqueeStartRef.current) {
-        const pt = screenToCanvas(e.clientX, e.clientY);
-        const s  = marqueeStartRef.current;
-        const mx = Math.min(s.x, pt.x), my = Math.min(s.y, pt.y);
-        const mw = Math.abs(pt.x - s.x), mh = Math.abs(pt.y - s.y);
-        if (mw > 5 || mh > 5) {
-          const newSel = new Set();
-          for (const [key, p] of Object.entries(positionsRef.current)) {
-            const { w, h } = SPECIAL[key] || { w: CARD_SIZE, h: CARD_SIZE };
-            if (p.x + w > mx && p.x < mx + mw && p.y + h > my && p.y < my + mh) newSel.add(key);
-          }
-          for (const r of rectsRef.current) {
-            if (r.x + r.w > mx && r.x < mx + mw && r.y + r.h > my && r.y < my + mh) newSel.add(r.id);
-          }
-          setSelected(newSel);
-        } else {
-          setSelected(new Set());
+      dragging.current = null;
+      resizing.current = null;
+      if (panningRef.current) {
+        const { startX, startY } = panningRef.current;
+        if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) < 5) {
+          setSelected(new Set()); // plain click on empty space = deselect
         }
-        marqueeStartRef.current = null;
-        setMarquee(null);
+        panningRef.current = null;
       }
     };
 
@@ -411,10 +397,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         <button className="seating-fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
           {isFullscreen ? "⊡" : "⛶"}
         </button>
+        <div style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
         <div
           className="seating-canvas"
           ref={canvasRef}
-          style={{ transform: `rotate(${rotation}deg) scale(${zoom})`, cursor: drawMode ? "crosshair" : "default" }}
+          style={{ transform: `rotate(${rotation}deg) scale(${zoom})`, cursor: drawMode ? "crosshair" : (panningRef.current ? "grabbing" : "default") }}
           onMouseDown={onCanvasMouseDown}
         >
           {/* Drawn rectangles */}
@@ -440,12 +427,6 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           {preview && preview.w > 2 && preview.h > 2 && (
             <div className="seating-rect seating-rect--preview"
               style={{ left: preview.x, top: preview.y, width: preview.w, height: preview.h }} />
-          )}
-
-          {/* Marquee selection box */}
-          {marquee && marquee.w > 2 && marquee.h > 2 && (
-            <div className="seating-marquee"
-              style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />
           )}
 
           {/* Special items */}
@@ -494,6 +475,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
             />
           )}
         </div>
+        </div>{/* end pan positioner */}
       </div>
     </div>
   );
