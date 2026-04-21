@@ -157,4 +157,8 @@
   font-family: inherit;
   outline: none;
   width: 100%;
+  overflow: auto;
+  scrollbar-width: none;
 }
+
+.textboard-textarea::-webkit-scrollbar { display: none; }

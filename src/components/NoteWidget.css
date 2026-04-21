@@ -83,7 +83,11 @@
   padding: 12px 14px;
   font-family: inherit;
   outline: none;
+  overflow: auto;
+  scrollbar-width: none;
 }
+
+.note-textarea::-webkit-scrollbar { display: none; }
 
 .note-textarea:focus {
   outline: none;
