@@ -55,10 +55,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [preview,     setPreview]     = useState(null);
   const [selected,    setSelected]    = useState(new Set());
   const [marquee,     setMarquee]     = useState(null);
-  const [fullscreen,  setFullscreen]  = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const canvasRef       = useRef(null);
   const wrapRef         = useRef(null);
+  const rootRef         = useRef(null);
   // dragging.current: { startX, startY, origPositions:{[key]:{x,y}}, origRects:{[id]:{x,y}} }
   const dragging        = useRef(null);
   // resizing.current: { rectId, handle, startX, startY, origRect:{x,y,w,h} }
@@ -125,6 +126,17 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
       keys.forEach((k, i) => { next[k] = slots[i]; });
       return next;
     });
+  };
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else rootRef.current?.requestFullscreen();
   };
 
   const handleSave   = useCallback(() => onClose(), [onClose]);
@@ -359,7 +371,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const specialVisible = { __door__: showDoor, __teacher__: showTeacher };
 
   return (
-    <div className={`seating-overlay${fullscreen ? " seating-overlay--fullscreen" : ""}`}>
+    <div className="seating-overlay" ref={rootRef}>
       <div className="seating-toolbar">
         <span className="seating-title">{periodLabel ? `${periodLabel} — Seating` : "Seating Chart"}</span>
         <button className="seating-tb-btn" onClick={cycleRotation} title="Rotate view 90°">⟳ {rotation}°</button>
@@ -391,16 +403,14 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           style={{ opacity: rects.length ? 1 : 0.35 }}
         >Clear</button>
 
-        <button
-          className="seating-tb-btn seating-tb-btn--fullscreen"
-          onClick={() => setFullscreen(v => !v)}
-          title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-        >{fullscreen ? "⊡" : "⛶"}</button>
         <button className="seating-tb-btn seating-tb-btn--save"   onClick={handleSave}   title="Save and close">Save</button>
         <button className="seating-tb-btn seating-tb-btn--cancel" onClick={handleCancel} title="Cancel changes (Escape)">Cancel</button>
       </div>
 
       <div className="seating-canvas-wrap" ref={wrapRef}>
+        <button className="seating-fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+          {isFullscreen ? "⊡" : "⛶"}
+        </button>
         <div
           className="seating-canvas"
           ref={canvasRef}

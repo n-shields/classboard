@@ -307,7 +307,14 @@ export default function App() {
         onFontSizesChange={handleTextFontSizesChange}
       />
     ),
-    camera: (
+    camera: showSeatingChart ? (
+      <SeatingChart
+        names={currentNames}
+        periodLabel={displayPeriod?.label}
+        periodKey={periodKey}
+        onClose={() => setShowSeatingChart(false)}
+      />
+    ) : (
       <CameraFeed
         periodKey={periodKey}
         clockDisplay={clockDisplay}
@@ -366,24 +373,14 @@ export default function App() {
         onImport={() => window.location.reload()}
         onOpenSeatingChart={() => setShowSeatingChart(true)}
       />
-      <div className="app-body">
-        <TileLayout
-          layout={layout}
-          onLayoutChange={handleLayoutChange}
-          tiles={tiles}
-          isCollapsed={id => collapsed[id] || false}
-          onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
-          tileNames={TILE_NAMES}
-        />
-        {showSeatingChart && (
-          <SeatingChart
-            names={currentNames}
-            periodLabel={displayPeriod?.label}
-            periodKey={periodKey}
-            onClose={() => setShowSeatingChart(false)}
-          />
-        )}
-      </div>
+      <TileLayout
+        layout={layout}
+        onLayoutChange={handleLayoutChange}
+        tiles={tiles}
+        isCollapsed={id => collapsed[id] || false}
+        onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
+        tileNames={TILE_NAMES}
+      />
     </div>
   );
 }

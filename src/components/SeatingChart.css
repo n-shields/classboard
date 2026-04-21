@@ -1,16 +1,9 @@
 .seating-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  background: var(--bg, #0f172a);
+  height: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--bg, #0f172a);
   overflow: hidden;
-}
-
-.seating-overlay--fullscreen {
-  position: fixed;
-  z-index: 1000;
 }
 
 .seating-toolbar {
@@ -85,7 +78,32 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
+
+.seating-fullscreen-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 8;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  padding: 0;
+}
+
+.seating-canvas-wrap:hover .seating-fullscreen-btn { opacity: 1; }
+.seating-fullscreen-btn:hover { background: rgba(0, 0, 0, 0.7); color: #fff; opacity: 1 !important; }
 
 .seating-canvas {
   position: relative;
@@ -290,15 +308,9 @@
   border-color: #4f52d8;
 }
 
-/* Fullscreen toggle */
-.seating-tb-btn--fullscreen {
-  margin-left: auto;
-  font-size: 1rem;
-  padding: 4px 8px;
-}
-
 /* Save / Cancel buttons — pinned to right */
 .seating-tb-btn--save {
+  margin-left: auto;
   background: rgba(99, 102, 241, 0.15);
   border-color: var(--accent, #6366f1);
   color: var(--accent, #6366f1);

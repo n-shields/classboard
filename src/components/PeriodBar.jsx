@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import LZString from "lz-string";
 import ScheduleEditor from "./ScheduleEditor";
 import { THEMES, THEME_KEYS } from "../data/themes";
@@ -40,11 +40,23 @@ export default function PeriodBar({
   onImport,
   onOpenSeatingChart,
 }) {
-  const [editorOpen,  setEditorOpen]  = useState(false);
-  const [visible,     setVisible]     = useState(false);
-  const [linkCopied,  setLinkCopied]  = useState(false);
+  const [editorOpen,    setEditorOpen]    = useState(false);
+  const [visible,       setVisible]       = useState(false);
+  const [linkCopied,    setLinkCopied]    = useState(false);
+  const [isFullscreen,  setIsFullscreen]  = useState(false);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen?.();
+  };
 
   const doShareLink = () => {
     try {
@@ -154,6 +166,12 @@ export default function PeriodBar({
           onClick={doShareLink}
           title="Copy shareable link with all settings encoded"
         >{linkCopied ? "✓ Copied" : "↗ Share"}</button>
+        <button
+          className={`btn btn-sm tb-btn ${isFullscreen ? "btn-primary" : "btn-ghost"}`}
+          onClick={toggleFullscreen}
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          style={{ fontSize: "1rem", padding: "0 8px" }}
+        >⛶</button>
         <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
       </div>
 
