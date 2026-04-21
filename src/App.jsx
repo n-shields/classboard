@@ -11,7 +11,7 @@ import DateWidget from "./components/DateWidget";
 import SeatingChart from "./components/SeatingChart";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, DEFAULT_LAYOUT } from "./data/layout";
 import "./App.css";
 
 const PERIOD_DATA_KEY         = "classboard_period_data";
@@ -180,12 +180,12 @@ export default function App() {
     } else {
       setCollapsed({ ...DEFAULT_COLLAPSED });
     }
-    // Restore per-period tile layout (fall back to global default)
+    // Restore per-period tile layout (fall back to hard-coded default, not global)
     const savedTree = periodLayoutTreesRef.current[periodKey];
     if (savedTree && validateLayout(savedTree)) {
       setLayout(savedTree);
     } else {
-      setLayout(loadLayout());
+      setLayout(JSON.parse(JSON.stringify(DEFAULT_LAYOUT)));
     }
   }, [periodKey]);
 
@@ -200,10 +200,12 @@ export default function App() {
   // ── Layout persistence ───────────────────────────────────────────────────
   const handleLayoutChange = useCallback((updater) => {
     const persist = (next) => {
-      saveLayout(next); // global fallback (used for new periods)
       if (periodKey) {
+        // Save per-period only; don't pollute the global default
         periodLayoutTreesRef.current = { ...periodLayoutTreesRef.current, [periodKey]: next };
         localStorage.setItem(PERIOD_LAYOUT_TREES_KEY, JSON.stringify(periodLayoutTreesRef.current));
+      } else {
+        saveLayout(next);
       }
     };
     if (typeof updater === "function") {

@@ -88,21 +88,12 @@
   height: 700px;
   flex-shrink: 0;
   transform-origin: center center;
-}
-
-.seating-front-label {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--accent, #6366f1);
-  opacity: 0.6;
-  pointer-events: none;
-  user-select: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 10px 10px, 10px 10px, 50px 50px, 50px 50px;
 }
 
 .seating-card {
@@ -166,4 +157,146 @@
 .seating-card--teacher:hover {
   border-color: #f59e0b;
   box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
+}
+
+.seating-rect {
+  position: absolute;
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  box-sizing: border-box;
+  overflow: visible;
+  cursor: grab;
+}
+
+.seating-rect:active {
+  cursor: grabbing;
+}
+
+/* Resize handles */
+.seating-rect-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--accent, #6366f1);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 6;
+  box-sizing: border-box;
+}
+
+.seating-rect:hover .seating-rect-handle,
+.seating-rect--selected .seating-rect-handle {
+  opacity: 0.75;
+}
+
+.seating-rect-handle:hover {
+  opacity: 1 !important;
+  background: #fff;
+}
+
+.seating-rect-handle--nw { top: -4px;            left: -4px;            cursor: nwse-resize; }
+.seating-rect-handle--n  { top: -4px;            left: calc(50% - 4px); cursor: ns-resize;   }
+.seating-rect-handle--ne { top: -4px;            right: -4px;           cursor: nesw-resize; }
+.seating-rect-handle--e  { top: calc(50% - 4px); right: -4px;           cursor: ew-resize;   }
+.seating-rect-handle--se { bottom: -4px;         right: -4px;           cursor: nwse-resize; }
+.seating-rect-handle--s  { bottom: -4px;         left: calc(50% - 4px); cursor: ns-resize;   }
+.seating-rect-handle--sw { bottom: -4px;         left: -4px;            cursor: nesw-resize; }
+.seating-rect-handle--w  { top: calc(50% - 4px); left: -4px;            cursor: ew-resize;   }
+
+.seating-rect-del {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface2, #1e293b);
+  border: 1px solid var(--border, rgba(255,255,255,0.15));
+  color: var(--text-dim, #94a3b8);
+  font-size: 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  padding: 0;
+  line-height: 1;
+  z-index: 6;
+}
+
+.seating-rect:hover .seating-rect-del {
+  opacity: 1;
+}
+
+.seating-rect-del:hover {
+  background: var(--danger, #ef4444);
+  color: #fff;
+  border-color: var(--danger, #ef4444);
+  opacity: 1;
+}
+
+.seating-rect--preview {
+  border-color: var(--accent, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.seating-draw-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: crosshair;
+}
+
+/* Selected card highlight */
+.seating-card--selected {
+  border-color: var(--accent, #6366f1) !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45), 0 0 14px rgba(99, 102, 241, 0.25) !important;
+}
+
+/* Selected rect highlight */
+.seating-rect--selected {
+  border-color: var(--accent, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* Marquee selection box */
+.seating-marquee {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 4;
+}
+
+/* Rect mode active — filled accent button */
+.seating-tb-btn--rect-on {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  color: #fff;
+}
+
+.seating-tb-btn--rect-on:hover {
+  background: #4f52d8;
+  border-color: #4f52d8;
+}
+
+/* Save / Cancel buttons — pinned to right */
+.seating-tb-btn--save {
+  margin-left: auto;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+
+.seating-tb-btn--save:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.seating-tb-btn--cancel {
+  color: var(--text-dim, #94a3b8);
 }
