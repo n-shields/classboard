@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./ProgressWidget.css";
 
 const DEFAULT_BAR = { id: 1, title: "Class Prize", steps: 10, count: 0, color: "#facc15" };
@@ -16,8 +16,27 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const overlayMouseDown = useRef(false);
+  const barsRef = useRef(bars);
+  barsRef.current = bars;
 
   const saveBars = (newBars) => onChange(newBars);
+
+  // Remote control — PageDown increments, PageUp decrements linked bars
+  useEffect(() => {
+    if (!bars.some(b => b.remote)) return;
+    const handler = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "PageDown") {
+        e.preventDefault();
+        saveBars(barsRef.current.map(b => b.remote ? { ...b, count: Math.min(b.steps, b.count + 1) } : b));
+      } else if (e.key === "PageUp") {
+        e.preventDefault();
+        saveBars(barsRef.current.map(b => b.remote ? { ...b, count: Math.max(0, b.count - 1) } : b));
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [bars.some(b => b.remote)]); // eslint-disable-line
 
   // Click a cell: fill up to index, or unfill if already at exactly that index
   const handleCellClick = (barIdx, cellIdx) => {
@@ -69,8 +88,11 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
           const color = bar.color || DEFAULT_COLOR;
           return (
             <div key={bar.id} className={`pw-bar ${isFull ? "pw-bar-full" : ""}`} style={{ "--bar-color": color }}>
-              {bars.length > 1 && (
-                <div className="pw-bar-title" style={{ color }}>{bar.title}</div>
+              {(bars.length > 1 || bar.remote) && (
+                <div className="pw-bar-title" style={{ color }}>
+                  {bars.length > 1 && bar.title}
+                  {bar.remote && <span className="pw-remote-indicator" title="Linked to remote">⊙</span>}
+                </div>
               )}
               <div className="pw-cells" style={{ "--cols": Math.min(bar.steps, 10) }}>
                 {Array.from({ length: bar.steps }, (_, i) => (
@@ -122,6 +144,11 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
                     onChange={e => updateDraft(i, "steps", e.target.value)}
                     title="Steps (1–50)"
                   />
+                  <button
+                    className={`btn btn-sm ${bar.remote ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => updateDraft(i, "remote", !bar.remote)}
+                    title={bar.remote ? "Unlink remote" : "Link to remote (PageDown / PageUp)"}
+                  >⊙</button>
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => updateDraft(i, "count", 0)}

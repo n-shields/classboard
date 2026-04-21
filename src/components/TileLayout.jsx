@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { moveTile } from "../data/layout";
 import "./TileLayout.css";
 
@@ -69,7 +69,7 @@ function TileSlot({ id, content }) {
         {collapsed ? <>▶{name && <span className="tl-drag-handle-name">{name}</span>}</> : "⠿"}
       </div>
       {dragging && dragging !== id && (
-        <DropOverlay tileId={id} onDrop={(fromId, side) => onMove(fromId, id, side)} />
+        <DropOverlay tileId={id} onDrop={(fromId, side) => { onMove(fromId, id, side); setDragging(null); }} />
       )}
       <div className="tl-slot-content">{content}</div>
     </div>
@@ -109,7 +109,7 @@ function SplitNode({ node, onChange, tiles, isCollapsed }) {
 
   return (
     <div ref={containerRef} className={`tl-split tl-split-${node.dir}`}>
-      <div className="tl-child" style={{ flex: aCollapsed ? "0 0 auto" : node.ratio }}>
+      <div className="tl-child" style={{ flex: aCollapsed ? "0 0 auto" : bCollapsed ? 1 : node.ratio }}>
         <LayoutNode
           node={node.a}
           onChange={newA => onChange({ ...node, a: newA })}
@@ -123,7 +123,7 @@ function SplitNode({ node, onChange, tiles, isCollapsed }) {
           onMouseDown={startResize}
         />
       )}
-      <div className="tl-child" style={{ flex: bCollapsed ? "0 0 auto" : (1 - node.ratio) }}>
+      <div className="tl-child" style={{ flex: bCollapsed ? "0 0 auto" : aCollapsed ? 1 : (1 - node.ratio) }}>
         <LayoutNode
           node={node.b}
           onChange={newB => onChange({ ...node, b: newB })}
@@ -160,8 +160,21 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
     onLayoutChange(prev => moveTile(prev, fromId, toId, side));
   }, [onLayoutChange]);
 
+  // Safety net: if the dragged element remounts (layout changed mid-drag),
+  // onDragEnd won't fire on it — clear dragging state from the document level.
+  useEffect(() => {
+    const handler = () => setDragging(null);
+    document.addEventListener("dragend", handler);
+    return () => document.removeEventListener("dragend", handler);
+  }, []);
+
+  const ctxValue = useMemo(
+    () => ({ dragging, setDragging, onMove, onToggle, isCollapsed, tileNames }),
+    [dragging, onMove, onToggle, isCollapsed, tileNames],
+  );
+
   return (
-    <DragCtx.Provider value={{ dragging, setDragging, onMove, onToggle, isCollapsed, tileNames }}>
+    <DragCtx.Provider value={ctxValue}>
       <div className="tl-root">
         <LayoutNode
           node={layout}

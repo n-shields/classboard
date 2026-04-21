@@ -7,20 +7,45 @@ import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
 import NoteWidget from "./components/NoteWidget";
 import TileLayout from "./components/TileLayout";
+import DateWidget from "./components/DateWidget";
+import SeatingChart from "./components/SeatingChart";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
-import { loadLayout, saveLayout } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout } from "./data/layout";
 import "./App.css";
 
-const PERIOD_DATA_KEY   = "classboard_period_data";
-const PERIOD_LAYOUT_KEY = "classboard_period_layout";
+const PERIOD_DATA_KEY         = "classboard_period_data";
+const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
+const PERIOD_LAYOUT_TREES_KEY = "classboard_period_layout_trees";
 
-const DEFAULT_COLLAPSED = { clock: false, notes: false, wheel: false, prize: false };
-const TILE_NAMES = { clock: "Clock", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals" };
+function loadPeriodLayoutTrees() {
+  try { const s = localStorage.getItem(PERIOD_LAYOUT_TREES_KEY); if (s) return JSON.parse(s); } catch (_) {}
+  return {};
+}
+
+const DEFAULT_COLLAPSED = { date: false, clock: false, notes: false, wheel: false, prize: false };
+const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals" };
+const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
 function loadPeriodData() {
-  try { const s = localStorage.getItem(PERIOD_DATA_KEY); if (s) return JSON.parse(s); } catch (_) {}
-  return {};
+  try {
+    const s = localStorage.getItem(PERIOD_DATA_KEY);
+    if (!s) return {};
+    const data = JSON.parse(s);
+    if (typeof data !== "object" || data === null || Array.isArray(data)) return {};
+    // Sanitize each period entry so malformed data doesn't crash components
+    for (const key of Object.keys(data)) {
+      const p = data[key];
+      if (typeof p !== "object" || p === null) { data[key] = {}; continue; }
+      if (p.texts  && !Array.isArray(p.texts))          delete p.texts;
+      if (p.notes  && !Array.isArray(p.notes))          delete p.notes;
+      if (p.names  && !Array.isArray(p.names))          delete p.names;
+      if (p.excludedNames && !Array.isArray(p.excludedNames)) delete p.excludedNames;
+      if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
+      if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
+    }
+    return data;
+  } catch (_) { return {}; }
 }
 function loadScheduleType() {
   return localStorage.getItem("classboard_schedule_type") || "Regular";
@@ -37,8 +62,11 @@ export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
   const [scheduleType, setScheduleType]     = useState(() => {
-    const days = loadScheduleDays();
-    return getScheduleForToday(days) || loadScheduleType();
+    const loaded = loadSchedules();
+    const days   = loadScheduleDays();
+    const candidate = getScheduleForToday(days) || loadScheduleType();
+    // Fall back to first available schedule if stored value is stale/unrecognized
+    return (candidate && candidate in loaded) ? candidate : (Object.keys(loaded)[0] ?? "Regular");
   });
   const [periodData, setPeriodData]         = useState(loadPeriodData);
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
@@ -60,11 +88,15 @@ export default function App() {
   // Theme
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
 
+  // Seating chart
+  const [showSeatingChart, setShowSeatingChart] = useState(false);
+
   // Layout tree
   const [layout, setLayout] = useState(loadLayout);
 
-  const layoutsRef      = useRef(loadLayouts());
-  const justSwitchedRef = useRef(false);
+  const layoutsRef           = useRef(loadLayouts());
+  const periodLayoutTreesRef = useRef(loadPeriodLayoutTrees());
+  const justSwitchedRef      = useRef(false);
 
   const periods = schedules[scheduleType] || [];
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
@@ -77,10 +109,13 @@ export default function App() {
   const clockPeriod     = clockPeriodIndex     >= 0 ? periods[clockPeriodIndex]     : null;
   const clockNextPeriod = clockNextPeriodIndex >= 0 ? periods[clockNextPeriodIndex] : null;
 
-  const currentTexts    = periodKey ? (periodData[periodKey]?.texts    ?? ["","",""]) : ["","",""];
-  const currentNotes    = periodKey ? (periodData[periodKey]?.notes    ?? ["","",""]) : ["","",""];
-  const currentNames    = periodKey ? (periodData[periodKey]?.names    ?? [])          : [];
-  const currentProgress = periodKey ? (periodData[periodKey]?.progress ?? null)        : null;
+  const currentTexts         = periodKey ? (periodData[periodKey]?.texts         ?? ["","",""]) : ["","",""];
+  const currentNotes         = periodKey ? (periodData[periodKey]?.notes         ?? ["","",""]) : ["","",""];
+  const currentNames         = periodKey ? (periodData[periodKey]?.names         ?? DEFAULT_NAMES) : DEFAULT_NAMES;
+  const currentExcluded      = periodKey ? (periodData[periodKey]?.excludedNames  ?? [])          : [];
+  const currentProgress      = periodKey ? (periodData[periodKey]?.progress      ?? null)        : null;
+  const currentTextFontSizes = periodKey ? (periodData[periodKey]?.textFontSizes ?? [48, 48, 48]) : [48, 48, 48];
+  const currentNoteFontSizes = periodKey ? (periodData[periodKey]?.noteFontSizes ?? [20, 20, 20]) : [20, 20, 20];
 
   // Per-period theme overrides global
   const periodTheme  = periodKey ? periodData[periodKey]?.theme : null;
@@ -145,6 +180,13 @@ export default function App() {
     } else {
       setCollapsed({ ...DEFAULT_COLLAPSED });
     }
+    // Restore per-period tile layout (fall back to global default)
+    const savedTree = periodLayoutTreesRef.current[periodKey];
+    if (savedTree && validateLayout(savedTree)) {
+      setLayout(savedTree);
+    } else {
+      setLayout(loadLayout());
+    }
   }, [periodKey]);
 
   // ── Per-period layout: save on collapse change ───────────────────────────
@@ -157,17 +199,20 @@ export default function App() {
 
   // ── Layout persistence ───────────────────────────────────────────────────
   const handleLayoutChange = useCallback((updater) => {
+    const persist = (next) => {
+      saveLayout(next); // global fallback (used for new periods)
+      if (periodKey) {
+        periodLayoutTreesRef.current = { ...periodLayoutTreesRef.current, [periodKey]: next };
+        localStorage.setItem(PERIOD_LAYOUT_TREES_KEY, JSON.stringify(periodLayoutTreesRef.current));
+      }
+    };
     if (typeof updater === "function") {
-      setLayout(prev => {
-        const next = updater(prev);
-        saveLayout(next);
-        return next;
-      });
+      setLayout(prev => { const next = updater(prev); persist(next); return next; });
     } else {
       setLayout(updater);
-      saveLayout(updater);
+      persist(updater);
     }
-  }, []);
+  }, [periodKey]);
 
   // ── Data persistence ─────────────────────────────────────────────────────
   const savePeriod = useCallback((key, patch) => {
@@ -201,8 +246,11 @@ export default function App() {
     });
   }, [periodKey]);
 
-  const handleNamesChange    = useCallback((names)    => savePeriod(periodKey, { names }),    [periodKey, savePeriod]);
-  const handleProgressChange = useCallback((progress) => savePeriod(periodKey, { progress }), [periodKey, savePeriod]);
+  const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);
+  const handleExcludedChange      = useCallback((excludedNames) => savePeriod(periodKey, { excludedNames }), [periodKey, savePeriod]);
+  const handleProgressChange      = useCallback((progress)      => savePeriod(periodKey, { progress }),      [periodKey, savePeriod]);
+  const handleTextFontSizesChange = useCallback((textFontSizes) => savePeriod(periodKey, { textFontSizes }), [periodKey, savePeriod]);
+  const handleNoteFontSizesChange = useCallback((noteFontSizes) => savePeriod(periodKey, { noteFontSizes }), [periodKey, savePeriod]);
 
   const handleThemeChange = useCallback((theme) => {
     applyTheme(theme);
@@ -237,6 +285,7 @@ export default function App() {
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
 
   const tiles = {
+    date: <DateWidget />,
     clock: (
       <ClockWidget
         currentPeriod={clockPeriod}
@@ -252,6 +301,8 @@ export default function App() {
         texts={currentTexts}
         onTextChange={handleTextChange}
         periodLabel={displayPeriod?.label}
+        fontSizes={currentTextFontSizes}
+        onFontSizesChange={handleTextFontSizesChange}
       />
     ),
     camera: (
@@ -268,12 +319,16 @@ export default function App() {
         periodLabel={displayPeriod?.label}
         collapsed={collapsed.notes}
         onToggle={() => toggleCollapsed("notes")}
+        fontSizes={currentNoteFontSizes}
+        onFontSizesChange={handleNoteFontSizesChange}
       />
     ),
     wheel: (
       <WheelOfNames
         names={currentNames}
         onNamesChange={handleNamesChange}
+        excludedNames={currentExcluded}
+        onExcludedNamesChange={handleExcludedChange}
         periodLabel={displayPeriod?.label}
         collapsed={collapsed.wheel}
         onToggle={() => toggleCollapsed("wheel")}
@@ -307,6 +362,7 @@ export default function App() {
         autoMode={autoMode}             onAutoModeChange={setAutoMode}
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
         onImport={() => window.location.reload()}
+        onOpenSeatingChart={() => setShowSeatingChart(true)}
       />
       <TileLayout
         layout={layout}
@@ -316,6 +372,14 @@ export default function App() {
         onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
         tileNames={TILE_NAMES}
       />
+      {showSeatingChart && (
+        <SeatingChart
+          names={currentNames}
+          periodLabel={displayPeriod?.label}
+          periodKey={periodKey}
+          onClose={() => setShowSeatingChart(false)}
+        />
+      )}
     </div>
   );
 }

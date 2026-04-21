@@ -1,4 +1,4 @@
-export const TILE_IDS = ['clock', 'text', 'camera', 'notes', 'wheel', 'prize'];
+export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize'];
 
 export const DEFAULT_LAYOUT = {
   dir: 'h', ratio: 0.78,
@@ -9,7 +9,7 @@ export const DEFAULT_LAYOUT = {
   },
   b: {
     dir: 'v', ratio: 0.28,
-    a: 'clock',
+    a: { dir: 'v', ratio: 0.28, a: 'date', b: 'clock' },
     b: {
       dir: 'v', ratio: 0.38,
       a: 'notes',

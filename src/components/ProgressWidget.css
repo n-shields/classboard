@@ -63,6 +63,15 @@
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pw-remote-indicator {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  color: var(--accent);
 }
 
 /* Cell grid */

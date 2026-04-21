@@ -86,13 +86,17 @@
 
 /* Settings panel */
 .clock-settings-panel {
+  position: absolute;
+  bottom: 44px;
+  right: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 12px;
   background: var(--surface2);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 3;
 }
 
 .clock-settings-row {
@@ -262,18 +266,15 @@
 }
 
 /* Timer */
-.timer-display { gap: 10px; }
+.timer-display { gap: 2px; }
 
 .timer-input {
-  font-size: clamp(2.5rem, 5vw, 4.5rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
   background: transparent;
   border: none;
-  border-bottom: 2px solid var(--border);
-  border-radius: 0;
   padding: 0 4px;
   width: 260px;
   text-align: center;
@@ -282,13 +283,25 @@
 
 .timer-input:focus {
   outline: none;
-  border-bottom-color: var(--accent);
 }
 
 .timer-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.timer-controls--top    { top: 10px; left: 0; right: 50%; }
+.timer-controls--bottom { bottom: 10px; }
+
+.clock-widget:hover .timer-controls {
+  opacity: 1;
+  pointer-events: auto;
 }

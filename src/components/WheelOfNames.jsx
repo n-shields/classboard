@@ -1,5 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import "./WheelOfNames.css";
+
+const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
+function loadWheelSettings() {
+  try { return { spinDuration: 3, displayDuration: 3, ...JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}") }; }
+  catch (_) { return { spinDuration: 3, displayDuration: 3 }; }
+}
+function saveWheelSettings(s) {
+  try { localStorage.setItem(WHEEL_SETTINGS_KEY, JSON.stringify(s)); } catch (_) {}
+}
 
 const DEFAULT_WHEEL_COLORS = [
   "#e94560", "#0f3460", "#533483", "#1a7431",
@@ -11,30 +20,45 @@ function easeOut(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-export default function WheelOfNames({ names, onNamesChange, periodLabel, collapsed, onToggle, wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff" }) {
+export default function WheelOfNames({
+  names, onNamesChange,
+  excludedNames = [], onExcludedNamesChange,
+  periodLabel, collapsed, onToggle,
+  wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
+}) {
   const canvasRef = useRef(null);
-  const animRef = useRef(null);
+  const animRef   = useRef(null);
   const rotationRef = useRef(0);
-  const [spinning, setSpinning] = useState(false);
-  const [winner, setWinner] = useState(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editText, setEditText] = useState("");
+  const [spinning,      setSpinning]      = useState(false);
+  const [winner,        setWinner]        = useState(null);
+  const [editOpen,      setEditOpen]      = useState(false);
+  const [editText,      setEditText]      = useState("");
+  const [showEditText,  setShowEditText]  = useState(false);
+  const [wheelSettings, setWheelSettings] = useState(loadWheelSettings);
 
-  // Reset winner when period (names list identity) changes
-  useEffect(() => {
-    setWinner(null);
-  }, [names]);
+  const activeNames = useMemo(
+    () => names.filter(n => !excludedNames.includes(n)),
+    [names, excludedNames],
+  );
+
+  const toggleExclude = (name) => {
+    const next = excludedNames.includes(name)
+      ? excludedNames.filter(n => n !== name)
+      : [...excludedNames, name];
+    onExcludedNamesChange?.(next);
+  };
+
+  useEffect(() => { setWinner(null); }, [names]);
 
   const drawWheel = useCallback((rotation) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const W = canvas.width;
-    const H = canvas.height;
-    const cx = W / 2;
-    const cy = H / 2;
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
     const radius = Math.min(cx, cy) - 8;
-    const n = names.length;
+    if (radius <= 0) return;
+    const n = activeNames.length;
 
     ctx.clearRect(0, 0, W, H);
 
@@ -48,10 +72,9 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
     }
 
     const segAngle = (2 * Math.PI) / n;
-
     for (let i = 0; i < n; i++) {
       const startAngle = rotation + i * segAngle - Math.PI / 2;
-      const endAngle = startAngle + segAngle;
+      const endAngle   = startAngle + segAngle;
 
       ctx.beginPath();
       ctx.moveTo(cx, cy);
@@ -63,31 +86,28 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      const textAngle = startAngle + segAngle / 2;
-      // Radial text: rotate along the spoke.
-      // Flip segments in the left half so text never appears upside-down.
-      const flipped = Math.cos(textAngle) < 0;
+      const textAngle    = startAngle + segAngle / 2;
+      const flipped      = Math.cos(textAngle) < 0;
       const textRotation = flipped ? textAngle + Math.PI : textAngle;
-      const textRadius = radius * 0.55;
+      const textRadius   = radius * 0.55;
 
       ctx.save();
       ctx.translate(cx + textRadius * Math.cos(textAngle), cy + textRadius * Math.sin(textAngle));
       ctx.rotate(textRotation);
 
-      const name = names[i];
+      const name      = activeNames[i];
       const maxWidth  = radius * 0.72;
-      // Arc height at the text's radial position — limits font when segments are narrow
       const arcHeight = segAngle * textRadius;
       const byWidth   = maxWidth / Math.max(name.length, 1) / 0.58;
       const byHeight  = arcHeight * 0.62;
-      const byRadius  = radius * 0.13;  // absolute upper bound scales with wheel size
+      const byRadius  = radius * 0.13;
       const fontSize  = Math.max(radius * 0.022, Math.min(byWidth, byHeight, byRadius));
-      ctx.font = `bold ${fontSize}px Segoe UI`;
-      ctx.fillStyle = wheelText;
-      ctx.textAlign = "center";
+      ctx.font        = `bold ${fontSize}px Segoe UI`;
+      ctx.fillStyle   = wheelText;
+      ctx.textAlign   = "center";
       ctx.textBaseline = "middle";
       ctx.shadowColor = "rgba(0,0,0,0.5)";
-      ctx.shadowBlur = 3;
+      ctx.shadowBlur  = 3;
       ctx.fillText(name, 0, 0, maxWidth);
       ctx.restore();
     }
@@ -101,7 +121,7 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Pointer triangle at top
+    // Pointer triangle
     const py = cy - radius - 4;
     ctx.beginPath();
     ctx.moveTo(cx, py + 2);
@@ -113,11 +133,9 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.5;
     ctx.stroke();
-  }, [names, periodLabel, wheelColors, wheelText]);
+  }, [activeNames, periodLabel, wheelColors, wheelText]);
 
-  useEffect(() => {
-    drawWheel(rotationRef.current);
-  }, [drawWheel]);
+  useEffect(() => { drawWheel(rotationRef.current); }, [drawWheel]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -136,39 +154,36 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
   }, [drawWheel]);
 
   const spin = useCallback(() => {
-    if (spinning || names.length < 2) return;
+    if (spinning || activeNames.length < 2) return;
     setSpinning(true);
     setWinner(null);
 
     const startRotation = rotationRef.current;
-    const extraTurns = 3 + Math.random() * 2;
-    const extraAngle = Math.random() * 2 * Math.PI;
-    const totalSpin = extraTurns * 2 * Math.PI + extraAngle;
-    const endRotation = startRotation + totalSpin;
-    const duration = 1000;
-    const startTime = performance.now();
+    const totalSpin     = (3 + Math.random() * 2) * 2 * Math.PI + Math.random() * 2 * Math.PI;
+    const endRotation   = startRotation + totalSpin;
+    const duration      = (wheelSettings.spinDuration ?? 3) * 1000;
+    const startTime     = performance.now();
 
     const animate = (now) => {
-      const elapsed = now - startTime;
+      const elapsed  = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const currentRotation = startRotation + totalSpin * easeOut(progress);
-      rotationRef.current = currentRotation;
-      drawWheel(currentRotation);
+      const cur      = startRotation + totalSpin * easeOut(progress);
+      rotationRef.current = cur;
+      drawWheel(cur);
 
       if (progress < 1) {
         animRef.current = requestAnimationFrame(animate);
       } else {
         rotationRef.current = endRotation;
         setSpinning(false);
-        const n = names.length;
-        const segAngle = (2 * Math.PI) / n;
+        const n          = activeNames.length;
+        const segAngle   = (2 * Math.PI) / n;
         const normalized = ((-(endRotation % (2 * Math.PI))) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        setWinner(names[Math.floor(normalized / segAngle) % n]);
+        setWinner(activeNames[Math.floor(normalized / segAngle) % n]);
       }
     };
-
     animRef.current = requestAnimationFrame(animate);
-  }, [spinning, names, drawWheel]);
+  }, [spinning, activeNames, drawWheel, wheelSettings.spinDuration]);
 
   useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current); }, []);
 
@@ -179,12 +194,11 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
 
   const handleEditChange = (text) => {
     setEditText(text);
-    // Auto-save: parse and persist on every keystroke (empty lines ignored)
     const newNames = text.split("\n").map(s => s.trim()).filter(Boolean);
     onNamesChange(newNames);
   };
 
-  const canSpin = !spinning && names.length >= 2;
+  const canSpin = !spinning && activeNames.length >= 2;
 
   return (
     <div className={`card wheel-card ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
@@ -194,34 +208,99 @@ export default function WheelOfNames({ names, onNamesChange, periodLabel, collap
             ref={canvasRef}
             className={`wheel-canvas ${canSpin ? "wheel-clickable" : ""}`}
             onClick={spin}
-            title={names.length < 2 ? "Add at least 2 names" : "Click to spin!"}
+            title={activeNames.length < 2 ? "Need at least 2 active students" : "Click to spin!"}
           />
           {winner && (
-            <div className="wheel-winner-overlay" onAnimationEnd={() => setWinner(null)}>
+            <div
+              className="wheel-winner-overlay"
+              style={{ animationDuration: `${wheelSettings.displayDuration ?? 3}s` }}
+              onAnimationEnd={() => setWinner(null)}
+            >
               {winner}
             </div>
           )}
         </div>
-        <button
-          className="wheel-settings-btn"
-          onClick={openEditor}
-          title="Edit names"
-        >⚙</button>
+        <button className="wheel-settings-btn" onClick={openEditor} title="Edit names">⚙</button>
       </div>
 
       {editOpen && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditOpen(false)}>
-          <div className="modal">
-            <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
-            <p style={{ fontSize: "0.8rem", color: "var(--text-dim)", marginBottom: 10 }}>
-              One name per line
-            </p>
-            <textarea
-              style={{ width: "100%", height: 260, resize: "vertical", fontSize: "0.9rem" }}
-              value={editText}
-              onChange={e => handleEditChange(e.target.value)}
-              autoFocus
-            />
+          <div className="modal wheel-modal">
+            <div className="wheel-modal-header">
+              <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
+              {names.length > 0 && (
+                <span className="wheel-active-count">
+                  {activeNames.length} / {names.length} in wheel
+                </span>
+              )}
+            </div>
+
+            {/* Name list with include/exclude toggles */}
+            {names.length > 0 && (
+              <>
+                <div className="wheel-name-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.([])}>All</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.(names.slice())}>None</button>
+                </div>
+                <div className="wheel-name-list">
+                  {names.map(name => {
+                    const excluded = excludedNames.includes(name);
+                    return (
+                      <label key={name} className={`wheel-name-row ${excluded ? "wheel-name-row--excluded" : ""}`}>
+                        <input
+                          type="checkbox"
+                          checked={!excluded}
+                          onChange={() => toggleExclude(name)}
+                        />
+                        <span>{name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Collapsible edit textarea */}
+            <button
+              className="btn btn-ghost btn-sm wheel-edit-toggle"
+              onClick={() => setShowEditText(v => !v)}
+            >
+              {showEditText ? "▲ Hide list editor" : "▼ Edit list"}
+            </button>
+            {showEditText && (
+              <textarea
+                className="wheel-edit-textarea"
+                value={editText}
+                onChange={e => handleEditChange(e.target.value)}
+                placeholder="One name per line"
+                autoFocus
+              />
+            )}
+
+            {/* Timing settings */}
+            <div className="wheel-settings-row">
+              <label>Spin time</label>
+              <input
+                type="number" min="0.5" max="20" step="0.5"
+                value={wheelSettings.spinDuration}
+                onChange={e => {
+                  const s = { ...wheelSettings, spinDuration: Math.max(0.5, parseFloat(e.target.value) || 3) };
+                  setWheelSettings(s); saveWheelSettings(s);
+                }}
+              />
+              <span>s</span>
+              <label style={{ marginLeft: 12 }}>Show winner</label>
+              <input
+                type="number" min="0.5" max="15" step="0.5"
+                value={wheelSettings.displayDuration}
+                onChange={e => {
+                  const s = { ...wheelSettings, displayDuration: Math.max(0.5, parseFloat(e.target.value) || 3) };
+                  setWheelSettings(s); saveWheelSettings(s);
+                }}
+              />
+              <span>s</span>
+            </div>
+
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
               <button className="btn btn-primary" onClick={() => setEditOpen(false)}>Done</button>
             </div>

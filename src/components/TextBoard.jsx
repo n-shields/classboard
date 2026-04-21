@@ -2,10 +2,18 @@ import { useState } from "react";
 import "./TextBoard.css";
 
 const PAGE_COUNT = 3;
+const DEFAULT_FONT = 48;
 
-export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLabel }) {
+export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLabel, fontSizes: fontSizesProp, onFontSizesChange }) {
   const [activeTab, setActiveTab] = useState(0);
-  const [fontSize, setFontSize] = useState(48);
+  const [localFontSizes, setLocalFontSizes] = useState(() => Array(PAGE_COUNT).fill(DEFAULT_FONT));
+
+  const fontSizes = fontSizesProp ?? localFontSizes;
+  const setFontSizes = (updater) => {
+    const next = typeof updater === "function" ? updater(fontSizes) : updater;
+    if (onFontSizesChange) onFontSizesChange(next);
+    else setLocalFontSizes(next);
+  };
 
   const currentText = texts[activeTab] ?? "";
   const prevPage = () => setActiveTab(t => (t - 1 + PAGE_COUNT) % PAGE_COUNT);
@@ -19,7 +27,7 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
           value={currentText}
           onChange={e => onTextChange(activeTab, e.target.value)}
           placeholder={`Announcement ${activeTab + 1}${periodLabel ? ` — ${periodLabel}` : ""}…`}
-          style={{ fontSize: `${fontSize}px`, lineHeight: 1.3 }}
+          style={{ fontSize: `${fontSizes[activeTab]}px`, lineHeight: 1.3 }}
           spellCheck={false}
         />
         <div className="textboard-page-nav">
@@ -37,23 +45,16 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
         <div className="sidebar-section">
           <button
             className="sidebar-btn"
-            onClick={() => setFontSize(f => Math.min(144, f + 8))}
+            onClick={() => setFontSizes(fs => fs.map((f, i) => i === activeTab ? Math.min(144, f + 8) : f))}
             title="Larger text"
           >A+</button>
           <button
             className="sidebar-btn"
-            onClick={() => setFontSize(f => Math.max(16, f - 8))}
+            onClick={() => setFontSizes(fs => fs.map((f, i) => i === activeTab ? Math.max(16, f - 8) : f))}
             title="Smaller text"
           >A-</button>
         </div>
 
-        <div className="sidebar-divider" />
-
-        <button
-          className="sidebar-btn sidebar-btn-danger"
-          onClick={() => onTextChange(activeTab, "")}
-          title="Clear this tab"
-        >✕</button>
       </div>
     </div>
   );

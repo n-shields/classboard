@@ -8,15 +8,21 @@ const EXPORT_KEYS = [
   "classboard_schedule_days",
   "classboard_period_data", "classboard_global_theme",
   "classboard_period_layout", "classboard_layout",
+  "classboard_period_layout_trees", "classboard_camera_settings",
 ];
 
-function doExport() {
+function collectData() {
   const data = {};
   EXPORT_KEYS.forEach(k => {
     const v = localStorage.getItem(k);
     if (v !== null) try { data[k] = JSON.parse(v); } catch (_) { data[k] = v; }
   });
   data.classboard_schedule_type = localStorage.getItem("classboard_schedule_type") || "Regular";
+  return data;
+}
+
+function doExport() {
+  const data = collectData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -24,6 +30,13 @@ function doExport() {
   a.download = `classboard-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function encodeData(data) {
+  // UTF-8-safe base64, URL-safe alphabet, no padding
+  const json    = JSON.stringify(data);
+  const b64     = btoa(unescape(encodeURIComponent(json)));
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 export default function PeriodBar({
@@ -34,11 +47,27 @@ export default function PeriodBar({
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
   onImport,
+  onOpenSeatingChart,
 }) {
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [visible, setVisible]       = useState(false);
+  const [editorOpen,  setEditorOpen]  = useState(false);
+  const [visible,     setVisible]     = useState(false);
+  const [linkCopied,  setLinkCopied]  = useState(false);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
+
+  const doShareLink = () => {
+    try {
+      const encoded = encodeData(collectData());
+      const url = new URL(window.location.href);
+      url.searchParams.set('s', encoded);
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2500);
+      });
+    } catch (e) {
+      alert('Could not copy link: ' + e.message);
+    }
+  };
 
   const periods       = schedules[scheduleType] || [];
   const scheduleNames = Object.keys(schedules);
@@ -122,9 +151,19 @@ export default function PeriodBar({
           title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
         />
 
-        {/* Import / export — pinned right */}
+        {/* Seating chart */}
+        {onOpenSeatingChart && (
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={onOpenSeatingChart} title="Open seating chart">⊞ Seats</button>
+        )}
+
+        {/* Import / export / share — pinned right */}
         <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
         <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
+        <button
+          className={`btn btn-sm tb-btn ei-btn ${linkCopied ? "btn-primary" : "btn-ghost"}`}
+          onClick={doShareLink}
+          title="Copy shareable link with all settings encoded"
+        >{linkCopied ? "✓ Copied" : "↗ Share"}</button>
         <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
       </div>
 
