@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { toPng } from "html-to-image";
 import "./SeatingChart.css";
 
 const STORAGE_KEY    = (p) => `classboard_seating_${p ?? "default"}`;
@@ -141,6 +142,24 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     if (document.fullscreenElement) document.exitFullscreen();
     else rootRef.current?.requestFullscreen();
   };
+
+  const handleDownload = useCallback(async () => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const orig = el.style.transform;
+    el.style.transform = "none";
+    try {
+      const url = await toPng(el, { backgroundColor: "#0f172a", width: CANVAS_W, height: CANVAS_H });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `seating${periodLabel ? `-${periodLabel}` : ""}.png`;
+      a.click();
+    } catch (e) {
+      console.error("Seating chart screenshot failed", e);
+    } finally {
+      el.style.transform = orig;
+    }
+  }, [periodLabel]);
 
   const handleSave   = useCallback(() => onClose(), [onClose]);
   const handleCancel = useCallback(() => {
@@ -389,6 +408,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           style={{ opacity: rects.length ? 1 : 0.35 }}
         >Clear</button>
 
+        <button className="seating-tb-btn" onClick={handleDownload} title="Download as PNG">⬇ PNG</button>
         <button className="seating-tb-btn seating-tb-btn--save"   onClick={handleSave}   title="Save and close">Save</button>
         <button className="seating-tb-btn seating-tb-btn--cancel" onClick={handleCancel} title="Cancel changes (Escape)">Cancel</button>
       </div>
