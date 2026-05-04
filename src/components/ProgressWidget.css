@@ -5,8 +5,14 @@
 }
 
 .pw-full {
-  box-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
-  border-color: rgba(250, 204, 21, 0.4) !important;
+  box-shadow: 0 0 32px rgba(250, 204, 21, 0.55), 0 0 8px rgba(250, 204, 21, 0.3) inset;
+  border-color: rgba(250, 204, 21, 0.7) !important;
+  animation: pw-full-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes pw-full-pulse {
+  from { box-shadow: 0 0 24px rgba(250, 204, 21, 0.45), 0 0 6px rgba(250, 204, 21, 0.2) inset; }
+  to   { box-shadow: 0 0 48px rgba(250, 204, 21, 0.75), 0 0 14px rgba(250, 204, 21, 0.4) inset; }
 }
 
 @keyframes pop {
@@ -47,7 +53,10 @@
   gap: 10px;
   justify-content: flex-start;
   overflow-y: auto;
+  scrollbar-width: none;
 }
+
+.pw-body::-webkit-scrollbar { display: none; }
 
 /* Per-bar container */
 .pw-bar {
@@ -114,13 +123,6 @@
 }
 
 
-.pw-celebration {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #facc15;
-  text-align: center;
-  animation: pop 0.4s ease-out;
-}
 
 /* Edit modal */
 .pw-edit-modal {

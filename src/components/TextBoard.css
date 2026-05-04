@@ -149,7 +149,7 @@
 
 .textboard-textarea {
   flex: 1;
-  resize: none;
+  min-height: 0;
   border: none;
   background: transparent;
   color: var(--text);
@@ -157,8 +157,22 @@
   font-family: inherit;
   outline: none;
   width: 100%;
-  overflow: auto;
+  overflow-y: auto;
   scrollbar-width: none;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .textboard-textarea::-webkit-scrollbar { display: none; }
+
+.textboard-textarea:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.textboard-textarea ul,
+.textboard-textarea ol {
+  padding-left: 1.4em;
+  margin: 0.15em 0;
+}

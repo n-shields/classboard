@@ -52,7 +52,7 @@ function TileSlot({ id, content }) {
   const name = tileNames?.[id] ?? "";
 
   return (
-    <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""}`}>
+    <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""}`} data-tile={id}>
       <div
         className={`tl-drag-handle ${dragging === id ? "tl-drag-handle-dragging" : ""} ${collapsed ? "tl-drag-handle-collapsed" : ""}`}
         draggable

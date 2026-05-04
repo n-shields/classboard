@@ -104,7 +104,6 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
                   />
                 ))}
               </div>
-              {isFull && <div className="pw-celebration" style={{ color }}>🏆 {bar.title}!</div>}
             </div>
           );
         })}

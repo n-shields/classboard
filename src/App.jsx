@@ -88,8 +88,19 @@ export default function App() {
   // Theme
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
 
-  // Seating chart
-  const [showSeatingChart, setShowSeatingChart] = useState(false);
+  // Seating chart — stores which tile ID it's open in (null = closed)
+  const [seatingTile, setSeatingTile] = useState(null);
+
+  const openSeatingChart = useCallback(() => {
+    const slots = document.querySelectorAll("[data-tile]");
+    let bestId = null, bestArea = -1;
+    slots.forEach(el => {
+      const { width, height } = el.getBoundingClientRect();
+      const area = width * height;
+      if (area > bestArea) { bestArea = area; bestId = el.dataset.tile; }
+    });
+    if (bestId) setSeatingTile(bestId);
+  }, []);
 
   // Layout tree
   const [layout, setLayout] = useState(loadLayout);
@@ -286,9 +297,18 @@ export default function App() {
   // ── Tile content map ─────────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
 
+  const seatingChartNode = (
+    <SeatingChart
+      names={currentNames}
+      periodLabel={displayPeriod?.label}
+      periodKey={periodKey}
+      onClose={() => setSeatingTile(null)}
+    />
+  );
+
   const tiles = {
-    date: <DateWidget />,
-    clock: (
+    date: seatingTile === "date" ? seatingChartNode : <DateWidget />,
+    clock: seatingTile === "clock" ? seatingChartNode : (
       <ClockWidget
         currentPeriod={clockPeriod}
         nextPeriod={clockNextPeriod}
@@ -298,8 +318,9 @@ export default function App() {
         onSettingsChange={s => setClockFontSize(s.fontSize)}
       />
     ),
-    text: (
+    text: seatingTile === "text" ? seatingChartNode : (
       <TextBoard
+        key={periodKey}
         texts={currentTexts}
         onTextChange={handleTextChange}
         periodLabel={displayPeriod?.label}
@@ -307,22 +328,16 @@ export default function App() {
         onFontSizesChange={handleTextFontSizesChange}
       />
     ),
-    camera: showSeatingChart ? (
-      <SeatingChart
-        names={currentNames}
-        periodLabel={displayPeriod?.label}
-        periodKey={periodKey}
-        onClose={() => setShowSeatingChart(false)}
-      />
-    ) : (
+    camera: seatingTile === "camera" ? seatingChartNode : (
       <CameraFeed
         periodKey={periodKey}
         clockDisplay={clockDisplay}
         clockFontSize={clockFontSize}
       />
     ),
-    notes: (
+    notes: seatingTile === "notes" ? seatingChartNode : (
       <NoteWidget
+        key={periodKey}
         notes={currentNotes}
         onNoteChange={handleNoteChange}
         periodLabel={displayPeriod?.label}
@@ -332,7 +347,7 @@ export default function App() {
         onFontSizesChange={handleNoteFontSizesChange}
       />
     ),
-    wheel: (
+    wheel: seatingTile === "wheel" ? seatingChartNode : (
       <WheelOfNames
         names={currentNames}
         onNamesChange={handleNamesChange}
@@ -345,7 +360,7 @@ export default function App() {
         wheelText={wheelTheme.wheelText}
       />
     ),
-    prize: (
+    prize: seatingTile === "prize" ? seatingChartNode : (
       <ProgressWidget
         data={currentProgress}
         onChange={handleProgressChange}
@@ -371,7 +386,7 @@ export default function App() {
         autoMode={autoMode}             onAutoModeChange={setAutoMode}
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
         onImport={() => window.location.reload()}
-        onOpenSeatingChart={() => setShowSeatingChart(true)}
+        onOpenSeatingChart={openSeatingChart}
       />
       <TileLayout
         layout={layout}
