@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import "./ScheduleEditor.css";
 
 const DAY_LABELS = [
@@ -11,27 +11,96 @@ const DAY_LABELS = [
   { idx: 0, label: "Su" },
 ];
 
+function PeriodChip({ label, onRename, onDelete, autoEdit = false }) {
+  const [editing, setEditing] = useState(autoEdit);
+  const [draft, setDraft] = useState(label);
+
+  useEffect(() => { if (!editing) setDraft(label); }, [label]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== label) onRename?.(trimmed);
+    else setDraft(label);
+  };
+
+  return (
+    <div
+      className="period-chip"
+      draggable={!editing}
+      onDragStart={e => {
+        e.dataTransfer.setData("text/plain", JSON.stringify({ type: "pool", label }));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          className="period-chip-input"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") { setDraft(label); setEditing(false); }
+          }}
+          onClick={e => e.stopPropagation()}
+        />
+      ) : (
+        <span
+          onDoubleClick={() => { setDraft(label); setEditing(true); }}
+          title="Double-click to rename"
+        >{label}</span>
+      )}
+      {onDelete && (
+        <button
+          className="chip-x"
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          title="Delete period"
+        >×</button>
+      )}
+    </div>
+  );
+}
+
 export default function ScheduleEditor({
   schedules, onChange, onClose,
   scheduleDays, onScheduleDaysChange,
   scheduleType, onScheduleTypeChange,
+  periodNames, onPeriodNamesChange,
 }) {
-  const [draft, setDraft]         = useState(() => JSON.parse(JSON.stringify(schedules)));
-  const [draftDays, setDraftDays] = useState(() => JSON.parse(JSON.stringify(scheduleDays || {})));
+  const [draft, setDraft]           = useState(() => JSON.parse(JSON.stringify(schedules)));
+  const [draftDays, setDraftDays]   = useState(() => JSON.parse(JSON.stringify(scheduleDays || {})));
+  const [draftNames, setDraftNames] = useState(() => [...periodNames]);
   const initTab = scheduleType || Object.keys(schedules)[0] || "Regular";
   const [activeTab, setActiveTab]     = useState(initTab);
   const [tabNameEdit, setTabNameEdit] = useState(initTab);
-  const tabNameOrigRef    = useRef(initTab);
-  const overlayMouseDown  = useRef(false);
+  const tabNameOrigRef   = useRef(initTab);
+  const overlayMouseDown = useRef(false);
+  const [newChipId, setNewChipId] = useState(null);
 
-  // Sync name input when user clicks a different tab
+  const [dropIdx, setDropIdx]               = useState(null);
+  const [draggingRowIdx, setDraggingRowIdx] = useState(null);
+
   useEffect(() => {
     setTabNameEdit(activeTab);
     tabNameOrigRef.current = activeTab;
   }, [activeTab]);
 
-  const scheduleNames = Object.keys(draft);
+  useEffect(() => {
+    if (newChipId !== null) {
+      const t = setTimeout(() => setNewChipId(null), 50);
+      return () => clearTimeout(t);
+    }
+  }, [newChipId]);
 
+  const scheduleNames = Object.keys(draft);
+  const activePeriods = draft[activeTab] || [];
+  const usedAnywhere  = new Set(Object.values(draft).flat().map(p => p.label));
+  const usedInActive  = new Set(activePeriods.map(p => p.label));
+  const poolChips     = draftNames.filter(n => !usedInActive.has(n.label));
+
+  // ── State updaters ────────────────────────────────────────────────────────
   const update = (updater) => {
     setDraft(prev => {
       const next = updater(JSON.parse(JSON.stringify(prev)));
@@ -48,35 +117,81 @@ export default function ScheduleEditor({
     });
   };
 
-  const updatePeriod = (type, index, field, value) => {
-    if (field === "label") {
-      const oldLabel = draft[type][index].label;
-      update(d => {
-        Object.values(d).forEach(periods =>
-          periods.forEach(p => { if (p.label === oldLabel) p.label = value; })
-        );
-        return d;
-      });
-    } else {
-      update(d => { d[type][index][field] = value; return d; });
-    }
+  const updateNames = (next) => {
+    setDraftNames(next);
+    onPeriodNamesChange(next);
   };
 
-  const addPeriod = (type) =>
+  // ── Period name pool ──────────────────────────────────────────────────────
+  const addPeriodName = () => {
+    let label = "New";
+    let i = 2;
+    while (draftNames.some(n => n.label === label)) label = `New ${i++}`;
+    const id = Math.max(0, ...draftNames.map(n => n.id)) + 1;
+    updateNames([...draftNames, { id, label }]);
+    setNewChipId(id);
+  };
+
+  const deletePeriodName = (label) => {
+    if (usedAnywhere.has(label)) return;
+    updateNames(draftNames.filter(n => n.label !== label));
+  };
+
+  const renamePeriodName = (oldLabel, newLabel) => {
+    if (!newLabel || newLabel === oldLabel) return;
+    if (draftNames.some(n => n.label === newLabel)) return;
+    updateNames(draftNames.map(n => n.label === oldLabel ? { ...n, label: newLabel } : n));
     update(d => {
-      const last = d[type][d[type].length - 1];
-      d[type].push({
-        id: d[type].length + 1,
-        label: `Period ${d[type].length + 1}`,
-        start: last?.end || "08:00",
-        end: "09:00",
+      Object.values(d).forEach(periods =>
+        periods.forEach(p => { if (p.label === oldLabel) p.label = newLabel; })
+      );
+      return d;
+    });
+  };
+
+  // ── Schedule rows ─────────────────────────────────────────────────────────
+  const insertPeriod = (label, atIndex) => {
+    update(d => {
+      const periods = d[activeTab];
+      const prev = atIndex > 0 ? periods[atIndex - 1] : null;
+      const next = atIndex < periods.length ? periods[atIndex] : null;
+      let start = prev?.end ?? next?.start ?? "08:00";
+      let end   = next?.start ?? "09:00";
+      if (start >= end) {
+        const [h, m] = start.split(":").map(Number);
+        const t = h * 60 + m + 50;
+        end = `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+      }
+      periods.splice(atIndex, 0, {
+        id: Math.max(0, ...periods.map(p => p.id ?? 0)) + 1,
+        label,
+        start,
+        end,
       });
       return d;
     });
+  };
 
-  const removePeriod = (type, index) =>
-    update(d => { d[type].splice(index, 1); return d; });
+  const removePeriod = (index) => {
+    update(d => { d[activeTab].splice(index, 1); return d; });
+  };
 
+  const movePeriod = (fromIndex, toIndex) => {
+    if (toIndex === fromIndex || toIndex === fromIndex + 1) return;
+    update(d => {
+      const periods = [...d[activeTab]];
+      const [item] = periods.splice(fromIndex, 1);
+      periods.splice(toIndex > fromIndex ? toIndex - 1 : toIndex, 0, item);
+      d[activeTab] = periods;
+      return d;
+    });
+  };
+
+  const updateTime = (index, field, value) => {
+    update(d => { d[activeTab][index][field] = value; return d; });
+  };
+
+  // ── Schedule tabs ─────────────────────────────────────────────────────────
   const renameSchedule = (oldName, newName) => {
     update(d => Object.fromEntries(Object.entries(d).map(([k, v]) => [k === oldName ? newName : k, v])));
     updateDays(d => Object.fromEntries(Object.entries(d).map(([k, v]) => [k === oldName ? newName : k, v])));
@@ -88,7 +203,7 @@ export default function ScheduleEditor({
     let name = "New Schedule";
     let i = 2;
     while (Object.keys(draft).includes(name)) name = `New Schedule ${i++}`;
-    update(d => { d[name] = [{ id: 1, label: "Period 1", start: "08:00", end: "09:00" }]; return d; });
+    update(d => { d[name] = []; return d; });
     updateDays(d => { d[name] = []; return d; });
     setActiveTab(name);
   };
@@ -107,13 +222,31 @@ export default function ScheduleEditor({
     const trimmed = tabNameEdit.trim();
     const original = tabNameOrigRef.current;
     if (!trimmed || trimmed === original) { setTabNameEdit(original); return; }
-    // Reject if name already exists (for a different tab)
     if (Object.keys(draft).filter(k => k !== original).includes(trimmed)) { setTabNameEdit(original); return; }
     renameSchedule(original, trimmed);
     tabNameOrigRef.current = trimmed;
   };
 
-  const activePeriods = draft[activeTab] || [];
+  // ── Drag and drop ─────────────────────────────────────────────────────────
+  const getInsertAt = (e, rowIndex) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientY < rect.top + rect.height / 2 ? rowIndex : rowIndex + 1;
+  };
+
+  const handleDrop = (e, insertAt) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropIdx(null);
+    setDraggingRowIdx(null);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (data.type === "pool") {
+        insertPeriod(data.label, insertAt);
+      } else if (data.type === "row") {
+        movePeriod(data.index, insertAt);
+      }
+    } catch (_) {}
+  };
 
   return (
     <div
@@ -182,55 +315,93 @@ export default function ScheduleEditor({
           </div>
         )}
 
-        <table className="schedule-table">
-          <thead>
-            <tr>
-              <th>Label</th>
-              <th>Start</th>
-              <th>End</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {activePeriods.map((p, i) => (
-              <tr key={i}>
-                <td>
-                  <input
-                    value={p.label}
-                    onChange={e => updatePeriod(activeTab, i, "label", e.target.value)}
-                    style={{ width: "120px" }}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={p.start}
-                    onChange={e => updatePeriod(activeTab, i, "start", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="time"
-                    value={p.end}
-                    onChange={e => updatePeriod(activeTab, i, "end", e.target.value)}
-                  />
-                </td>
-                <td>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => removePeriod(activeTab, i)}
-                  >✕</button>
-                </td>
-              </tr>
+        {/* Period name pool */}
+        <div className="period-pool">
+          <span className="days-label pool-label">Periods:</span>
+          <div className="pool-chips">
+            {poolChips.map(n => (
+              <PeriodChip
+                key={n.id}
+                label={n.label}
+                onRename={newLabel => renamePeriodName(n.label, newLabel)}
+                onDelete={!usedAnywhere.has(n.label) ? () => deletePeriodName(n.label) : undefined}
+                autoEdit={n.id === newChipId}
+              />
             ))}
-          </tbody>
-        </table>
+            {poolChips.length === 0 && (
+              <span className="pool-empty">All periods in use</span>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={addPeriodName} title="Add new period name">+</button>
+          </div>
+        </div>
 
-        <button
-          className="btn btn-ghost btn-sm"
-          style={{ marginTop: 8 }}
-          onClick={() => addPeriod(activeTab)}
-        >+ Add Period</button>
+        {/* Schedule drop area */}
+        <div
+          className="schedule-drop-area"
+          onDragOver={e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setDropIdx(activePeriods.length);
+          }}
+          onDrop={e => handleDrop(e, activePeriods.length)}
+          onDragLeave={e => {
+            if (!e.currentTarget.contains(e.relatedTarget)) setDropIdx(null);
+          }}
+        >
+          {activePeriods.length === 0 && (
+            <div className="schedule-drop-empty">
+              Drag period names here to build your schedule
+            </div>
+          )}
+
+          {activePeriods.map((p, i) => (
+            <Fragment key={p.label}>
+              {dropIdx === i && <div className="drop-indicator" />}
+              <div
+                className={`schedule-row${draggingRowIdx === i ? " dragging-source" : ""}`}
+                draggable
+                onDragStart={e => {
+                  e.stopPropagation();
+                  setDraggingRowIdx(i);
+                  e.dataTransfer.setData("text/plain", JSON.stringify({ type: "row", index: i }));
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.dataTransfer.dropEffect = "move";
+                  setDropIdx(getInsertAt(e, i));
+                }}
+                onDrop={e => {
+                  e.stopPropagation();
+                  handleDrop(e, getInsertAt(e, i));
+                }}
+                onDragEnd={() => { setDropIdx(null); setDraggingRowIdx(null); }}
+              >
+                <span className="drag-handle" title="Drag to reorder">≡</span>
+                <span className="row-chip">{p.label}</span>
+                <input
+                  type="time"
+                  value={p.start}
+                  onChange={e => updateTime(i, "start", e.target.value)}
+                />
+                <span className="time-sep">→</span>
+                <input
+                  type="time"
+                  value={p.end}
+                  onChange={e => updateTime(i, "end", e.target.value)}
+                />
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => removePeriod(i)}
+                  title="Remove from schedule"
+                >✕</button>
+              </div>
+            </Fragment>
+          ))}
+
+          {dropIdx === activePeriods.length && <div className="drop-indicator" />}
+        </div>
 
         <div className="editor-footer">
           <button className="btn btn-primary" onClick={onClose}>Done</button>

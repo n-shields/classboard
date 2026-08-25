@@ -89,6 +89,30 @@ export function saveSchedules(schedules) {
   localStorage.setItem("classboard_schedules", JSON.stringify(schedules));
 }
 
+export function loadPeriodNames(schedules) {
+  try {
+    const saved = localStorage.getItem("classboard_period_names");
+    if (saved) return JSON.parse(saved);
+  } catch (_) {}
+  // Derive unique labels in order from existing schedule data
+  const seen = new Set();
+  const names = [];
+  let id = 1;
+  for (const periods of Object.values(schedules)) {
+    for (const p of periods) {
+      if (!seen.has(p.label)) {
+        seen.add(p.label);
+        names.push({ id: id++, label: p.label });
+      }
+    }
+  }
+  return names;
+}
+
+export function savePeriodNames(names) {
+  localStorage.setItem("classboard_period_names", JSON.stringify(names));
+}
+
 /** Returns the period index whose time range contains the current time, or -1 */
 export function detectCurrentPeriod(periods) {
   const now = new Date();

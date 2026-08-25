@@ -34,6 +34,7 @@ export default function PeriodBar({
   schedules, onSchedulesChange,
   scheduleType, onScheduleTypeChange,
   scheduleDays, onScheduleDaysChange,
+  periodNames, onPeriodNamesChange,
   currentPeriodIndex, nextPeriodIndex, onPeriodSelect,
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
@@ -183,6 +184,8 @@ export default function PeriodBar({
           onScheduleDaysChange={onScheduleDaysChange}
           scheduleType={scheduleType}
           onScheduleTypeChange={onScheduleTypeChange}
+          periodNames={periodNames}
+          onPeriodNamesChange={onPeriodNamesChange}
           onClose={() => setEditorOpen(false)}
         />
       )}

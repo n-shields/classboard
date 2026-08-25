@@ -1,5 +1,5 @@
 .schedule-editor {
-  min-width: 480px;
+  min-width: 520px;
 }
 
 .schedule-tabs {
@@ -84,4 +84,148 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+
+/* ── Period name pool ──────────────────────────────────────── */
+.period-pool {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pool-label {
+  padding-top: 5px;
+  flex-shrink: 0;
+}
+
+.pool-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.pool-empty {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  align-self: center;
+}
+
+/* ── Period chips ──────────────────────────────────────────── */
+.period-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.85rem;
+  cursor: grab;
+  user-select: none;
+}
+
+.period-chip:hover {
+  border-color: var(--accent);
+}
+
+.period-chip:active {
+  cursor: grabbing;
+}
+
+.period-chip-input {
+  width: 80px;
+  font-size: 0.85rem;
+  padding: 1px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  outline: none;
+  color: inherit;
+}
+
+.chip-x {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 1px;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.chip-x:hover {
+  opacity: 1;
+  color: var(--danger);
+}
+
+/* ── Schedule drop area ────────────────────────────────────── */
+.schedule-drop-area {
+  min-height: 60px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+
+.schedule-drop-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-dim);
+  font-size: 0.875rem;
+}
+
+.schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+
+.schedule-row:hover {
+  background: var(--surface2);
+}
+
+.schedule-row.dragging-source {
+  opacity: 0.35;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 1.1rem;
+  padding: 0 2px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.row-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+  min-width: 76px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.time-sep {
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.drop-indicator {
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  margin: 2px 4px;
 }

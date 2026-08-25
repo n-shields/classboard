@@ -9,7 +9,7 @@ import NoteWidget from "./components/NoteWidget";
 import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
 import SeatingChart from "./components/SeatingChart";
-import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
+import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, DEFAULT_LAYOUT } from "./data/layout";
 import "./App.css";
@@ -61,6 +61,7 @@ function loadLayouts() {
 export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
+  const [periodNames, setPeriodNames]       = useState(() => loadPeriodNames(loadSchedules()));
   const [scheduleType, setScheduleType]     = useState(() => {
     const loaded = loadSchedules();
     const days   = loadScheduleDays();
@@ -293,6 +294,7 @@ export default function App() {
 
   const handleSchedulesChange = useCallback((s) => { setSchedules(s); saveSchedules(s); }, []);
   const handleScheduleDaysChange = useCallback((d) => { setScheduleDays(d); saveScheduleDays(d); }, []);
+  const handlePeriodNamesChange = useCallback((n) => { setPeriodNames(n); savePeriodNames(n); }, []);
 
   // ── Tile content map ─────────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
@@ -376,6 +378,7 @@ export default function App() {
         schedules={schedules}           onSchedulesChange={handleSchedulesChange}
         scheduleType={scheduleType}     onScheduleTypeChange={handleScheduleTypeChange}
         scheduleDays={scheduleDays}     onScheduleDaysChange={handleScheduleDaysChange}
+        periodNames={periodNames}       onPeriodNamesChange={handlePeriodNamesChange}
         currentPeriodIndex={currentPeriodIndex}
         nextPeriodIndex={nextPeriodIndex}
         onPeriodSelect={idx => {
