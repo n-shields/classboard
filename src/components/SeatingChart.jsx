@@ -2,9 +2,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { toPng } from "html-to-image";
 import "./SeatingChart.css";
 
-const STORAGE_KEY    = (p) => `classboard_seating_${p ?? "default"}`;
-const SEATING_UI_KEY = (p) => `classboard_seating_ui_${p ?? "default"}`;
-const RECTS_KEY      = (p) => `classboard_seating_rects_${p ?? "default"}`;
+const STORAGE_KEY      = (p) => `classboard_seating_${p ?? "default"}`;
+const SEATING_UI_KEY   = (p) => `classboard_seating_ui_${p ?? "default"}`;
+const RECTS_KEY        = (p) => `classboard_seating_rects_${p ?? "default"}`;
+const LAYOUT_TEMPLATE_KEY = "classboard_seating_layout_template";
 const ROTATIONS  = [0, 90, 180, 270];
 const CARD_SIZE  = 90;
 const CANVAS_W   = 1000;
@@ -41,6 +42,8 @@ function loadUI(p) { try { return { showDoor: true, showTeacher: true, ...JSON.p
 function saveUI(p, v) { try { localStorage.setItem(SEATING_UI_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
+function loadLayoutTemplate() { try { return JSON.parse(localStorage.getItem(LAYOUT_TEMPLATE_KEY) || "null"); } catch (_) { return null; } }
+function saveLayoutTemplate(v) { try { localStorage.setItem(LAYOUT_TEMPLATE_KEY, JSON.stringify(v)); } catch (_) {} }
 
 export default function SeatingChart({ names, periodLabel, periodKey, onClose }) {
   const stored = loadPositions(periodKey);
@@ -57,6 +60,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [selected,     setSelected]     = useState(new Set());
   const [pan,          setPan]          = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hasTemplate,  setHasTemplate]  = useState(() => !!loadLayoutTemplate());
 
   const canvasRef       = useRef(null);
   const wrapRef         = useRef(null);
@@ -117,6 +121,31 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
 
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
   const resetPositions = () => { setPositions(initPositions(names, null)); setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  // Room layout (desks/door/teacher) is usually shared across periods in the same
+  // room — save it once and reapply it to other classes instead of redrawing it.
+  const saveLayoutAsTemplate = () => {
+    saveLayoutTemplate({
+      rects,
+      showDoor, showTeacher,
+      doorPos:    positions.__door__,
+      teacherPos: positions.__teacher__,
+    });
+    setHasTemplate(true);
+  };
+
+  const applyLayoutTemplate = () => {
+    const tpl = loadLayoutTemplate();
+    if (!tpl) return;
+    setRects(tpl.rects.map((r, i) => ({ ...r, id: Date.now() + i })));
+    setShowDoor(tpl.showDoor);
+    setShowTeacher(tpl.showTeacher);
+    setPositions(prev => ({
+      ...prev,
+      __door__:    tpl.doorPos    ?? prev.__door__,
+      __teacher__: tpl.teacherPos ?? prev.__teacher__,
+    }));
+  };
 
   const randomize = () => {
     setPositions(prev => {
@@ -407,6 +436,21 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           title="Clear all rectangles"
           style={{ opacity: rects.length ? 1 : 0.35 }}
         >Clear</button>
+
+        <div className="seating-tb-divider" />
+
+        <button
+          className="seating-tb-btn"
+          onClick={saveLayoutAsTemplate}
+          title="Save this room's desks/door/teacher to reuse in other classes"
+        >💾 Save Layout</button>
+        {hasTemplate && (
+          <button
+            className="seating-tb-btn"
+            onClick={applyLayoutTemplate}
+            title="Apply the saved room layout here"
+          >📥 Load Layout</button>
+        )}
 
         <button className="seating-tb-btn" onClick={handleDownload} title="Download as PNG">⬇ PNG</button>
         <button className="seating-tb-btn seating-tb-btn--save"   onClick={handleSave}   title="Save and close">Save</button>
