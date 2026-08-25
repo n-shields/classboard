@@ -56,8 +56,8 @@ function PeriodChip({ label, onRename, onDelete, autoEdit = false }) {
         <button
           className="chip-x"
           onClick={e => { e.stopPropagation(); onDelete(); }}
-          title="Delete period"
-        >×</button>
+          title="Delete this period completely"
+        >🗑</button>
       )}
     </div>
   );
@@ -96,7 +96,6 @@ export default function ScheduleEditor({
 
   const scheduleNames = Object.keys(draft);
   const activePeriods = draft[activeTab] || [];
-  const usedAnywhere  = new Set(Object.values(draft).flat().map(p => p.label));
   const usedInActive  = new Set(activePeriods.map(p => p.label));
   const poolChips     = draftNames.filter(n => !usedInActive.has(n.label));
 
@@ -133,7 +132,25 @@ export default function ScheduleEditor({
   };
 
   const deletePeriodName = (label) => {
-    if (usedAnywhere.has(label)) return;
+    const usedIn = Object.entries(draft)
+      .filter(([, periods]) => periods.some(p => p.label === label))
+      .map(([name]) => name);
+
+    if (usedIn.length > 0) {
+      const ok = window.confirm(
+        `"${label}" is used in ${usedIn.length} schedule${usedIn.length > 1 ? "s" : ""} (${usedIn.join(", ")}).\n\nDelete it everywhere?`
+      );
+      if (!ok) return;
+      update(d => {
+        Object.values(d).forEach(periods => {
+          for (let i = periods.length - 1; i >= 0; i--) {
+            if (periods[i].label === label) periods.splice(i, 1);
+          }
+        });
+        return d;
+      });
+    }
+
     updateNames(draftNames.filter(n => n.label !== label));
   };
 
@@ -324,7 +341,7 @@ export default function ScheduleEditor({
                 key={n.id}
                 label={n.label}
                 onRename={newLabel => renamePeriodName(n.label, newLabel)}
-                onDelete={!usedAnywhere.has(n.label) ? () => deletePeriodName(n.label) : undefined}
+                onDelete={() => deletePeriodName(n.label)}
                 autoEdit={n.id === newChipId}
               />
             ))}
