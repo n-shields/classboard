@@ -5,7 +5,7 @@ import "./SeatingChart.css";
 const STORAGE_KEY      = (p) => `classboard_seating_${p ?? "default"}`;
 const SEATING_UI_KEY   = (p) => `classboard_seating_ui_${p ?? "default"}`;
 const RECTS_KEY        = (p) => `classboard_seating_rects_${p ?? "default"}`;
-const LAYOUT_TEMPLATE_KEY = "classboard_seating_layout_template";
+const LAYOUT_TEMPLATE_KEY = "classboard_seating_layout_templates";
 const ROTATIONS  = [0, 90, 180, 270];
 const CARD_SIZE  = 90;
 const CANVAS_W   = 1000;
@@ -42,8 +42,8 @@ function loadUI(p) { try { return { showDoor: true, showTeacher: true, ...JSON.p
 function saveUI(p, v) { try { localStorage.setItem(SEATING_UI_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
-function loadLayoutTemplate() { try { return JSON.parse(localStorage.getItem(LAYOUT_TEMPLATE_KEY) || "null"); } catch (_) { return null; } }
-function saveLayoutTemplate(v) { try { localStorage.setItem(LAYOUT_TEMPLATE_KEY, JSON.stringify(v)); } catch (_) {} }
+function loadLayoutTemplates() { try { return JSON.parse(localStorage.getItem(LAYOUT_TEMPLATE_KEY) || "{}"); } catch (_) { return {}; } }
+function saveLayoutTemplates(v) { try { localStorage.setItem(LAYOUT_TEMPLATE_KEY, JSON.stringify(v)); } catch (_) {} }
 
 export default function SeatingChart({ names, periodLabel, periodKey, onClose }) {
   const stored = loadPositions(periodKey);
@@ -60,11 +60,14 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [selected,     setSelected]     = useState(new Set());
   const [pan,          setPan]          = useState({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [hasTemplate,  setHasTemplate]  = useState(() => !!loadLayoutTemplate());
+  const [layouts,        setLayouts]        = useState(() => loadLayoutTemplates());
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
 
   const canvasRef       = useRef(null);
   const wrapRef         = useRef(null);
   const rootRef         = useRef(null);
+  const layoutMenuRef   = useRef(null);
+  const layoutBtnRef    = useRef(null);
   // dragging.current: { startX, startY, origPositions:{[key]:{x,y}}, origRects:{[id]:{x,y}} }
   const dragging        = useRef(null);
   // resizing.current: { rectId, handle, startX, startY, origRect:{x,y,w,h} }
@@ -119,36 +122,61 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
+  // Close layout menu on outside click
+  useEffect(() => {
+    if (!showLayoutMenu) return;
+    const handler = (e) => {
+      if (layoutMenuRef.current?.contains(e.target) || layoutBtnRef.current?.contains(e.target)) return;
+      setShowLayoutMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showLayoutMenu]);
+
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
   const resetPositions = () => { setPositions(initPositions(names, null)); setZoom(1); setPan({ x: 0, y: 0 }); };
 
   // The physical room (seat positions, desks, door/teacher) is usually shared
-  // across periods — save it once and reapply it to other classes' rosters
-  // instead of re-dragging every card. Seats are captured in reading order
-  // (top-to-bottom, left-to-right) so they're independent of who sat where.
-  const saveLayoutAsTemplate = () => {
+  // across periods — save it once, under a name, and reapply it to other
+  // classes' rosters instead of re-dragging every card. Seats are captured in
+  // reading order (top-to-bottom, left-to-right) so they're independent of
+  // who sat where.
+  const saveLayoutAs = () => {
+    const name = window.prompt("Name this layout:", "Room Layout");
+    if (!name) return;
     const seatPositions = names
       .map(n => positions[n])
       .filter(Boolean)
       .sort((a, b) => a.y - b.y || a.x - b.x);
-    saveLayoutTemplate({
-      seatPositions,
-      rects,
-      showDoor, showTeacher,
-      doorPos:    positions.__door__,
-      teacherPos: positions.__teacher__,
-    });
-    setHasTemplate(true);
+    const next = {
+      ...layouts,
+      [name]: {
+        seatPositions,
+        rects,
+        showDoor, showTeacher,
+        doorPos:    positions.__door__,
+        teacherPos: positions.__teacher__,
+      },
+    };
+    saveLayoutTemplates(next);
+    setLayouts(next);
   };
 
-  const applyLayoutTemplate = () => {
-    const tpl = loadLayoutTemplate();
+  const deleteLayout = (name) => {
+    const next = { ...layouts };
+    delete next[name];
+    saveLayoutTemplates(next);
+    setLayouts(next);
+  };
+
+  const applyLayout = (name) => {
+    const tpl = layouts[name];
     if (!tpl) return;
     setPositions(prev => {
       const next = { ...prev };
-      names.forEach((name, i) => {
+      names.forEach((n, i) => {
         const seat = tpl.seatPositions?.[i];
-        if (seat) next[name] = { x: seat.x, y: seat.y };
+        if (seat) next[n] = { x: seat.x, y: seat.y };
       });
       next.__door__    = tpl.doorPos    ?? next.__door__;
       next.__teacher__ = tpl.teacherPos ?? next.__teacher__;
@@ -157,6 +185,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     setRects((tpl.rects || []).map((r, i) => ({ ...r, id: Date.now() + i })));
     setShowDoor(tpl.showDoor);
     setShowTeacher(tpl.showTeacher);
+    setShowLayoutMenu(false);
   };
 
   const randomize = () => {
@@ -451,18 +480,39 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
 
         <div className="seating-tb-divider" />
 
-        <button
-          className="seating-tb-btn"
-          onClick={saveLayoutAsTemplate}
-          title="Save this room's seat positions, desks, and door/teacher to reuse in other classes"
-        >💾 Save Layout</button>
-        {hasTemplate && (
+        <div className="seating-layout-control">
           <button
-            className="seating-tb-btn"
-            onClick={applyLayoutTemplate}
-            title="Seat this class's roster into the saved room layout"
-          >📥 Load Layout</button>
-        )}
+            ref={layoutBtnRef}
+            className={`seating-tb-btn ${showLayoutMenu ? "seating-tb-btn--rect-on" : ""}`}
+            onClick={() => setShowLayoutMenu(v => !v)}
+            title="Save or reuse a room's seat positions, desks, and door/teacher across classes"
+          >🗂 Layouts</button>
+          {showLayoutMenu && (
+            <div className="seating-layout-menu" ref={layoutMenuRef}>
+              <button className="seating-tb-btn seating-layout-save" onClick={saveLayoutAs}>
+                💾 Save current as...
+              </button>
+              {Object.keys(layouts).length > 0 && <div className="seating-layout-divider" />}
+              {Object.keys(layouts).sort().map(name => (
+                <div key={name} className="seating-layout-item">
+                  <button
+                    className="seating-layout-item-btn"
+                    onClick={() => applyLayout(name)}
+                    title={`Seat this class's roster into "${name}"`}
+                  >{name}</button>
+                  <button
+                    className="seating-layout-item-del"
+                    onClick={() => deleteLayout(name)}
+                    title={`Delete "${name}"`}
+                  >✕</button>
+                </div>
+              ))}
+              {Object.keys(layouts).length === 0 && (
+                <span className="seating-layout-empty">No saved layouts yet</span>
+              )}
+            </div>
+          )}
+        </div>
 
         <button className="seating-tb-btn" onClick={handleDownload} title="Download as PNG">⬇ PNG</button>
         <button className="seating-tb-btn seating-tb-btn--save"   onClick={handleSave}   title="Save and close">Save</button>
