@@ -122,10 +122,17 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
   const resetPositions = () => { setPositions(initPositions(names, null)); setZoom(1); setPan({ x: 0, y: 0 }); };
 
-  // Room layout (desks/door/teacher) is usually shared across periods in the same
-  // room — save it once and reapply it to other classes instead of redrawing it.
+  // The physical room (seat positions, desks, door/teacher) is usually shared
+  // across periods — save it once and reapply it to other classes' rosters
+  // instead of re-dragging every card. Seats are captured in reading order
+  // (top-to-bottom, left-to-right) so they're independent of who sat where.
   const saveLayoutAsTemplate = () => {
+    const seatPositions = names
+      .map(n => positions[n])
+      .filter(Boolean)
+      .sort((a, b) => a.y - b.y || a.x - b.x);
     saveLayoutTemplate({
+      seatPositions,
       rects,
       showDoor, showTeacher,
       doorPos:    positions.__door__,
@@ -137,14 +144,19 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const applyLayoutTemplate = () => {
     const tpl = loadLayoutTemplate();
     if (!tpl) return;
-    setRects(tpl.rects.map((r, i) => ({ ...r, id: Date.now() + i })));
+    setPositions(prev => {
+      const next = { ...prev };
+      names.forEach((name, i) => {
+        const seat = tpl.seatPositions?.[i];
+        if (seat) next[name] = { x: seat.x, y: seat.y };
+      });
+      next.__door__    = tpl.doorPos    ?? next.__door__;
+      next.__teacher__ = tpl.teacherPos ?? next.__teacher__;
+      return next;
+    });
+    setRects((tpl.rects || []).map((r, i) => ({ ...r, id: Date.now() + i })));
     setShowDoor(tpl.showDoor);
     setShowTeacher(tpl.showTeacher);
-    setPositions(prev => ({
-      ...prev,
-      __door__:    tpl.doorPos    ?? prev.__door__,
-      __teacher__: tpl.teacherPos ?? prev.__teacher__,
-    }));
   };
 
   const randomize = () => {
@@ -442,13 +454,13 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         <button
           className="seating-tb-btn"
           onClick={saveLayoutAsTemplate}
-          title="Save this room's desks/door/teacher to reuse in other classes"
+          title="Save this room's seat positions, desks, and door/teacher to reuse in other classes"
         >💾 Save Layout</button>
         {hasTemplate && (
           <button
             className="seating-tb-btn"
             onClick={applyLayoutTemplate}
-            title="Apply the saved room layout here"
+            title="Seat this class's roster into the saved room layout"
           >📥 Load Layout</button>
         )}
 
