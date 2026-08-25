@@ -292,7 +292,18 @@ export default function App() {
     localStorage.setItem("classboard_schedule_type", type);
   }, [scheduleType, schedules, periodKey]);
 
-  const handleSchedulesChange = useCallback((s) => { setSchedules(s); saveSchedules(s); }, []);
+  const handleSchedulesChange = useCallback((s) => {
+    setSchedules(s);
+    saveSchedules(s);
+    // Re-anchor the displayed period by label — periods edited/removed elsewhere
+    // can shift array indices out from under a manually-selected period.
+    if (!autoMode && periodKey) {
+      const newPeriods = s[scheduleType] || [];
+      const idx = newPeriods.findIndex(p => p.label === periodKey);
+      setCurrentPeriodIndex(idx);
+      setNextPeriodIndex(idx >= 0 ? detectNextPeriod(newPeriods) : -1);
+    }
+  }, [autoMode, periodKey, scheduleType]);
   const handleScheduleDaysChange = useCallback((d) => { setScheduleDays(d); saveScheduleDays(d); }, []);
   const handlePeriodNamesChange = useCallback((n) => { setPeriodNames(n); savePeriodNames(n); }, []);
 
