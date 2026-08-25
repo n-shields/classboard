@@ -46,6 +46,16 @@ export function insertLeaf(node, targetId, newId, side) {
   };
 }
 
+/** Swap the positions of two leaves, keeping the rest of the tree (sizes, etc.) intact */
+export function swapLeaves(node, idA, idB) {
+  if (typeof node === 'string') {
+    if (node === idA) return idB;
+    if (node === idB) return idA;
+    return node;
+  }
+  return { ...node, a: swapLeaves(node.a, idA, idB), b: swapLeaves(node.b, idA, idB) };
+}
+
 /** Move fromId to be adjacent to toId on the given side */
 export function moveTile(tree, fromId, toId, side) {
   if (fromId === toId) return tree;

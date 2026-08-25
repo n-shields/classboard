@@ -25,6 +25,7 @@ function loadPeriodLayoutTrees() {
 
 const DEFAULT_COLLAPSED = { date: false, clock: false, notes: false, wheel: false, prize: false };
 const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals" };
+const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
 function loadPeriodData() {
@@ -409,6 +410,7 @@ export default function App() {
         isCollapsed={id => collapsed[id] || false}
         onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
         tileNames={TILE_NAMES}
+        swapMap={SWAP_MAP}
       />
     </div>
   );

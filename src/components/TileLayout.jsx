@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { moveTile } from "../data/layout";
+import { moveTile, swapLeaves } from "../data/layout";
 import "./TileLayout.css";
 
 // ── Shared drag context ──────────────────────────────────────────────────────
@@ -46,10 +46,11 @@ function DropOverlay({ tileId, onDrop }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, onMove, onToggle, isCollapsed, tileNames } = useContext(DragCtx);
+  const { dragging, setDragging, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const didDrag = useRef(false);
   const name = tileNames?.[id] ?? "";
+  const swapTarget = swapMap?.[id];
 
   return (
     <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""}`} data-tile={id}>
@@ -68,6 +69,13 @@ function TileSlot({ id, content }) {
       >
         {collapsed ? <>▶{name && <span className="tl-drag-handle-name">{name}</span>}</> : "⠿"}
       </div>
+      {!collapsed && swapTarget && (
+        <button
+          className="tl-swap-btn"
+          onClick={() => onSwap(id, swapTarget)}
+          title={`Swap with ${tileNames?.[swapTarget] ?? swapTarget}`}
+        >⇄</button>
+      )}
       {dragging && dragging !== id && (
         <DropOverlay tileId={id} onDrop={(fromId, side) => { onMove(fromId, id, side); setDragging(null); }} />
       )}
@@ -153,11 +161,15 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 
 // ── Root export ───────────────────────────────────────────────────────────────
 
-export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames }) {
+export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap }) {
   const [dragging, setDragging] = useState(null);
 
   const onMove = useCallback((fromId, toId, side) => {
     onLayoutChange(prev => moveTile(prev, fromId, toId, side));
+  }, [onLayoutChange]);
+
+  const onSwap = useCallback((idA, idB) => {
+    onLayoutChange(prev => swapLeaves(prev, idA, idB));
   }, [onLayoutChange]);
 
   // Safety net: if the dragged element remounts (layout changed mid-drag),
@@ -169,8 +181,8 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   }, []);
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, onMove, onToggle, isCollapsed, tileNames }),
-    [dragging, onMove, onToggle, isCollapsed, tileNames],
+    () => ({ dragging, setDragging, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames }),
+    [dragging, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames],
   );
 
   return (
