@@ -1,0 +1,967 @@
+{
+  "classboard_period_layout_trees": {
+    "P3": {
+      "dir": "h",
+      "ratio": 0.8522135416666666,
+      "a": {
+        "dir": "v",
+        "ratio": 0.11574074074074074,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.40730336443824705,
+        "a": {
+          "dir": "v",
+          "ratio": 0.5942984357793304,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.5,
+          "a": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "notes",
+            "b": "wheel"
+          },
+          "b": "prize"
+        }
+      }
+    },
+    "P6": {
+      "dir": "h",
+      "ratio": 0.83984375,
+      "a": {
+        "dir": "v",
+        "ratio": 0.09953703703703703,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.3854166666666667,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6951754385964912,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.5,
+          "a": "wheel",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "notes",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "Adv": {
+      "dir": "h",
+      "ratio": 0.8092447916666666,
+      "a": {
+        "dir": "v",
+        "ratio": 0.11921296296296297,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.34375,
+        "a": {
+          "dir": "v",
+          "ratio": 0.48484848484848486,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.7213403880070547,
+          "a": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "notes",
+            "b": "wheel"
+          },
+          "b": "prize"
+        }
+      }
+    },
+    "P4": {
+      "dir": "h",
+      "ratio": 0.75,
+      "a": {
+        "dir": "v",
+        "ratio": 0.10532407407407407,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.3738425925925926,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6531986531986532,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.5,
+          "a": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "notes",
+            "b": "wheel"
+          },
+          "b": "prize"
+        }
+      }
+    },
+    "P1": {
+      "dir": "h",
+      "ratio": 0.7532552083333334,
+      "a": {
+        "dir": "v",
+        "ratio": 0.12152777777777778,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.40625,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6351351351351351,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.7537514428626395,
+          "a": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "notes",
+            "b": "wheel"
+          },
+          "b": "prize"
+        }
+      }
+    },
+    "Clay Club": {
+      "dir": "h",
+      "ratio": 0.7252604166666666,
+      "a": {
+        "dir": "v",
+        "ratio": 0.24074074074074073,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.33452502032232206,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6520747743275226,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.513743543900825,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "Period 1": {
+      "dir": "h",
+      "ratio": 0.78,
+      "a": {
+        "dir": "h",
+        "ratio": 0.2796151989820096,
+        "a": "camera",
+        "b": "text"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.375,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6613619840102651,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.38,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "Period 3": {
+      "dir": "h",
+      "ratio": 0.78,
+      "a": {
+        "dir": "v",
+        "ratio": 0.8657407407407407,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.44675925925925924,
+        "a": {
+          "dir": "v",
+          "ratio": 0.5580241740086612,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.38,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "Jonestime": {
+      "dir": "h",
+      "ratio": 0.78,
+      "a": {
+        "dir": "v",
+        "ratio": 0.22,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.4212962962962963,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6696290088103934,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.314,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "Period 2": {
+      "dir": "h",
+      "ratio": 0.78,
+      "a": {
+        "dir": "v",
+        "ratio": 0.8819444444444444,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.28,
+        "a": {
+          "dir": "v",
+          "ratio": 0.28,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.38,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "P2": {
+      "dir": "h",
+      "ratio": 0.78,
+      "a": {
+        "dir": "v",
+        "ratio": 0.11342592592592593,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.46064814814814814,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6256281407035176,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.38,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    },
+    "P5": {
+      "dir": "h",
+      "ratio": 0.78,
+      "a": {
+        "dir": "v",
+        "ratio": 0.10300925925925926,
+        "a": "text",
+        "b": "camera"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.36574074074074076,
+        "a": {
+          "dir": "v",
+          "ratio": 0.6487341772151899,
+          "a": "date",
+          "b": "clock"
+        },
+        "b": {
+          "dir": "v",
+          "ratio": 0.38,
+          "a": "notes",
+          "b": {
+            "dir": "v",
+            "ratio": 0.5,
+            "a": "wheel",
+            "b": "prize"
+          }
+        }
+      }
+    }
+  },
+  "classboard_seating_ui_P6": {
+    "showDoor": true,
+    "showTeacher": true
+  },
+  "classboard_clock_settings": {
+    "fontSize": "sm",
+    "use24h": false,
+    "timerSound": true,
+    "showSecsByMode": {
+      "Period": true,
+      "Timer": true,
+      "Clock": true
+    },
+    "showSmallClock": true
+  },
+  "classboard_schedules": {
+    "Wednesday": [
+      {
+        "id": 1,
+        "label": "P1",
+        "start": "08:00",
+        "end": "08:48"
+      },
+      {
+        "id": 8,
+        "label": "P2",
+        "start": "08:51",
+        "end": "09:37"
+      },
+      {
+        "id": 3,
+        "label": "P3",
+        "start": "09:40",
+        "end": "10:26"
+      },
+      {
+        "id": 4,
+        "label": "P4",
+        "start": "10:29",
+        "end": "11:15"
+      },
+      {
+        "id": 5,
+        "label": "P5",
+        "start": "23:18",
+        "end": "12:04"
+      },
+      {
+        "id": 10,
+        "label": "Lunch",
+        "start": "00:04",
+        "end": "12:37"
+      },
+      {
+        "id": 9,
+        "label": "P6",
+        "start": "12:40",
+        "end": "13:26"
+      }
+    ],
+    "Half Day": [
+      {
+        "id": 1,
+        "label": "P1",
+        "start": "08:00",
+        "end": "08:36"
+      },
+      {
+        "id": 2,
+        "label": "P2",
+        "start": "08:40",
+        "end": "09:16"
+      },
+      {
+        "id": 3,
+        "label": "P3",
+        "start": "09:20",
+        "end": "09:56"
+      },
+      {
+        "id": 4,
+        "label": "P4",
+        "start": "10:00",
+        "end": "10:36"
+      },
+      {
+        "id": 5,
+        "label": "P5",
+        "start": "10:40",
+        "end": "11:26"
+      },
+      {
+        "id": 8,
+        "label": "Lunch",
+        "start": "11:26",
+        "end": "11:56"
+      },
+      {
+        "id": 7,
+        "label": "P6",
+        "start": "11:56",
+        "end": "12:26"
+      }
+    ],
+    "Regular": [
+      {
+        "id": null,
+        "label": "P1",
+        "start": "08:00",
+        "end": "08:53"
+      },
+      {
+        "id": null,
+        "label": "P2",
+        "start": "08:56",
+        "end": "09:47"
+      },
+      {
+        "id": 3,
+        "label": "P3",
+        "start": "09:50",
+        "end": "10:41"
+      },
+      {
+        "id": 4,
+        "label": "Adv",
+        "start": "10:44",
+        "end": "11:14"
+      },
+      {
+        "id": "L",
+        "label": "P4",
+        "start": "11:17",
+        "end": "12:08"
+      },
+      {
+        "id": null,
+        "label": "Lunch",
+        "start": "12:08",
+        "end": "12:38"
+      },
+      {
+        "id": null,
+        "label": "P5",
+        "start": "12:41",
+        "end": "13:32"
+      },
+      {
+        "id": 7,
+        "label": "P6",
+        "start": "13:35",
+        "end": "14:26"
+      }
+    ],
+    "Testing": [
+      {
+        "id": 2,
+        "label": "P2",
+        "start": "09:05",
+        "end": "10:10"
+      }
+    ]
+  },
+  "classboard_wheel_settings": {
+    "spinDuration": 2,
+    "displayDuration": 10
+  },
+  "classboard_seating_rects_P6": [
+    {
+      "id": 1778697524133,
+      "x": 550,
+      "y": 210,
+      "w": 90,
+      "h": 90
+    },
+    {
+      "id": 1778697532710,
+      "x": 720,
+      "y": 210,
+      "w": 90,
+      "h": 90
+    }
+  ],
+  "classboard_seating_rects_P1": [],
+  "classboard_seating_ui_Clay Club": {
+    "showDoor": true,
+    "showTeacher": true
+  },
+  "classboard_schedule_days": {
+    "Regular": [],
+    "Wednesday": [],
+    "Testing": []
+  },
+  "classboard_seating_ui_P1": {
+    "showDoor": true,
+    "showTeacher": true
+  },
+  "classboard_period_layout": {
+    "1": {
+      "collapsed": {
+        "clock": false,
+        "notes": false,
+        "wheel": true,
+        "prize": true
+      },
+      "leftRow": 8.385845823954998,
+      "rW": {
+        "notes": 42.731430555963726,
+        "wheel": 34.5108682754521,
+        "prize": 22.75770116858417
+      },
+      "colSplit": 73.30729166666666
+    },
+    "2": {
+      "collapsed": {
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      },
+      "leftRow": 85.45806959901189,
+      "rW": {
+        "notes": 40,
+        "wheel": 30,
+        "prize": 30
+      },
+      "colSplit": 78
+    },
+    "3": {
+      "collapsed": {
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      },
+      "leftRow": 9.476490500017123,
+      "rW": {
+        "notes": 29.551538701709998,
+        "wheel": 40.44846129829,
+        "prize": 30
+      },
+      "colSplit": 85.3515625
+    },
+    "4": {
+      "collapsed": {
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      },
+      "leftRow": 9.476490500017123,
+      "rW": {
+        "notes": 19.397589887692664,
+        "wheel": 50.60241011230734,
+        "prize": 30
+      },
+      "colSplit": 85.9375
+    },
+    "5": {
+      "collapsed": {
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      },
+      "leftRow": 22,
+      "rW": {
+        "notes": 40,
+        "wheel": 30,
+        "prize": 30
+      },
+      "colSplit": 78
+    },
+    "6": {
+      "collapsed": {
+        "clock": false,
+        "notes": true,
+        "wheel": false,
+        "prize": false
+      },
+      "leftRow": 62.918079627061296,
+      "rW": {
+        "notes": 14.368873285197711,
+        "wheel": 55.63112671480229,
+        "prize": 30
+      },
+      "colSplit": 78
+    },
+    "7": {
+      "collapsed": {
+        "clock": false,
+        "notes": true,
+        "wheel": false,
+        "prize": false
+      },
+      "leftRow": 11.714131905298759,
+      "rW": {
+        "notes": 28.775742768246317,
+        "wheel": 52.995092561647866,
+        "prize": 18.229164670105817
+      },
+      "colSplit": 81.57552083333334
+    },
+    "L": {
+      "collapsed": {
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      },
+      "leftRow": 9.355307758232442,
+      "rW": {
+        "notes": 24.86613068896697,
+        "wheel": 45.13386931103303,
+        "prize": 30
+      },
+      "colSplit": 80.859375
+    },
+    "Lunch": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": true,
+        "prize": false
+      }
+    },
+    "P6": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "P1": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      }
+    },
+    "P3": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      }
+    },
+    "Adv": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Clay Club": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      }
+    },
+    "P4": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": true
+      }
+    },
+    "Period 1": {
+      "collapsed": {
+        "date": false,
+        "clock": true,
+        "notes": false,
+        "wheel": true,
+        "prize": false
+      }
+    },
+    "Period 3": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": true,
+        "prize": false
+      }
+    },
+    "Period 4": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Period 6": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Period1": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Perio1": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Peri1": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Per1": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Pe1": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Period 2": {
+      "collapsed": {
+        "date": false,
+        "clock": true,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "Jonestime": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "P": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "P2": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    },
+    "P5": {
+      "collapsed": {
+        "date": false,
+        "clock": false,
+        "notes": false,
+        "wheel": false,
+        "prize": false
+      }
+    }
+  },
+  "classboard_date_format": "mdy",
+  "classboard_camera_settings": {
+    "mirrored": true,
+    "flippedV": true
+  },
+  "classboard_date_widget": {
+    "showTime": true,
+    "showDate": true,
+    "use24h": false,
+    "showSecs": false,
+    "fontSizes": {
+      "time": 3.5,
+      "day": 1.85,
+      "date": 1.95
+    }
+  },
+  "classboard_period_names": [
+    {
+      "id": 1,
+      "label": "P1"
+    },
+    {
+      "id": 2,
+      "label": "P3"
+    },
+    {
+      "id": 3,
+      "label": "P4"
+    },
+    {
+      "id": 5,
+      "label": "P5"
+    },
+    {
+      "id": 6,
+      "label": "P2"
+    },
+    {
+      "id": 7,
+      "label": "P6"
+    },
+    {
+      "id": 8,
+      "label": "Adv"
+    },
+    {
+      "id": 9,
+      "label": "Lunch"
+    }
+  ],
+  "classboard_seating_rects_Clay Club": [],
+  "classboard_layout_v2": {
+    "dir": "h",
+    "ratio": 0.78,
+    "a": {
+      "dir": "v",
+      "ratio": 0.16087962962962962,
+      "a": {
+        "dir": "h",
+        "ratio": 0.7929386239788332,
+        "a": "text",
+        "b": "wheel"
+      },
+      "b": "camera"
+    },
+    "b": {
+      "dir": "v",
+      "ratio": 0.39351851851851855,
+      "a": {
+        "dir": "v",
+        "ratio": 0.5555555555555556,
+        "a": "date",
+        "b": "clock"
+      },
+      "b": {
+        "dir": "v",
+        "ratio": 0.7480916030534351,
+        "a": "notes",
+        "b": "prize"
+      }
+    }
+  },
+  "classboard_schedule_type": "Regular"
+}

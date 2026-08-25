@@ -4,6 +4,23 @@ import LZString from 'lz-string'
 import './index.css'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
+import DEFAULT_BOARD from './data/defaultBoard.json'
+
+// On a fresh browser with no saved classboard data, seed localStorage with
+// the bundled default board (schedules, layout, themes — no per-class content)
+;(function seedDefaultBoard() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      if (localStorage.key(i)?.startsWith('classboard_')) return;
+    }
+    Object.entries(DEFAULT_BOARD).forEach(([key, value]) => {
+      if (!key.startsWith('classboard_') || value == null) return;
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    });
+  } catch (e) {
+    console.warn('classboard: failed to seed default board', e);
+  }
+}());
 
 // Apply settings encoded in ?s= URL parameter before React initialises
 ;(function applyUrlSettings() {
