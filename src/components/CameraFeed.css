@@ -314,6 +314,31 @@
   cursor: pointer;
 }
 
+.camera-device-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  padding: 6px 8px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.camera-device-item:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.camera-device-item-active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface2);
+}
+
 .camera-channel-btns {
   margin-top: auto;
   display: flex;

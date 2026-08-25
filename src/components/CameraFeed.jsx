@@ -6,8 +6,8 @@ const CAMERA_SETTINGS_KEY = "classboard_camera_settings";
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(CAMERA_SETTINGS_KEY) || "{}");
-    return { mirrored: true, flippedV: false, ...s };
-  } catch (_) { return { mirrored: true, flippedV: false }; }
+    return { mirrored: true, flippedV: false, deviceId: null, ...s };
+  } catch (_) { return { mirrored: true, flippedV: false, deviceId: null }; }
 }
 
 function saveSettings(settings) {
@@ -39,6 +39,8 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const histDisplayRef   = useRef(null);
   const levelsPanelRef   = useRef(null);
   const levelsBtnRef     = useRef(null);
+  const cameraMenuRef    = useRef(null);
+  const cameraMenuBtnRef = useRef(null);
   const streamRef        = useRef(null);
   const cameraContentRef = useRef(null);
 
@@ -56,6 +58,9 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const [levels,       setLevels]       = useState(DEFAULT_LEVELS);
   const [showLevels,   setShowLevels]   = useState(false);
   const [histogram,    setHistogram]    = useState(null);
+  const [devices,          setDevices]          = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(() => loadSettings().deviceId);
+  const [showCameraMenu,   setShowCameraMenu]   = useState(false);
 
   const toggleCh   = (ch)   => setIgnoreCh(prev => ({ ...prev, [ch]: !prev[ch] }));
   const toggleGray = (mode) => setGrayMode(m => m === mode ? null : mode);
@@ -88,10 +93,35 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  // Persist flip settings globally
+  // Persist flip/device settings globally
   useEffect(() => {
-    saveSettings({ mirrored, flippedV });
-  }, [mirrored, flippedV]);
+    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId });
+  }, [mirrored, flippedV, selectedDeviceId]);
+
+  // Track available cameras; labels only populate once permission is granted
+  const refreshDevices = async () => {
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices();
+      setDevices(list.filter(d => d.kind === "videoinput"));
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    refreshDevices();
+    navigator.mediaDevices.addEventListener?.("devicechange", refreshDevices);
+    return () => navigator.mediaDevices.removeEventListener?.("devicechange", refreshDevices);
+  }, []);
+
+  // Close camera menu on outside click
+  useEffect(() => {
+    if (!showCameraMenu) return;
+    const handler = (e) => {
+      if (cameraMenuRef.current?.contains(e.target) || cameraMenuBtnRef.current?.contains(e.target)) return;
+      setShowCameraMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCameraMenu]);
 
   // Auto-start camera on mount
   useEffect(() => { startCamera(); }, []); // eslint-disable-line
@@ -154,11 +184,14 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
     ctx.beginPath(); ctx.moveTo(wx, 0); ctx.lineTo(wx, h); ctx.stroke();
   }, [histogram, levels.inBlack, levels.inWhite]);
 
-  const startCamera = async () => {
+  const startCamera = async (deviceId = selectedDeviceId) => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: {
+          width: { ideal: 1280 }, height: { ideal: 720 },
+          ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -168,9 +201,24 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
       }
       setActive(true);
       setFrozen(false);
+      // Record whichever device actually got used (e.g. first run with no prior selection)
+      const usedId = stream.getVideoTracks()[0]?.getSettings().deviceId;
+      if (usedId) setSelectedDeviceId(usedId);
+      refreshDevices(); // labels are only available once permission is granted
     } catch (err) {
+      // Remembered camera no longer exists (unplugged, etc.) — fall back to the default
+      if (deviceId && (err.name === "OverconstrainedError" || err.name === "NotFoundError")) {
+        setSelectedDeviceId(null);
+        return startCamera(null);
+      }
       setError(err.message || "Camera access denied");
     }
+  };
+
+  const switchCamera = async (deviceId) => {
+    stopCamera();
+    setShowCameraMenu(false);
+    await startCamera(deviceId);
   };
 
   const stopCamera = () => {
@@ -350,8 +398,37 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
         </div>
       )}
 
+      {/* Camera picker — flex sibling, slides in between video and sidebar */}
+      {showCameraMenu && (
+        <div className="levels-panel" ref={cameraMenuRef} onClick={e => e.stopPropagation()}>
+          <div className="levels-header">
+            <span className="levels-title">Camera</span>
+          </div>
+          {devices.map((d, i) => (
+            <button
+              key={d.deviceId}
+              className={`camera-device-item ${d.deviceId === selectedDeviceId ? "camera-device-item-active" : ""}`}
+              onClick={() => switchCamera(d.deviceId)}
+              title={d.label || `Camera ${i + 1}`}
+            >{d.label || `Camera ${i + 1}`}</button>
+          ))}
+        </div>
+      )}
+
       <div className={`camera-sidebar${showControls ? "" : " camera-sidebar--hidden"}`}>
         <div className="sidebar-label">Cam</div>
+
+        {devices.length > 1 && (
+          <>
+            <button
+              ref={cameraMenuBtnRef}
+              className={`sidebar-btn ${showCameraMenu ? "sidebar-btn-active" : ""}`}
+              onClick={e => { e.stopPropagation(); setShowCameraMenu(v => !v); }}
+              title="Choose camera"
+            >🎥</button>
+            <div className="sidebar-divider" />
+          </>
+        )}
 
         <button
           className="sidebar-btn"
