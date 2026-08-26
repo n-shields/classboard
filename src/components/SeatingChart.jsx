@@ -25,14 +25,16 @@ const DEFAULT_SPECIAL_POS = {
   __teacher__: { x: 450, y: 570 },
 };
 
-function initPositions(names, stored) {
+function initPositions(names, stored, deskIds = []) {
   const cols = Math.ceil(Math.sqrt(names.length));
   const students = Object.fromEntries(names.map((name, i) => [
     name,
     stored?.[name] ?? { x: snapV((i % cols) * (CARD_SIZE + 20) + 40), y: snapV(Math.floor(i / cols) * (CARD_SIZE + 20) + 80) },
   ]));
+  const desks = Object.fromEntries(deskIds.filter(id => stored?.[id]).map(id => [id, stored[id]]));
   return {
     ...students,
+    ...desks,
     __door__:    stored?.__door__    ?? DEFAULT_SPECIAL_POS.__door__,
     __teacher__: stored?.__teacher__ ?? DEFAULT_SPECIAL_POS.__teacher__,
   };
@@ -56,16 +58,17 @@ function loadLayoutTemplates() { try { return JSON.parse(localStorage.getItem(LA
 function saveLayoutTemplates(v) { try { localStorage.setItem(LAYOUT_TEMPLATE_KEY, JSON.stringify(v)); } catch (_) {} }
 
 export default function SeatingChart({ names, periodLabel, periodKey, onClose }) {
-  const stored = loadPositions(periodKey);
-  const initUI = loadUI(periodKey);
+  const stored    = loadPositions(periodKey);
+  const initUI    = loadUI(periodKey);
+  const initDesks = loadDesks(periodKey);
 
-  const [positions,   setPositions]   = useState(() => initPositions(names, stored));
+  const [positions,   setPositions]   = useState(() => initPositions(names, stored, initDesks));
   const [rotation,    setRotation]    = useState(0);
   const [zoom,        setZoom]        = useState(1);
   const [showDoor,    setShowDoor]    = useState(initUI.showDoor);
   const [showTeacher, setShowTeacher] = useState(initUI.showTeacher);
   const [rects,       setRects]       = useState(() => loadRects(periodKey));
-  const [desks,       setDesks]       = useState(() => loadDesks(periodKey));
+  const [desks,       setDesks]       = useState(() => initDesks);
   const [drawMode,    setDrawMode]    = useState(false);
   const [preview,     setPreview]     = useState(null);
   const [selected,     setSelected]     = useState(new Set());
