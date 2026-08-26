@@ -245,6 +245,16 @@
   box-shadow: 0 0 8px rgba(217, 119, 6, 0.4);
 }
 
+.seating-card--empty {
+  background: #4b5563;
+  border-color: #6b7280;
+  color: #e5e7eb;
+}
+
+.seating-card--empty:hover {
+  border-color: #9ca3af;
+}
+
 .seating-card--empty:hover .seating-rect-del {
   opacity: 1;
 }
