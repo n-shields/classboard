@@ -420,3 +420,34 @@
   color: var(--text-dim, #94a3b8);
   padding: 4px 6px;
 }
+
+/* Seating rules (Randomize constraints) */
+.seating-rules-selection {
+  font-size: 0.72rem;
+  color: var(--text-dim, #94a3b8);
+  padding: 2px 4px 4px;
+  line-height: 1.3;
+}
+
+.seating-rules-row {
+  display: flex;
+  gap: 4px;
+}
+
+.seating-rules-row .seating-tb-btn {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.seating-rules-row .seating-tb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.seating-rules-tag {
+  cursor: default;
+}
+
+.seating-rules-tag:hover {
+  border-color: var(--border, rgba(255,255,255,0.12));
+}

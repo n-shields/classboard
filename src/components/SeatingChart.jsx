@@ -6,6 +6,7 @@ const STORAGE_KEY      = (p) => `classboard_seating_${p ?? "default"}`;
 const SEATING_UI_KEY   = (p) => `classboard_seating_ui_${p ?? "default"}`;
 const RECTS_KEY        = (p) => `classboard_seating_rects_${p ?? "default"}`;
 const DESKS_KEY        = (p) => `classboard_seating_desks_${p ?? "default"}`;
+const CONSTRAINTS_KEY  = (p) => `classboard_seating_constraints_${p ?? "default"}`;
 const LAYOUT_TEMPLATE_KEY = "classboard_seating_layout_templates";
 const ROTATIONS  = [0, 90, 180, 270];
 const CARD_SIZE  = 90;
@@ -45,6 +46,12 @@ function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadDesks(p) { try { return JSON.parse(localStorage.getItem(DESKS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveDesks(p, v) { try { localStorage.setItem(DESKS_KEY(p), JSON.stringify(v)); } catch (_) {} }
+const DEFAULT_CONSTRAINTS = { together: [], apart: [], frontBack: {} };
+function loadConstraints(p) {
+  try { return { ...DEFAULT_CONSTRAINTS, ...JSON.parse(localStorage.getItem(CONSTRAINTS_KEY(p)) || "{}") }; }
+  catch (_) { return { ...DEFAULT_CONSTRAINTS }; }
+}
+function saveConstraints(p, v) { try { localStorage.setItem(CONSTRAINTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadLayoutTemplates() { try { return JSON.parse(localStorage.getItem(LAYOUT_TEMPLATE_KEY) || "{}"); } catch (_) { return {}; } }
 function saveLayoutTemplates(v) { try { localStorage.setItem(LAYOUT_TEMPLATE_KEY, JSON.stringify(v)); } catch (_) {} }
 
@@ -66,12 +73,16 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [layouts,        setLayouts]        = useState(() => loadLayoutTemplates());
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+  const [constraints,     setConstraints]     = useState(() => loadConstraints(periodKey));
+  const [showRulesMenu,   setShowRulesMenu]   = useState(false);
 
   const canvasRef       = useRef(null);
   const wrapRef         = useRef(null);
   const rootRef         = useRef(null);
   const layoutMenuRef   = useRef(null);
   const layoutBtnRef    = useRef(null);
+  const rulesMenuRef    = useRef(null);
+  const rulesBtnRef     = useRef(null);
   // dragging.current: { startX, startY, origPositions:{[key]:{x,y}}, origRects:{[id]:{x,y}} }
   const dragging        = useRef(null);
   // resizing.current: { rectId, handle, startX, startY, origRect:{x,y,w,h} }
@@ -101,6 +112,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   useEffect(() => { saveUI(periodKey, { showDoor, showTeacher }); }, [showDoor, showTeacher, periodKey]);
   useEffect(() => { saveRects(periodKey, rects); }, [rects, periodKey]);
   useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
+  useEffect(() => { saveConstraints(periodKey, constraints); }, [constraints, periodKey]);
 
   // Add new students not yet in positions
   useEffect(() => {
@@ -138,6 +150,17 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showLayoutMenu]);
+
+  // Close rules menu on outside click
+  useEffect(() => {
+    if (!showRulesMenu) return;
+    const handler = (e) => {
+      if (rulesMenuRef.current?.contains(e.target) || rulesBtnRef.current?.contains(e.target)) return;
+      setShowRulesMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showRulesMenu]);
 
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
   const resetPositions = () => { setPositions(initPositions(names, null)); setDesks([]); setZoom(1); setPan({ x: 0, y: 0 }); };
@@ -214,16 +237,89 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     setShowLayoutMenu(false);
   };
 
+  // Seating rules — "keep together" / "keep apart" groups and front/back
+  // placement — are set by selecting student cards (shift-click on the
+  // canvas) and applying them from the Rules menu, then honored by Randomize.
+  const selectedNames = () => [...selected].filter(k => typeof k === "string" && names.includes(k));
+
+  const addTogetherGroup = () => {
+    const group = selectedNames();
+    if (group.length < 2) return;
+    setConstraints(c => ({ ...c, together: [...c.together, group] }));
+  };
+  const addApartGroup = () => {
+    const group = selectedNames();
+    if (group.length < 2) return;
+    setConstraints(c => ({ ...c, apart: [...c.apart, group] }));
+  };
+  const removeTogetherGroup = (i) => setConstraints(c => ({ ...c, together: c.together.filter((_, idx) => idx !== i) }));
+  const removeApartGroup    = (i) => setConstraints(c => ({ ...c, apart:    c.apart.filter((_, idx) => idx !== i) }));
+
+  const setFrontBack = (tag) => {
+    const group = selectedNames();
+    if (!group.length) return;
+    setConstraints(c => {
+      const frontBack = { ...c.frontBack };
+      group.forEach(n => { if (tag) frontBack[n] = tag; else delete frontBack[n]; });
+      return { ...c, frontBack };
+    });
+  };
+  const clearFrontBack = (n) => setConstraints(c => { const f = { ...c.frontBack }; delete f[n]; return { ...c, frontBack: f }; });
+
+  const shuffleArr = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
   const randomize = () => {
     setPositions(prev => {
       const keys = names.filter(n => prev[n]);
-      const slots = keys.map(k => ({ ...prev[k] }));
-      for (let i = slots.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [slots[i], slots[j]] = [slots[j], slots[i]];
-      }
+      if (keys.length < 2) return prev;
+      // Seats in reading order (front row / left-to-right first) so "front"/
+      // "back" map to the actual first/last seats, and "together" groups can
+      // be laid down as a contiguous run of neighboring seats.
+      const seatCoords = keys.map(k => prev[k]).sort((a, b) => a.y - b.y || a.x - b.x);
+      const N = seatCoords.length;
+
+      const together = constraints.together.map(g => g.filter(n => keys.includes(n))).filter(g => g.length > 1);
+      const apart     = constraints.apart.map(g => g.filter(n => keys.includes(n))).filter(g => g.length > 1);
+      const grouped   = new Set(together.flat());
+      // A "together" grouping takes precedence over a front/back tag for the same student.
+      const frontSet  = keys.filter(n => constraints.frontBack[n] === "front" && !grouped.has(n));
+      const backSet   = keys.filter(n => constraints.frontBack[n] === "back"  && !grouped.has(n));
+      const freeSingles = keys.filter(n => !grouped.has(n) && !frontSet.includes(n) && !backSet.includes(n));
+
+      const buildAssignment = () => {
+        const seq = new Array(N).fill(null);
+        let front = 0, back = N - 1;
+        const placed = new Set();
+        shuffleArr(frontSet).forEach(n => { if (front <= back) { seq[front++] = n; placed.add(n); } });
+        shuffleArr(backSet).forEach(n => { if (front <= back) { seq[back--] = n; placed.add(n); } });
+        // Anyone tagged front/back who didn't fit (more tags than seats) still needs a seat.
+        const leftoverTagged = [...frontSet, ...backSet].filter(n => !placed.has(n));
+        const middleItems = shuffleArr([
+          ...shuffleArr([...freeSingles, ...leftoverTagged]).map(n => [n]),
+          ...shuffleArr(together).map(g => shuffleArr(g)),
+        ]);
+        for (const block of middleItems) {
+          for (const n of block) { if (front <= back) seq[front++] = n; }
+        }
+        return seq;
+      };
+
+      const violatesApart = (seq) => apart.some(group =>
+        group.some((n, i) => group.slice(i + 1).some(m => Math.abs(seq.indexOf(n) - seq.indexOf(m)) <= 1))
+      );
+
+      let seq = buildAssignment();
+      for (let attempt = 0; attempt < 200 && violatesApart(seq); attempt++) seq = buildAssignment();
+
       const next = { ...prev };
-      keys.forEach((k, i) => { next[k] = slots[i]; });
+      seq.forEach((name, i) => { if (name) next[name] = { ...seatCoords[i] }; });
       return next;
     });
   };
@@ -478,6 +574,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, [handleCancel, selected]);
 
   const specialVisible = { __door__: showDoor, __teacher__: showTeacher };
+  const selNames = selectedNames();
 
   return (
     <div className="seating-overlay" ref={rootRef}>
@@ -485,7 +582,57 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         <span className="seating-title">{periodLabel ? `${periodLabel} — Seating` : "Seating Chart"}</span>
         <button className="seating-tb-btn" onClick={cycleRotation} title="Rotate view 90°">⟳ {rotation}°</button>
         <button className="seating-tb-btn" onClick={resetPositions} title="Reset all positions">Reset</button>
-        <button className="seating-tb-btn" onClick={randomize} title="Randomly shuffle student seats">Randomize</button>
+        <button className="seating-tb-btn" onClick={randomize} title="Randomly shuffle student seats, honoring any seating rules below">Randomize</button>
+
+        <div className="seating-tb-divider" />
+
+        <div className="seating-layout-control">
+          <button
+            ref={rulesBtnRef}
+            className={`seating-tb-btn ${showRulesMenu ? "seating-tb-btn--rect-on" : ""}`}
+            onClick={() => setShowRulesMenu(v => !v)}
+            title="Shift-click students to select them, then set rules for Randomize"
+          >🎯 Rules</button>
+          {showRulesMenu && (
+            <div className="seating-layout-menu" ref={rulesMenuRef}>
+              <span className="seating-rules-selection">
+                {selNames.length ? `Selected: ${selNames.join(", ")}` : "Shift-click 2+ students to group them"}
+              </span>
+              <div className="seating-rules-row">
+                <button className="seating-tb-btn" disabled={selNames.length < 2} onClick={addTogetherGroup} title="Seat these students next to each other">🤝 Together</button>
+                <button className="seating-tb-btn" disabled={selNames.length < 2} onClick={addApartGroup} title="Never seat these students next to each other">🚫 Apart</button>
+              </div>
+              <div className="seating-rules-row">
+                <button className="seating-tb-btn" disabled={!selNames.length} onClick={() => setFrontBack("front")} title="Seat these students at the front">⬆ Front</button>
+                <button className="seating-tb-btn" disabled={!selNames.length} onClick={() => setFrontBack("back")} title="Seat these students at the back">⬇ Back</button>
+                <button className="seating-tb-btn" disabled={!selNames.length} onClick={() => setFrontBack(null)} title="Clear front/back preference">Clear</button>
+              </div>
+
+              {(constraints.together.length > 0 || constraints.apart.length > 0 || Object.keys(constraints.frontBack).length > 0) && (
+                <div className="seating-layout-divider" />
+              )}
+
+              {constraints.together.map((g, i) => (
+                <div key={`t${i}`} className="seating-layout-item">
+                  <span className="seating-layout-item-btn seating-rules-tag" title="Kept together">🤝 {g.join(" + ")}</span>
+                  <button className="seating-layout-item-del" onClick={() => removeTogetherGroup(i)} title="Remove rule">✕</button>
+                </div>
+              ))}
+              {constraints.apart.map((g, i) => (
+                <div key={`a${i}`} className="seating-layout-item">
+                  <span className="seating-layout-item-btn seating-rules-tag" title="Kept apart">🚫 {g.join(" + ")}</span>
+                  <button className="seating-layout-item-del" onClick={() => removeApartGroup(i)} title="Remove rule">✕</button>
+                </div>
+              ))}
+              {Object.entries(constraints.frontBack).map(([n, tag]) => (
+                <div key={n} className="seating-layout-item">
+                  <span className="seating-layout-item-btn seating-rules-tag">{tag === "front" ? "⬆" : "⬇"} {n}</span>
+                  <button className="seating-layout-item-del" onClick={() => clearFrontBack(n)} title="Remove rule">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="seating-tb-divider" />
 
