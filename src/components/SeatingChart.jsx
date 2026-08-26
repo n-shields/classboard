@@ -269,9 +269,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   // placement — are set by selecting student cards (shift-click on the
   // canvas) and applying them from the Rules menu, then honored by Randomize.
   const selectedNames = () => [...selected].filter(k => typeof k === "string" && names.includes(k));
+  // Swap works on students AND empty desks, so a student can trade places with a desk.
+  const selectedSeats = () => [...selected].filter(k => typeof k === "string" && (names.includes(k) || desks.includes(k)));
 
   const swapSelected = () => {
-    const [a, b] = selectedNames();
+    const [a, b] = selectedSeats();
     if (!a || !b) return;
     setPositions(prev => {
       if (!prev[a] || !prev[b]) return prev;
@@ -612,6 +614,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
 
   const specialVisible = { __door__: showDoor, __teacher__: showTeacher };
   const selNames = selectedNames();
+  const selSeats = selectedSeats();
 
   return (
     <div className="seating-overlay" ref={rootRef}>
@@ -622,9 +625,9 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         <button className="seating-tb-btn" onClick={randomize} title="Randomly shuffle student seats, honoring any seating rules below">Randomize</button>
         <button
           className="seating-tb-btn"
-          disabled={selNames.length !== 2}
+          disabled={selSeats.length !== 2}
           onClick={swapSelected}
-          title="Shift-click exactly two students, then swap their seats"
+          title="Shift-click exactly two students and/or empty desks, then swap their seats"
         >🔀 Swap</button>
 
         <div className="seating-tb-divider" />
