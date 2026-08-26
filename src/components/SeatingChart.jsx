@@ -5,6 +5,7 @@ import "./SeatingChart.css";
 const STORAGE_KEY      = (p) => `classboard_seating_${p ?? "default"}`;
 const SEATING_UI_KEY   = (p) => `classboard_seating_ui_${p ?? "default"}`;
 const RECTS_KEY        = (p) => `classboard_seating_rects_${p ?? "default"}`;
+const DESKS_KEY        = (p) => `classboard_seating_desks_${p ?? "default"}`;
 const LAYOUT_TEMPLATE_KEY = "classboard_seating_layout_templates";
 const ROTATIONS  = [0, 90, 180, 270];
 const CARD_SIZE  = 90;
@@ -42,6 +43,8 @@ function loadUI(p) { try { return { showDoor: true, showTeacher: true, ...JSON.p
 function saveUI(p, v) { try { localStorage.setItem(SEATING_UI_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
+function loadDesks(p) { try { return JSON.parse(localStorage.getItem(DESKS_KEY(p)) || "[]"); } catch (_) { return []; } }
+function saveDesks(p, v) { try { localStorage.setItem(DESKS_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadLayoutTemplates() { try { return JSON.parse(localStorage.getItem(LAYOUT_TEMPLATE_KEY) || "{}"); } catch (_) { return {}; } }
 function saveLayoutTemplates(v) { try { localStorage.setItem(LAYOUT_TEMPLATE_KEY, JSON.stringify(v)); } catch (_) {} }
 
@@ -55,6 +58,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [showDoor,    setShowDoor]    = useState(initUI.showDoor);
   const [showTeacher, setShowTeacher] = useState(initUI.showTeacher);
   const [rects,       setRects]       = useState(() => loadRects(periodKey));
+  const [desks,       setDesks]       = useState(() => loadDesks(periodKey));
   const [drawMode,    setDrawMode]    = useState(false);
   const [preview,     setPreview]     = useState(null);
   const [selected,     setSelected]     = useState(new Set());
@@ -89,12 +93,14 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     initialStateRef.current = {
       positions: JSON.parse(JSON.stringify(positions)),
       rects:     JSON.parse(JSON.stringify(rects)),
+      desks:     JSON.parse(JSON.stringify(desks)),
     };
   }, []); // eslint-disable-line
 
   useEffect(() => { savePositions(periodKey, positions); }, [positions, periodKey]);
   useEffect(() => { saveUI(periodKey, { showDoor, showTeacher }); }, [showDoor, showTeacher, periodKey]);
   useEffect(() => { saveRects(periodKey, rects); }, [rects, periodKey]);
+  useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
 
   // Add new students not yet in positions
   useEffect(() => {
@@ -134,7 +140,27 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, [showLayoutMenu]);
 
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
-  const resetPositions = () => { setPositions(initPositions(names, null)); setZoom(1); setPan({ x: 0, y: 0 }); };
+  const resetPositions = () => { setPositions(initPositions(names, null)); setDesks([]); setZoom(1); setPan({ x: 0, y: 0 }); };
+
+  // Empty desks — for unassigned seats — are stored as plain card-shaped
+  // entries in `positions` (like students), so drag/select/arrow-key
+  // movement all work for free; `desks` just tracks which keys are desks.
+  const addDesk = () => {
+    const id = `__desk_${Date.now()}__`;
+    const stagger = desks.length % 8;
+    const pos = {
+      x: snapV(CANVAS_W / 2 - CARD_SIZE / 2 + stagger * 20),
+      y: snapV(CANVAS_H / 2 - CARD_SIZE / 2 + stagger * 20),
+    };
+    setPositions(prev => ({ ...prev, [id]: pos }));
+    setDesks(prev => [...prev, id]);
+  };
+
+  const deleteDesk = (id) => {
+    setDesks(prev => prev.filter(d => d !== id));
+    setPositions(prev => { const next = { ...prev }; delete next[id]; return next; });
+    setSelected(prev => { if (!prev.has(id)) return prev; const next = new Set(prev); next.delete(id); return next; });
+  };
 
   // The physical room (seat positions, desks, door/teacher) is usually shared
   // across periods — save it once, under a name, and reapply it to other
@@ -234,9 +260,10 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const handleSave   = useCallback(() => onClose(), [onClose]);
   const handleCancel = useCallback(() => {
     if (initialStateRef.current) {
-      const { positions: p, rects: r } = initialStateRef.current;
+      const { positions: p, rects: r, desks: d } = initialStateRef.current;
       savePositions(periodKey, p);
       saveRects(periodKey, r);
+      saveDesks(periodKey, d);
     }
     onClose();
   }, [periodKey, onClose]);
@@ -419,11 +446,18 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     const handler = (e) => {
       if (e.key === "Escape") { handleCancel(); return; }
       if ((e.key === "Delete" || e.key === "Backspace") && selected.size) {
-        const toRemove = [...selected].filter(k => typeof k === "number");
-        if (toRemove.length) {
+        const toRemoveRects = [...selected].filter(k => typeof k === "number");
+        const toRemoveDesks = [...selected].filter(k => typeof k === "string" && k.startsWith("__desk_"));
+        if (toRemoveRects.length || toRemoveDesks.length) {
           e.preventDefault();
-          setRects(prev => prev.filter(r => !toRemove.includes(r.id)));
-          setSelected(prev => { const next = new Set(prev); toRemove.forEach(id => next.delete(id)); return next; });
+          if (toRemoveRects.length) setRects(prev => prev.filter(r => !toRemoveRects.includes(r.id)));
+          toRemoveDesks.forEach(deleteDesk);
+          setSelected(prev => {
+            const next = new Set(prev);
+            toRemoveRects.forEach(id => next.delete(id));
+            toRemoveDesks.forEach(id => next.delete(id));
+            return next;
+          });
           return;
         }
       }
@@ -463,6 +497,14 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           className={`seating-tb-btn seating-tb-toggle seating-tb-toggle--teacher ${showTeacher ? "seating-tb-toggle--on" : ""}`}
           onClick={() => setShowTeacher(v => !v)} title="Toggle Teacher"
         >Teacher</button>
+
+        <div className="seating-tb-divider" />
+
+        <button
+          className="seating-tb-btn"
+          onClick={addDesk}
+          title="Add an empty desk"
+        >+ Desk</button>
 
         <div className="seating-tb-divider" />
 
@@ -583,6 +625,27 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
                 <span style={{ transform: `rotate(-${rotation}deg)`, display: "block", transition: "transform 0.3s" }}>
                   {name}
                 </span>
+              </div>
+            );
+          })}
+
+          {/* Empty desks */}
+          {desks.map(id => {
+            const pos = positions[id];
+            if (!pos) return null;
+            return (
+              <div key={id}
+                className={`seating-card seating-card--empty${selected.has(id) ? " seating-card--selected" : ""}`}
+                style={{ left: pos.x, top: pos.y, width: CARD_SIZE, height: CARD_SIZE }}
+                onMouseDown={e => onCardMouseDown(e, id)}>
+                <span style={{ transform: `rotate(-${rotation}deg)`, display: "block", transition: "transform 0.3s" }}>
+                  Empty
+                </span>
+                <button
+                  className="seating-rect-del"
+                  onMouseDown={e => { e.stopPropagation(); e.preventDefault(); deleteDesk(id); }}
+                  title="Remove desk"
+                >✕</button>
               </div>
             );
           })}
