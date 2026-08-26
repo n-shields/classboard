@@ -242,6 +242,15 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   // canvas) and applying them from the Rules menu, then honored by Randomize.
   const selectedNames = () => [...selected].filter(k => typeof k === "string" && names.includes(k));
 
+  const swapSelected = () => {
+    const [a, b] = selectedNames();
+    if (!a || !b) return;
+    setPositions(prev => {
+      if (!prev[a] || !prev[b]) return prev;
+      return { ...prev, [a]: prev[b], [b]: prev[a] };
+    });
+  };
+
   const addTogetherGroup = () => {
     const group = selectedNames();
     if (group.length < 2) return;
@@ -583,6 +592,12 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         <button className="seating-tb-btn" onClick={cycleRotation} title="Rotate view 90°">⟳ {rotation}°</button>
         <button className="seating-tb-btn" onClick={resetPositions} title="Reset all positions">Reset</button>
         <button className="seating-tb-btn" onClick={randomize} title="Randomly shuffle student seats, honoring any seating rules below">Randomize</button>
+        <button
+          className="seating-tb-btn"
+          disabled={selNames.length !== 2}
+          onClick={swapSelected}
+          title="Shift-click exactly two students, then swap their seats"
+        >🔀 Swap</button>
 
         <div className="seating-tb-divider" />
 
@@ -636,39 +651,6 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
 
         <div className="seating-tb-divider" />
 
-        <button
-          className={`seating-tb-btn seating-tb-toggle seating-tb-toggle--door ${showDoor ? "seating-tb-toggle--on" : ""}`}
-          onClick={() => setShowDoor(v => !v)} title="Toggle Door"
-        >Door</button>
-        <button
-          className={`seating-tb-btn seating-tb-toggle seating-tb-toggle--teacher ${showTeacher ? "seating-tb-toggle--on" : ""}`}
-          onClick={() => setShowTeacher(v => !v)} title="Toggle Teacher"
-        >Teacher</button>
-
-        <div className="seating-tb-divider" />
-
-        <button
-          className="seating-tb-btn"
-          onClick={addDesk}
-          title="Add an empty desk"
-        >+ Desk</button>
-
-        <div className="seating-tb-divider" />
-
-        <button
-          className={`seating-tb-btn ${drawMode ? "seating-tb-btn--rect-on" : ""}`}
-          onClick={() => setDrawMode(v => !v)}
-          title={drawMode ? "Exit rectangle mode" : "Draw a rectangle"}
-        >⬜ Rect</button>
-        <button
-          className="seating-tb-btn"
-          onClick={() => setRects([])}
-          title="Clear all rectangles"
-          style={{ opacity: rects.length ? 1 : 0.35 }}
-        >Clear</button>
-
-        <div className="seating-tb-divider" />
-
         <div className="seating-layout-control">
           <button
             ref={layoutBtnRef}
@@ -708,6 +690,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         <button className="seating-tb-btn seating-tb-btn--cancel" onClick={handleCancel} title="Cancel changes (Escape)">Cancel</button>
       </div>
 
+      <div className="seating-body">
       <div className="seating-canvas-wrap" ref={wrapRef}>
         <button className="seating-fullscreen-btn" onClick={toggleFullscreen} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
           {isFullscreen ? "⊡" : "⛶"}
@@ -813,6 +796,42 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         </div>
         </div>{/* end pan positioner */}
       </div>
+
+      <div className="seating-sidebar">
+        <button
+          className={`seating-sidebar-btn seating-sidebar-btn--door ${showDoor ? "seating-sidebar-btn--on" : ""}`}
+          onClick={() => setShowDoor(v => !v)}
+          title="Toggle Door"
+        >🚪</button>
+        <button
+          className={`seating-sidebar-btn seating-sidebar-btn--teacher ${showTeacher ? "seating-sidebar-btn--on" : ""}`}
+          onClick={() => setShowTeacher(v => !v)}
+          title="Toggle Teacher"
+        >🧑‍🏫</button>
+
+        <div className="seating-sidebar-divider" />
+
+        <button
+          className="seating-sidebar-btn"
+          onClick={addDesk}
+          title="Add an empty desk"
+        >🪑</button>
+
+        <div className="seating-sidebar-divider" />
+
+        <button
+          className={`seating-sidebar-btn ${drawMode ? "seating-sidebar-btn--on" : ""}`}
+          onClick={() => setDrawMode(v => !v)}
+          title={drawMode ? "Exit rectangle mode" : "Draw a rectangle"}
+        >⬜</button>
+        <button
+          className="seating-sidebar-btn"
+          onClick={() => setRects([])}
+          title="Clear all rectangles"
+          style={{ opacity: rects.length ? 1 : 0.35 }}
+        >🧹</button>
+      </div>
+      </div>{/* end seating-body */}
     </div>
   );
 }

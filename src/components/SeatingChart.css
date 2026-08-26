@@ -41,6 +41,15 @@
   background: rgba(255,255,255,0.14);
 }
 
+.seating-tb-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.seating-tb-btn:disabled:hover {
+  background: rgba(255,255,255,0.06);
+}
+
 .seating-close {
   margin-left: auto;
   padding: 4px 10px;
@@ -53,23 +62,11 @@
   flex-shrink: 0;
 }
 
-.seating-tb-toggle {
-  opacity: 0.45;
-  transition: background 0.15s, opacity 0.15s;
-}
-
-.seating-tb-toggle--on {
-  opacity: 1;
-}
-
-.seating-tb-toggle--door.seating-tb-toggle--on {
-  border-color: #0d9488;
-  color: #0d9488;
-}
-
-.seating-tb-toggle--teacher.seating-tb-toggle--on {
-  border-color: #d97706;
-  color: #d97706;
+.seating-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .seating-canvas-wrap {
@@ -80,6 +77,67 @@
   justify-content: center;
   position: relative;
   cursor: grab;
+}
+
+/* ── Right-side layout tools ── */
+.seating-sidebar {
+  width: 52px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  background: var(--surface, #1e293b);
+  border-left: 1px solid var(--border, rgba(255,255,255,0.12));
+  overflow-y: auto;
+}
+
+.seating-sidebar-btn {
+  width: 38px;
+  height: 34px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 6px;
+  color: var(--text, #e2e8f0);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.seating-sidebar-btn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.seating-sidebar-btn--on {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  color: #fff;
+}
+
+.seating-sidebar-btn--door.seating-sidebar-btn--on {
+  background: rgba(13, 148, 136, 0.2);
+  border-color: #0d9488;
+  color: #0d9488;
+}
+
+.seating-sidebar-btn--teacher.seating-sidebar-btn--on {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: #d97706;
+  color: #d97706;
+}
+
+.seating-sidebar-divider {
+  width: 26px;
+  height: 1px;
+  background: var(--border, rgba(255,255,255,0.12));
+  margin: 2px 0;
+  flex-shrink: 0;
 }
 
 .seating-canvas-wrap:active {
@@ -437,11 +495,6 @@
 .seating-rules-row .seating-tb-btn {
   flex: 1;
   white-space: nowrap;
-}
-
-.seating-rules-row .seating-tb-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 .seating-rules-tag {
