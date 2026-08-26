@@ -224,16 +224,41 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const applyLayout = (name) => {
     const tpl = layouts[name];
     if (!tpl) return;
-    setPositions(prev => {
-      const next = { ...prev };
+    const seatPositions = tpl.seatPositions || [];
+    const teacherAt = tpl.teacherPos ?? positions.__teacher__ ?? DEFAULT_SPECIAL_POS.__teacher__;
+    const distToTeacher = (p) => Math.hypot(p.x - teacherAt.x, p.y - teacherAt.y);
+
+    const next = { ...positions };
+    desks.forEach(id => delete next[id]); // this layout's desks replace whatever was here before
+
+    let newDeskIds = [];
+    if (names.length <= seatPositions.length) {
+      // Fewer students than saved seats — give the closest seats to the
+      // teacher to real students, and turn the leftover seats into empty
+      // desks so the room still looks complete.
+      const byDistance   = [...seatPositions].sort((a, b) => distToTeacher(a) - distToTeacher(b));
+      const studentSeats = byDistance.slice(0, names.length);
+      const deskSeats    = byDistance.slice(names.length);
+
+      names.forEach((n, i) => { next[n] = { x: studentSeats[i].x, y: studentSeats[i].y }; });
+      newDeskIds = deskSeats.map((seat, i) => {
+        const id = `__desk_${Date.now()}_${i}__`;
+        next[id] = { x: seat.x, y: seat.y };
+        return id;
+      });
+    } else {
+      // More students than saved seats — seat as many as fit; the rest keep their current spot.
       names.forEach((n, i) => {
-        const seat = tpl.seatPositions?.[i];
+        const seat = seatPositions[i];
         if (seat) next[n] = { x: seat.x, y: seat.y };
       });
-      next.__door__    = tpl.doorPos    ?? next.__door__;
-      next.__teacher__ = tpl.teacherPos ?? next.__teacher__;
-      return next;
-    });
+    }
+
+    next.__door__    = tpl.doorPos    ?? next.__door__;
+    next.__teacher__ = tpl.teacherPos ?? next.__teacher__;
+
+    setPositions(next);
+    setDesks(newDeskIds);
     setRects((tpl.rects || []).map((r, i) => ({ ...r, id: Date.now() + i })));
     setShowDoor(tpl.showDoor);
     setShowTeacher(tpl.showTeacher);
