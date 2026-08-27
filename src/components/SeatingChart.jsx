@@ -40,6 +40,27 @@ function initPositions(names, stored, deskIds = []) {
   };
 }
 
+function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+/** First grid cell (scanning left-to-right, top-to-bottom) that doesn't overlap anything in `occupied` */
+function findFreeSpot(occupied) {
+  const step = CARD_SIZE + 20;
+  const cols = Math.max(1, Math.floor((CANVAS_W - 40) / step));
+  const rows = Math.max(1, Math.floor((CANVAS_H - 80) / step)) + 4; // a little slack for a crowded room
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = snapV(c * step + 40);
+      const y = snapV(r * step + 80);
+      const free = !occupied.some(o => rectsOverlap(x, y, CARD_SIZE, CARD_SIZE, o.x, o.y, o.w, o.h));
+      if (free) return { x, y };
+    }
+  }
+  // Canvas is genuinely full — stack near the corner rather than give up; still draggable.
+  return { x: snapV(40 + occupied.length * 6), y: snapV(80 + occupied.length * 6) };
+}
+
 function loadPositions(p) { try { return JSON.parse(localStorage.getItem(STORAGE_KEY(p)) || "null"); } catch (_) { return null; } }
 function savePositions(p, v) { try { localStorage.setItem(STORAGE_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadUI(p) { try { return { showDoor: true, showTeacher: true, ...JSON.parse(localStorage.getItem(SEATING_UI_KEY(p)) || "{}") }; } catch (_) { return { showDoor: true, showTeacher: true }; } }
@@ -117,18 +138,38 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
   useEffect(() => { saveConstraints(periodKey, constraints); }, [constraints, periodKey]);
 
-  // Add new students not yet in positions
+  // Add new students not yet in positions — reuse an empty desk if one's
+  // free (removing it), otherwise drop them somewhere that doesn't overlap
+  // anyone already on the canvas.
   useEffect(() => {
-    setPositions(prev => {
-      const missing = names.filter(n => !prev[n]);
-      if (!missing.length) return prev;
-      const cols = Math.ceil(Math.sqrt(names.length));
-      const extra = Object.fromEntries(missing.map(name => {
-        const idx = names.indexOf(name);
-        return [name, { x: snapV((idx % cols) * (CARD_SIZE + 20) + 40), y: snapV(Math.floor(idx / cols) * (CARD_SIZE + 20) + 80) }];
-      }));
-      return { ...prev, ...extra };
+    const missing = names.filter(n => !positions[n]);
+    if (!missing.length) return;
+
+    const next = { ...positions };
+    const availableDesks = [...desks];
+    const consumedDesks = [];
+
+    const occupied = Object.entries(next)
+      .filter(([k]) => k !== "__door__" && k !== "__teacher__")
+      .map(([, p]) => ({ x: p.x, y: p.y, w: CARD_SIZE, h: CARD_SIZE }));
+    if (next.__door__)    occupied.push({ ...next.__door__,    w: SPECIAL.__door__.w,    h: SPECIAL.__door__.h });
+    if (next.__teacher__) occupied.push({ ...next.__teacher__, w: SPECIAL.__teacher__.w, h: SPECIAL.__teacher__.h });
+
+    missing.forEach(name => {
+      const deskId = availableDesks.shift();
+      if (deskId && next[deskId]) {
+        next[name] = { ...next[deskId] };
+        delete next[deskId];
+        consumedDesks.push(deskId);
+      } else {
+        const spot = findFreeSpot(occupied);
+        next[name] = spot;
+        occupied.push({ ...spot, w: CARD_SIZE, h: CARD_SIZE });
+      }
     });
+
+    setPositions(next);
+    if (consumedDesks.length) setDesks(d => d.filter(id => !consumedDesks.includes(id)));
   }, [names]); // eslint-disable-line
 
   // Wheel zoom
