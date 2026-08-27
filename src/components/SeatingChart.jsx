@@ -200,10 +200,15 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
       .map(n => positions[n])
       .filter(Boolean)
       .sort((a, b) => a.y - b.y || a.x - b.x);
+    const deskPositions = desks
+      .map(id => positions[id])
+      .filter(Boolean)
+      .sort((a, b) => a.y - b.y || a.x - b.x);
     const next = {
       ...layouts,
       [name]: {
         seatPositions,
+        deskPositions,
         rects,
         showDoor, showTeacher,
         doorPos:    positions.__door__,
@@ -224,19 +229,20 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const applyLayout = (name) => {
     const tpl = layouts[name];
     if (!tpl) return;
-    const seatPositions = tpl.seatPositions || [];
+    // The room's total capacity is student seats plus whatever desks were
+    // already sitting empty when the layout was saved — both are real desks.
+    const allSeats  = [...(tpl.seatPositions || []), ...(tpl.deskPositions || [])];
     const teacherAt = tpl.teacherPos ?? positions.__teacher__ ?? DEFAULT_SPECIAL_POS.__teacher__;
     const distToTeacher = (p) => Math.hypot(p.x - teacherAt.x, p.y - teacherAt.y);
+    const byDistance = [...allSeats].sort((a, b) => distToTeacher(a) - distToTeacher(b));
 
     const next = { ...positions };
     desks.forEach(id => delete next[id]); // this layout's desks replace whatever was here before
 
     let newDeskIds = [];
-    if (names.length <= seatPositions.length) {
-      // Fewer students than saved seats — give the closest seats to the
-      // teacher to real students, and turn the leftover seats into empty
-      // desks so the room still looks complete.
-      const byDistance   = [...seatPositions].sort((a, b) => distToTeacher(a) - distToTeacher(b));
+    if (names.length <= byDistance.length) {
+      // Fewer students than the room has desks — give the closest desks to
+      // the teacher to real students, and turn the rest into empty desks.
       const studentSeats = byDistance.slice(0, names.length);
       const deskSeats    = byDistance.slice(names.length);
 
@@ -247,9 +253,10 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         return id;
       });
     } else {
-      // More students than saved seats — seat as many as fit; the rest keep their current spot.
+      // More students than the room has desks — seat as many as fit (closest
+      // to the teacher first); the rest keep their current spot.
       names.forEach((n, i) => {
-        const seat = seatPositions[i];
+        const seat = byDistance[i];
         if (seat) next[n] = { x: seat.x, y: seat.y };
       });
     }
