@@ -119,9 +119,13 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const positionsRef    = useRef(positions);
   const rectsRef        = useRef(rects);
   const panRef          = useRef(pan);
+  const desksRef        = useRef(desks);
+  const namesRef        = useRef(names);
   useEffect(() => { positionsRef.current = positions; });
   useEffect(() => { rectsRef.current = rects; });
   useEffect(() => { panRef.current = pan; });
+  useEffect(() => { desksRef.current = desks; });
+  useEffect(() => { namesRef.current = names; });
 
   // Snapshot on open for cancel
   useEffect(() => {
@@ -591,13 +595,13 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
       if (dragInfo) {
         const draggedKeys = Object.keys(dragInfo.origPositions);
         const key = draggedKeys[0];
-        const isSeat = k => names.includes(k) || desks.includes(k);
+        const isSeat = k => namesRef.current.includes(k) || desksRef.current.includes(k);
         if (draggedKeys.length === 1 && !Object.keys(dragInfo.origRects).length && isSeat(key)) {
           const cur = positionsRef.current[key];
           if (cur) {
             const centerX = cur.x + CARD_SIZE / 2;
             const centerY = cur.y + CARD_SIZE / 2;
-            const targetKey = [...names, ...desks].find(k => {
+            const targetKey = [...namesRef.current, ...desksRef.current].find(k => {
               if (k === key) return false;
               const o = positionsRef.current[k];
               return o && centerX >= o.x && centerX <= o.x + CARD_SIZE && centerY >= o.y && centerY <= o.y + CARD_SIZE;
