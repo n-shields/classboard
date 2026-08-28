@@ -63,7 +63,7 @@ function findFreeSpot(occupied) {
 
 function loadPositions(p) { try { return JSON.parse(localStorage.getItem(STORAGE_KEY(p)) || "null"); } catch (_) { return null; } }
 function savePositions(p, v) { try { localStorage.setItem(STORAGE_KEY(p), JSON.stringify(v)); } catch (_) {} }
-function loadUI(p) { try { return { showDoor: true, showTeacher: true, ...JSON.parse(localStorage.getItem(SEATING_UI_KEY(p)) || "{}") }; } catch (_) { return { showDoor: true, showTeacher: true }; } }
+function loadUI(p) { try { return { showDoor: true, showTeacher: true, rotation: 0, ...JSON.parse(localStorage.getItem(SEATING_UI_KEY(p)) || "{}") }; } catch (_) { return { showDoor: true, showTeacher: true, rotation: 0 }; } }
 function saveUI(p, v) { try { localStorage.setItem(SEATING_UI_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
@@ -84,7 +84,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const initDesks = loadDesks(periodKey);
 
   const [positions,   setPositions]   = useState(() => initPositions(names, stored, initDesks));
-  const [rotation,    setRotation]    = useState(0);
+  const [rotation,    setRotation]    = useState(initUI.rotation);
   const [zoom,        setZoom]        = useState(1);
   const [showDoor,    setShowDoor]    = useState(initUI.showDoor);
   const [showTeacher, setShowTeacher] = useState(initUI.showTeacher);
@@ -137,7 +137,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, []); // eslint-disable-line
 
   useEffect(() => { savePositions(periodKey, positions); }, [positions, periodKey]);
-  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher }); }, [showDoor, showTeacher, periodKey]);
+  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation }); }, [showDoor, showTeacher, rotation, periodKey]);
   useEffect(() => { saveRects(periodKey, rects); }, [rects, periodKey]);
   useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
   useEffect(() => { saveConstraints(periodKey, constraints); }, [constraints, periodKey]);
