@@ -22,6 +22,7 @@ const OVERLAY_FONT_SIZES = {
 };
 
 const DEFAULT_LEVELS = { inBlack: 0, inWhite: 255, gamma: 1, outBlack: 0, outWhite: 255 };
+const CONTROLS_IDLE_MS = 3000;
 
 function computeLevelsTable(inBlack, inWhite, gamma, outBlack, outWhite) {
   return Array.from({ length: 17 }, (_, i) => {
@@ -43,6 +44,7 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const cameraMenuBtnRef = useRef(null);
   const streamRef        = useRef(null);
   const cameraContentRef = useRef(null);
+  const idleTimerRef     = useRef(null);
 
   const [active,       setActive]       = useState(false);
   const [frozen,       setFrozen]       = useState(false);
@@ -92,6 +94,26 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  // Auto-hide the controls sidebar (and any open panel) once the mouse sits
+  // idle over the camera for a while, so it doesn't clutter a live feed.
+  const hideControls = () => {
+    setShowControls(false);
+    setShowLevels(false);
+    setShowCameraMenu(false);
+  };
+  const clearIdleTimer = () => {
+    if (idleTimerRef.current) { clearTimeout(idleTimerRef.current); idleTimerRef.current = null; }
+  };
+  const scheduleIdleHide = () => {
+    clearIdleTimer();
+    idleTimerRef.current = setTimeout(hideControls, CONTROLS_IDLE_MS);
+  };
+  useEffect(() => {
+    if (!showControls) { clearIdleTimer(); return; }
+    scheduleIdleHide();
+    return clearIdleTimer;
+  }, [showControls]); // eslint-disable-line
 
   // Persist flip/device settings globally
   useEffect(() => {
@@ -287,7 +309,13 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const overlayFontSize = (OVERLAY_FONT_SIZES[clockFontSize] ?? OVERLAY_FONT_SIZES.md)[isFullscreen ? "fullscreen" : "normal"];
 
   return (
-    <div className="card camera-feed" tabIndex={-1}>
+    <div
+      className="card camera-feed"
+      tabIndex={-1}
+      onMouseMove={() => { if (showControls) scheduleIdleHide(); }}
+      onMouseLeave={hideControls}
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) hideControls(); }}
+    >
       <div className="camera-content" ref={cameraContentRef} onClick={() => setShowControls(v => !v)}>
         {error && <div className="camera-error">{error}</div>}
 
