@@ -581,8 +581,36 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     };
 
     const onUp = (e) => {
+      const dragInfo = dragging.current;
       dragging.current = null;
       resizing.current = null;
+
+      // Dropping a single student/desk card centered on another one swaps
+      // them, snapping both back to their (pre-drag) prior positions rather
+      // than leaving the dropped card overlapping its target.
+      if (dragInfo) {
+        const draggedKeys = Object.keys(dragInfo.origPositions);
+        const key = draggedKeys[0];
+        const isSeat = k => names.includes(k) || desks.includes(k);
+        if (draggedKeys.length === 1 && !Object.keys(dragInfo.origRects).length && isSeat(key)) {
+          const cur = positionsRef.current[key];
+          if (cur) {
+            const centerX = cur.x + CARD_SIZE / 2;
+            const centerY = cur.y + CARD_SIZE / 2;
+            const targetKey = [...names, ...desks].find(k => {
+              if (k === key) return false;
+              const o = positionsRef.current[k];
+              return o && centerX >= o.x && centerX <= o.x + CARD_SIZE && centerY >= o.y && centerY <= o.y + CARD_SIZE;
+            });
+            if (targetKey) {
+              const origPos   = dragInfo.origPositions[key];
+              const targetPos = positionsRef.current[targetKey];
+              setPositions(prev => ({ ...prev, [key]: targetPos, [targetKey]: origPos }));
+            }
+          }
+        }
+      }
+
       if (panningRef.current) {
         const { startX, startY } = panningRef.current;
         if (Math.abs(e.clientX - startX) + Math.abs(e.clientY - startY) < 5) {
