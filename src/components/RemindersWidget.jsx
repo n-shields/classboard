@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import "./RemindersWidget.css";
 
 const SETTINGS_KEY = "classboard_reminders";
+const DISMISS_KEY  = "classboard_reminders_dismissed";
 
 const DEFAULT_REMINDERS = [
   { id: 1, text: "Attendance", edge: "start", minutes: 10, enabled: true },
@@ -38,6 +39,25 @@ function timeToday(hhmm, now) {
   return d;
 }
 
+// Identifies one class sitting (date + period). Dismissals are scoped to this;
+// they clear on their own when the period changes or the day rolls over.
+function sittingKey(period, when) {
+  if (!period) return null;
+  return `${when.toDateString()}|${period.label}|${period.start}`;
+}
+
+function loadDismissed() {
+  try {
+    const s = JSON.parse(localStorage.getItem(DISMISS_KEY) || "null");
+    if (s && typeof s.key === "string" && Array.isArray(s.ids)) return s;
+  } catch (_) {}
+  return { key: null, ids: [] };
+}
+
+function saveDismissed(rec) {
+  try { localStorage.setItem(DISMISS_KEY, JSON.stringify(rec)); } catch (_) {}
+}
+
 export default function RemindersWidget({ currentPeriod, collapsed }) {
   const [reminders, setReminders] = useState(loadReminders);
   const [now, setNow] = useState(() => new Date());
@@ -45,17 +65,29 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
   const [draft, setDraft] = useState(null);
   const overlayMouseDown = useRef(false);
 
+  const key = sittingKey(currentPeriod, now);
+  const [dismissedRec, setDismissedRec] = useState(loadDismissed);
+  // Dismissals only count for the class sitting they were made in; a stale
+  // record is simply ignored, so it clears itself when the period rolls over.
+  const dismissedIds = dismissedRec.key === key ? dismissedRec.ids : [];
+
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 5000);
     return () => clearInterval(id);
   }, []);
+
+  const dismiss = (id) => {
+    const rec = { key, ids: [...dismissedIds, id] };
+    setDismissedRec(rec);
+    saveDismissed(rec);
+  };
 
   const active = [];
   if (currentPeriod) {
     const sinceStart = (now - timeToday(currentPeriod.start, now)) / 60000;
     const untilEnd   = (timeToday(currentPeriod.end, now) - now) / 60000;
     for (const r of reminders) {
-      if (r.enabled === false) continue;
+      if (r.enabled === false || dismissedIds.includes(r.id)) continue;
       if (r.edge === "start" && sinceStart >= 0 && sinceStart < r.minutes) active.push(r);
       else if (r.edge === "end" && untilEnd > 0 && untilEnd <= r.minutes) active.push(r);
     }
@@ -93,7 +125,12 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
           <div className="reminders-messages">
             {active.map(r => (
               <div key={r.id} className={`reminders-message reminders-message--${r.edge}`}>
-                {r.text}
+                <span className="reminders-message-text">{r.text}</span>
+                <button
+                  className="reminders-dismiss"
+                  onClick={() => dismiss(r.id)}
+                  title="Dismiss for this class"
+                >✕</button>
               </div>
             ))}
           </div>

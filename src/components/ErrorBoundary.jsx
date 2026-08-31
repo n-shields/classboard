@@ -5,7 +5,7 @@ const CLASSBOARD_KEYS = [
   "classboard_period_data", "classboard_global_theme", "classboard_period_layout",
   "classboard_layout", "classboard_layout_v2", "classboard_date_format",
   "classboard_date_widget", "classboard_camera_settings", "classboard_wheel_settings",
-  "classboard_reminders",
+  "classboard_reminders", "classboard_reminders_dismissed",
 ];
 
 function clearAll() {
