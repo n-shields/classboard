@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import LZString from "lz-string";
 import ScheduleEditor from "./ScheduleEditor";
+import StudentList from "./StudentList";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import "./PeriodBar.css";
 
@@ -40,8 +41,12 @@ export default function PeriodBar({
   currentTheme, onThemeChange,
   onImport,
   onOpenSeatingChart,
+  names = [], onNamesChange,
+  excludedNames = [], onExcludedNamesChange,
+  periodLabel,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
+  const [studentsOpen,  setStudentsOpen]  = useState(false);
   const [visible,       setVisible]       = useState(false);
   const [linkCopied,    setLinkCopied]    = useState(false);
   const [isFullscreen,  setIsFullscreen]  = useState(false);
@@ -154,6 +159,13 @@ export default function PeriodBar({
           title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
         />
 
+        {/* Student list */}
+        {onNamesChange && (
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setStudentsOpen(true)} title="Edit the student list">
+            👥 Students
+          </button>
+        )}
+
         {/* Seating chart */}
         {onOpenSeatingChart && (
           <button className="btn btn-ghost btn-sm tb-btn" onClick={onOpenSeatingChart} title="Open seating chart">⊞ Seats</button>
@@ -187,6 +199,17 @@ export default function PeriodBar({
           periodNames={periodNames}
           onPeriodNamesChange={onPeriodNamesChange}
           onClose={() => setEditorOpen(false)}
+        />
+      )}
+
+      {studentsOpen && (
+        <StudentList
+          names={names}
+          onNamesChange={onNamesChange}
+          excludedNames={excludedNames}
+          onExcludedNamesChange={onExcludedNamesChange}
+          periodLabel={periodLabel}
+          onClose={() => setStudentsOpen(false)}
         />
       )}
     </>

@@ -21,8 +21,7 @@ function easeOut(t) {
 }
 
 export default function WheelOfNames({
-  names, onNamesChange,
-  excludedNames = [], onExcludedNamesChange,
+  names, excludedNames = [],
   periodLabel, collapsed, onToggle,
   wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
 }) {
@@ -31,22 +30,13 @@ export default function WheelOfNames({
   const rotationRef = useRef(0);
   const [spinning,      setSpinning]      = useState(false);
   const [winner,        setWinner]        = useState(null);
-  const [editOpen,      setEditOpen]      = useState(false);
-  const [editText,      setEditText]      = useState("");
-  const [showEditText,  setShowEditText]  = useState(false);
+  const [settingsOpen,  setSettingsOpen]  = useState(false);
   const [wheelSettings, setWheelSettings] = useState(loadWheelSettings);
 
   const activeNames = useMemo(
     () => names.filter(n => !excludedNames.includes(n)),
     [names, excludedNames],
   );
-
-  const toggleExclude = (name) => {
-    const next = excludedNames.includes(name)
-      ? excludedNames.filter(n => n !== name)
-      : [...excludedNames, name];
-    onExcludedNamesChange?.(next);
-  };
 
   useEffect(() => { setWinner(null); }, [names]);
 
@@ -187,17 +177,6 @@ export default function WheelOfNames({
 
   useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current); }, []);
 
-  const openEditor = () => {
-    setEditText(names.join("\n"));
-    setEditOpen(true);
-  };
-
-  const handleEditChange = (text) => {
-    setEditText(text);
-    const newNames = text.split("\n").map(s => s.trim()).filter(Boolean);
-    onNamesChange(newNames);
-  };
-
   const canSpin = !spinning && activeNames.length >= 2;
 
   return (
@@ -220,14 +199,14 @@ export default function WheelOfNames({
             </div>
           )}
         </div>
-        <button className="wheel-settings-btn" onClick={openEditor} title="Edit names">⚙</button>
+        <button className="wheel-settings-btn" onClick={() => setSettingsOpen(true)} title="Wheel settings">⚙</button>
       </div>
 
-      {editOpen && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditOpen(false)}>
+      {settingsOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSettingsOpen(false)}>
           <div className="modal wheel-modal">
             <div className="wheel-modal-header">
-              <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
+              <h2>Wheel settings{periodLabel ? ` — ${periodLabel}` : ""}</h2>
               {names.length > 0 && (
                 <span className="wheel-active-count">
                   {activeNames.length} / {names.length} in wheel
@@ -235,47 +214,9 @@ export default function WheelOfNames({
               )}
             </div>
 
-            {/* Name list with include/exclude toggles */}
-            {names.length > 0 && (
-              <>
-                <div className="wheel-name-actions">
-                  <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.([])}>All</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.(names.slice())}>None</button>
-                </div>
-                <div className="wheel-name-list">
-                  {names.map(name => {
-                    const excluded = excludedNames.includes(name);
-                    return (
-                      <label key={name} className={`wheel-name-row ${excluded ? "wheel-name-row--excluded" : ""}`}>
-                        <input
-                          type="checkbox"
-                          checked={!excluded}
-                          onChange={() => toggleExclude(name)}
-                        />
-                        <span>{name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
-            {/* Collapsible edit textarea */}
-            <button
-              className="btn btn-ghost btn-sm wheel-edit-toggle"
-              onClick={() => setShowEditText(v => !v)}
-            >
-              {showEditText ? "▲ Hide list editor" : "▼ Edit list"}
-            </button>
-            {showEditText && (
-              <textarea
-                className="wheel-edit-textarea"
-                value={editText}
-                onChange={e => handleEditChange(e.target.value)}
-                placeholder="One name per line"
-                autoFocus
-              />
-            )}
+            <p className="wheel-settings-hint">
+              Add or remove students from the “👥 Students” button in the top bar.
+            </p>
 
             {/* Timing settings */}
             <div className="wheel-settings-row">
@@ -302,7 +243,7 @@ export default function WheelOfNames({
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-              <button className="btn btn-primary" onClick={() => setEditOpen(false)}>Done</button>
+              <button className="btn btn-primary" onClick={() => setSettingsOpen(false)}>Done</button>
             </div>
           </div>
         </div>

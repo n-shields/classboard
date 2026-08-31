@@ -109,64 +109,10 @@
   flex-shrink: 0;
 }
 
-.wheel-name-actions {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.wheel-name-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 220px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 6px;
-  margin-bottom: 8px;
-}
-
-.wheel-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 4px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.88rem;
-  user-select: none;
-  transition: background 0.1s;
-}
-
-.wheel-name-row:hover {
-  background: rgba(255,255,255,0.05);
-}
-
-.wheel-name-row--excluded span {
-  opacity: 0.35;
-  text-decoration: line-through;
-}
-
-.wheel-name-row input[type="checkbox"] {
-  accent-color: var(--accent);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.wheel-edit-toggle {
-  margin-bottom: 6px;
-  font-size: 0.78rem;
-  padding: 2px 8px;
-}
-
-.wheel-edit-textarea {
-  width: 100%;
-  height: 140px;
-  resize: vertical;
-  font-size: 0.9rem;
-  margin-bottom: 4px;
-  box-sizing: border-box;
+.wheel-settings-hint {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin: 0;
 }
 
 .wheel-settings-row {

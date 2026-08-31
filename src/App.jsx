@@ -364,9 +364,7 @@ export default function App() {
     wheel: seatingTile === "wheel" ? seatingChartNode : (
       <WheelOfNames
         names={currentNames}
-        onNamesChange={handleNamesChange}
         excludedNames={currentExcluded}
-        onExcludedNamesChange={handleExcludedChange}
         periodLabel={displayPeriod?.label}
         collapsed={collapsed.wheel}
         onToggle={() => toggleCollapsed("wheel")}
@@ -402,6 +400,9 @@ export default function App() {
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
         onImport={() => window.location.reload()}
         onOpenSeatingChart={openSeatingChart}
+        names={currentNames}            onNamesChange={handleNamesChange}
+        excludedNames={currentExcluded} onExcludedNamesChange={handleExcludedChange}
+        periodLabel={displayPeriod?.label}
       />
       <TileLayout
         layout={layout}
