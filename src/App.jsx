@@ -9,9 +9,10 @@ import NoteWidget from "./components/NoteWidget";
 import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
 import SeatingChart from "./components/SeatingChart";
+import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, DEFAULT_LAYOUT } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT } from "./data/layout";
 import "./App.css";
 
 const PERIOD_DATA_KEY         = "classboard_period_data";
@@ -23,8 +24,8 @@ function loadPeriodLayoutTrees() {
   return {};
 }
 
-const DEFAULT_COLLAPSED = { date: false, clock: false, notes: false, wheel: false, prize: false };
-const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals" };
+const DEFAULT_COLLAPSED = { date: false, clock: false, notes: false, wheel: false, prize: false, reminders: false };
+const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
@@ -194,7 +195,7 @@ export default function App() {
       setCollapsed({ ...DEFAULT_COLLAPSED });
     }
     // Restore per-period tile layout (fall back to hard-coded default, not global)
-    const savedTree = periodLayoutTreesRef.current[periodKey];
+    const savedTree = migrateLayout(periodLayoutTreesRef.current[periodKey]);
     if (savedTree && validateLayout(savedTree)) {
       setLayout(savedTree);
     } else {
@@ -378,6 +379,12 @@ export default function App() {
         onChange={handleProgressChange}
         collapsed={collapsed.prize}
         onToggle={() => toggleCollapsed("prize")}
+      />
+    ),
+    reminders: seatingTile === "reminders" ? seatingChartNode : (
+      <RemindersWidget
+        currentPeriod={clockPeriod}
+        collapsed={collapsed.reminders}
       />
     ),
   };

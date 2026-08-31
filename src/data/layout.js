@@ -1,4 +1,4 @@
-export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize'];
+export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders'];
 
 export const DEFAULT_LAYOUT = {
   dir: 'h', ratio: 0.78,
@@ -8,17 +8,23 @@ export const DEFAULT_LAYOUT = {
     b: 'camera',
   },
   b: {
-    dir: 'v', ratio: 0.28,
-    a: { dir: 'v', ratio: 0.28, a: 'date', b: 'clock' },
+    dir: 'v', ratio: 0.42,
+    a: {
+      dir: 'v', ratio: 0.28,
+      a: 'reminders',
+      b: { dir: 'v', ratio: 0.44, a: 'date', b: 'clock' },
+    },
     b: {
       dir: 'v', ratio: 0.38,
       a: 'notes',
-      b: {
-        dir: 'v', ratio: 0.5,
-        a: 'wheel', b: 'prize',
-      },
+      b: { dir: 'v', ratio: 0.5, a: 'wheel', b: 'prize' },
     },
   },
+};
+
+// Where to graft a tile that a previously-saved layout predates.
+const NEW_TILE_PLACEMENT = {
+  reminders: { near: 'prize', side: 'bottom' },
 };
 
 /** Remove a leaf by ID; returns null if the leaf was the only node */
@@ -83,12 +89,41 @@ export function validateLayout(node) {
   return TILE_IDS.every(id => leaves.has(id)) && leaves.size === TILE_IDS.length;
 }
 
+/**
+ * Bring a previously-saved layout up to date: drop any leaves we no longer
+ * recognise, then graft in any tile IDs added since it was saved (near a
+ * sensible neighbour, falling back to the first leaf). Returns a tree that
+ * should pass validateLayout, or null if it can't be salvaged.
+ */
+export function migrateLayout(node) {
+  if (!node) return null;
+  let tree = node;
+
+  for (const id of collectLeaves(tree)) {
+    if (!TILE_IDS.includes(id)) {
+      tree = removeLeaf(tree, id);
+      if (!tree) return null;
+    }
+  }
+
+  for (const id of TILE_IDS) {
+    const leaves = collectLeaves(tree);
+    if (leaves.has(id)) continue;
+    const place = NEW_TILE_PLACEMENT[id];
+    const anchor = place && leaves.has(place.near) ? place.near : [...leaves][0];
+    if (!anchor) return null;
+    tree = insertLeaf(tree, anchor, id, place?.side ?? 'bottom');
+  }
+
+  return tree;
+}
+
 export function loadLayout() {
   try {
     const saved = localStorage.getItem('classboard_layout_v2');
     if (saved) {
-      const layout = JSON.parse(saved);
-      if (validateLayout(layout)) return layout;
+      const layout = migrateLayout(JSON.parse(saved));
+      if (layout && validateLayout(layout)) return layout;
     }
   } catch (_) {}
   return JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
