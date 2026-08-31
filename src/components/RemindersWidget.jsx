@@ -4,8 +4,8 @@ import "./RemindersWidget.css";
 const SETTINGS_KEY = "classboard_reminders";
 
 const DEFAULT_REMINDERS = [
-  { id: 1, text: "Attendance", edge: "start", minutes: 10 },
-  { id: 2, text: "Clean-up",   edge: "end",   minutes: 10 },
+  { id: 1, text: "Attendance", edge: "start", minutes: 10, enabled: true },
+  { id: 2, text: "Clean-up",   edge: "end",   minutes: 10, enabled: true },
 ];
 
 function loadReminders() {
@@ -19,6 +19,7 @@ function loadReminders() {
           text: r.text,
           edge: r.edge === "end" ? "end" : "start",
           minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
+          enabled: r.enabled !== false,
         }));
     }
   } catch (_) {}
@@ -54,6 +55,7 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
     const sinceStart = (now - timeToday(currentPeriod.start, now)) / 60000;
     const untilEnd   = (timeToday(currentPeriod.end, now) - now) / 60000;
     for (const r of reminders) {
+      if (r.enabled === false) continue;
       if (r.edge === "start" && sinceStart >= 0 && sinceStart < r.minutes) active.push(r);
       else if (r.edge === "end" && untilEnd > 0 && untilEnd <= r.minutes) active.push(r);
     }
@@ -67,7 +69,7 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
     setDraft(d => d.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   const removeDraft = (i) => setDraft(d => d.filter((_, idx) => idx !== i));
   const addDraft = () =>
-    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id)) + 1, text: "", edge: "start", minutes: 5 }]);
+    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id)) + 1, text: "", edge: "start", minutes: 5, enabled: true }]);
 
   const saveEdit = () => {
     const cleaned = draft
@@ -76,6 +78,7 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
         text: r.text.trim(),
         edge: r.edge === "end" ? "end" : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
+        enabled: r.enabled !== false,
       }))
       .filter(r => r.text);
     setReminders(cleaned);
@@ -116,7 +119,14 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
             </p>
             <div className="reminders-edit-list">
               {draft.map((r, i) => (
-                <div key={r.id} className="reminders-edit-row">
+                <div key={r.id} className={`reminders-edit-row ${r.enabled === false ? "reminders-edit-row--off" : ""}`}>
+                  <input
+                    type="checkbox"
+                    className="reminders-edit-toggle"
+                    checked={r.enabled !== false}
+                    onChange={e => updateDraft(i, "enabled", e.target.checked)}
+                    title={r.enabled === false ? "Turn this reminder on" : "Turn this reminder off"}
+                  />
                   <input
                     className="reminders-edit-text"
                     value={r.text}

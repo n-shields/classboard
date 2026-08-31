@@ -96,6 +96,19 @@
   gap: 6px;
 }
 
+.reminders-edit-toggle {
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.reminders-edit-row--off .reminders-edit-text,
+.reminders-edit-row--off select,
+.reminders-edit-row--off .reminders-edit-mins,
+.reminders-edit-row--off .reminders-edit-unit {
+  opacity: 0.4;
+}
+
 .reminders-edit-text {
   flex: 1;
   min-width: 0;
