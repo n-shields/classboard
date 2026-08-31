@@ -13,15 +13,21 @@ function loadReminders() {
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
     if (Array.isArray(s)) {
+      const seen = new Set();
       return s
         .filter(r => r && typeof r.text === "string")
-        .map(r => ({
-          id: r.id,
-          text: r.text,
-          edge: r.edge === "end" ? "end" : "start",
-          minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
-          enabled: r.enabled !== false,
-        }));
+        .map((r, i) => {
+          let id = Number.isFinite(r.id) ? r.id : i + 1;
+          while (seen.has(id)) id++;
+          seen.add(id);
+          return {
+            id,
+            text: r.text,
+            edge: r.edge === "end" ? "end" : "start",
+            minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
+            enabled: r.enabled !== false,
+          };
+        });
     }
   } catch (_) {}
   return DEFAULT_REMINDERS.map(r => ({ ...r }));
@@ -101,7 +107,7 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
     setDraft(d => d.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   const removeDraft = (i) => setDraft(d => d.filter((_, idx) => idx !== i));
   const addDraft = () =>
-    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id)) + 1, text: "", edge: "start", minutes: 5, enabled: true }]);
+    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id || 0)) + 1, text: "", edge: "start", minutes: 5, enabled: true }]);
 
   const saveEdit = () => {
     const cleaned = draft
@@ -122,7 +128,7 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
     <div className={`card reminders-widget ${collapsed ? "card--collapsed" : ""} ${active.length ? "reminders-widget--active" : ""}`} tabIndex={-1}>
       <div className="card-body reminders-body">
         {active.length > 0 ? (
-          <div className="reminders-messages">
+          <div className="reminders-messages" data-count={Math.min(active.length, 4)}>
             {active.map(r => (
               <div key={r.id} className={`reminders-message reminders-message--${r.edge}`}>
                 <span className="reminders-message-text">{r.text}</span>

@@ -15,9 +15,17 @@
 .reminders-messages {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Shrink the type as more reminders stack up so they all fit the tile */
+  --rm-size: clamp(1rem, 11cqi, 2.6rem);
 }
+.reminders-messages[data-count="2"] { --rm-size: clamp(0.95rem, 8cqi, 2.2rem); }
+.reminders-messages[data-count="3"] { --rm-size: clamp(0.85rem, 6cqi, 1.9rem); gap: 4px; }
+.reminders-messages[data-count="4"] { --rm-size: clamp(0.8rem, 5cqi, 1.5rem); gap: 3px; }
 
 .reminders-message {
   display: flex;
@@ -25,8 +33,8 @@
   justify-content: center;
   gap: 0.35em;
   font-weight: 800;
-  line-height: 1.05;
-  font-size: clamp(1rem, 11cqi, 2.6rem);
+  line-height: 1.1;
+  font-size: var(--rm-size);
   letter-spacing: 0.01em;
   text-transform: uppercase;
 }
