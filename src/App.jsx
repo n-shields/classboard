@@ -45,9 +45,36 @@ function loadPeriodData() {
       if (p.excludedNames && !Array.isArray(p.excludedNames)) delete p.excludedNames;
       if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
       if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
+      if (p.reminders && !Array.isArray(p.reminders))         delete p.reminders;
     }
     return data;
   } catch (_) { return {}; }
+}
+
+// One-time: reminders used to be a single global list. Seed each period that
+// doesn't already have its own with the old global list so existing setups
+// carry over, then drop the global key — reminders are now per-period.
+function migrateGlobalReminders(periodData) {
+  const raw = localStorage.getItem("classboard_reminders");
+  if (raw == null) return periodData;
+  let list = null;
+  try { list = JSON.parse(raw); } catch (_) {}
+  if (!Array.isArray(list) || list.length === 0) {
+    localStorage.removeItem("classboard_reminders");
+    return periodData;
+  }
+  const labels = new Set();
+  for (const periods of Object.values(loadSchedules())) {
+    for (const p of periods) labels.add(p.label);
+  }
+  if (labels.size === 0) return periodData; // no schedule yet — retry next load
+  const next = { ...periodData };
+  for (const label of labels) {
+    if (!Array.isArray(next[label]?.reminders)) next[label] = { ...next[label], reminders: list };
+  }
+  localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
+  localStorage.removeItem("classboard_reminders");
+  return next;
 }
 function loadScheduleType() {
   return localStorage.getItem("classboard_schedule_type") || "Regular";
@@ -71,7 +98,7 @@ export default function App() {
     // Fall back to first available schedule if stored value is stale/unrecognized
     return (candidate && candidate in loaded) ? candidate : (Object.keys(loaded)[0] ?? "Regular");
   });
-  const [periodData, setPeriodData]         = useState(loadPeriodData);
+  const [periodData, setPeriodData]         = useState(() => migrateGlobalReminders(loadPeriodData()));
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
@@ -128,6 +155,7 @@ export default function App() {
   const currentNames         = periodKey ? (periodData[periodKey]?.names         ?? DEFAULT_NAMES) : DEFAULT_NAMES;
   const currentExcluded      = periodKey ? (periodData[periodKey]?.excludedNames  ?? [])          : [];
   const currentProgress      = periodKey ? (periodData[periodKey]?.progress      ?? null)        : null;
+  const currentReminders     = periodKey ? periodData[periodKey]?.reminders : undefined;
   const currentTextFontSizes = periodKey ? (periodData[periodKey]?.textFontSizes ?? [48, 48, 48]) : [48, 48, 48];
   const currentNoteFontSizes = periodKey ? (periodData[periodKey]?.noteFontSizes ?? [20, 20, 20]) : [20, 20, 20];
 
@@ -265,6 +293,7 @@ export default function App() {
   const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);
   const handleExcludedChange      = useCallback((excludedNames) => savePeriod(periodKey, { excludedNames }), [periodKey, savePeriod]);
   const handleProgressChange      = useCallback((progress)      => savePeriod(periodKey, { progress }),      [periodKey, savePeriod]);
+  const handleRemindersChange     = useCallback((reminders)     => savePeriod(periodKey, { reminders }),     [periodKey, savePeriod]);
   const handleTextFontSizesChange = useCallback((textFontSizes) => savePeriod(periodKey, { textFontSizes }), [periodKey, savePeriod]);
   const handleNoteFontSizesChange = useCallback((noteFontSizes) => savePeriod(periodKey, { noteFontSizes }), [periodKey, savePeriod]);
 
@@ -383,7 +412,10 @@ export default function App() {
     ),
     reminders: seatingTile === "reminders" ? seatingChartNode : (
       <RemindersWidget
+        key={periodKey}
         currentPeriod={clockPeriod}
+        reminders={currentReminders}
+        onRemindersChange={handleRemindersChange}
         collapsed={collapsed.reminders}
       />
     ),

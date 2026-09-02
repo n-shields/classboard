@@ -1,40 +1,31 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import "./RemindersWidget.css";
 
-const SETTINGS_KEY = "classboard_reminders";
-const DISMISS_KEY  = "classboard_reminders_dismissed";
+const DISMISS_KEY = "classboard_reminders_dismissed";
 
 const DEFAULT_REMINDERS = [
   { id: 1, text: "Attendance", edge: "start", minutes: 10, enabled: true },
   { id: 2, text: "Clean-up",   edge: "end",   minutes: 10, enabled: true },
 ];
 
-function loadReminders() {
-  try {
-    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
-    if (Array.isArray(s)) {
-      const seen = new Set();
-      return s
-        .filter(r => r && typeof r.text === "string")
-        .map((r, i) => {
-          let id = Number.isFinite(r.id) ? r.id : i + 1;
-          while (seen.has(id)) id++;
-          seen.add(id);
-          return {
-            id,
-            text: r.text,
-            edge: r.edge === "end" ? "end" : "start",
-            minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
-            enabled: r.enabled !== false,
-          };
-        });
-    }
-  } catch (_) {}
-  return DEFAULT_REMINDERS.map(r => ({ ...r }));
-}
-
-function saveReminders(list) {
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(list)); } catch (_) {}
+// Coerce a stored/imported list into clean reminder objects with unique ids.
+function normalizeReminders(list) {
+  if (!Array.isArray(list)) return DEFAULT_REMINDERS.map(r => ({ ...r }));
+  const seen = new Set();
+  return list
+    .filter(r => r && typeof r.text === "string")
+    .map((r, i) => {
+      let id = Number.isFinite(r.id) ? r.id : i + 1;
+      while (seen.has(id)) id++;
+      seen.add(id);
+      return {
+        id,
+        text: r.text,
+        edge: r.edge === "end" ? "end" : "start",
+        minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
+        enabled: r.enabled !== false,
+      };
+    });
 }
 
 // A "HH:MM" time on today's date, relative to `now`
@@ -64,8 +55,8 @@ function saveDismissed(rec) {
   try { localStorage.setItem(DISMISS_KEY, JSON.stringify(rec)); } catch (_) {}
 }
 
-export default function RemindersWidget({ currentPeriod, collapsed }) {
-  const [reminders, setReminders] = useState(loadReminders);
+export default function RemindersWidget({ currentPeriod, reminders: remindersProp, onRemindersChange, collapsed }) {
+  const reminders = useMemo(() => normalizeReminders(remindersProp), [remindersProp]);
   const [now, setNow] = useState(() => new Date());
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -119,8 +110,7 @@ export default function RemindersWidget({ currentPeriod, collapsed }) {
         enabled: r.enabled !== false,
       }))
       .filter(r => r.text);
-    setReminders(cleaned);
-    saveReminders(cleaned);
+    onRemindersChange?.(cleaned);
     setEditOpen(false);
   };
 
