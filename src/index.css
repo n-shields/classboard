@@ -52,6 +52,9 @@ input:focus, textarea:focus, select:focus {
   outline-offset: 1px;
 }
 
+/* Editors drop the caret after a spell of no typing (see useIdleCaret) */
+.caret-idle { caret-color: transparent; }
+
 .modal-overlay {
   position: fixed;
   inset: 0;

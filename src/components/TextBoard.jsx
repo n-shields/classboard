@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import useIdleCaret from "../hooks/useIdleCaret";
 import "./TextBoard.css";
 
 const PAGE_COUNT = 3;
@@ -13,6 +14,7 @@ export default function TextBoard({ texts = ["", "", ""], onTextChange, periodLa
   const [isNumbered, setIsNumbered] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const editorRef = useRef();
+  useIdleCaret(editorRef);
 
   const fontSizes = fontSizesProp ?? localFontSizes;
   const setFontSizes = (updater) => {

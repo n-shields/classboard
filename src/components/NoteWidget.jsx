@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import useIdleCaret from "../hooks/useIdleCaret";
 import "./NoteWidget.css";
 
 const PAGE_COUNT = 3;
@@ -15,6 +16,7 @@ export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodL
   const [hasSelection, setHasSelection] = useState(false);
   const cardRef = useRef(null);
   const editorRef = useRef(null);
+  useIdleCaret(editorRef);
 
   const fontSizes = fontSizesProp ?? localFontSizes;
   const setFontSizes = (updater) => {
