@@ -1,14 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import useIdleCaret from "../hooks/useIdleCaret";
+import NoteSyncModal from "./NoteSyncModal";
 import "./NoteWidget.css";
 
 const PAGE_COUNT = 3;
 const DEFAULT_FONT = 20;
 
-export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodLabel, collapsed, onToggle, fontSizes: fontSizesProp, onFontSizesChange }) {
+export default function NoteWidget({
+  notes = ["", "", ""], onNoteChange, periodLabel, collapsed, onToggle,
+  fontSizes: fontSizesProp, onFontSizesChange,
+  allPeriodLabels = [], syncedWith = [], onSyncChange,
+}) {
   const [activeTab, setActiveTab] = useState(0);
   const [localFontSizes, setLocalFontSizes] = useState(() => Array(PAGE_COUNT).fill(DEFAULT_FONT));
   const [toolbarVisible, setToolbarVisible] = useState(true);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isBullet, setIsBullet] = useState(false);
@@ -150,7 +156,28 @@ export default function NoteWidget({ notes = ["", "", ""], onNoteChange, periodL
           <span className="note-page-indicator">{activeTab + 1}/{PAGE_COUNT}</span>
           <button className="note-nav-btn" onClick={nextPage} onMouseDown={e => e.preventDefault()} title="Next page" tabIndex={-1}>›</button>
         </div>
+        {periodLabel && onSyncChange && (
+          <div className="note-sync-nav">
+            <button
+              className={`note-nav-btn${syncedWith.length > 0 ? " note-nav-btn-active" : ""}`}
+              onClick={() => setSyncModalOpen(true)}
+              onMouseDown={e => e.preventDefault()}
+              title={syncedWith.length > 0 ? `Synced with ${syncedWith.join(", ")}` : "Sync notes with another period"}
+              tabIndex={-1}
+            >⇄</button>
+          </div>
+        )}
       </div>
+
+      {syncModalOpen && (
+        <NoteSyncModal
+          currentLabel={periodLabel}
+          allLabels={allPeriodLabels}
+          initialSelected={syncedWith}
+          onSave={labels => { onSyncChange(labels); setSyncModalOpen(false); }}
+          onClose={() => setSyncModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT } from "./data/layout";
+import { loadNoteSyncGroups, saveNoteSyncGroups, getSyncMates, setSyncGroup } from "./data/noteSync";
 import "./App.css";
 
 const PERIOD_DATA_KEY         = "classboard_period_data";
@@ -99,6 +100,7 @@ export default function App() {
     return (candidate && candidate in loaded) ? candidate : (Object.keys(loaded)[0] ?? "Regular");
   });
   const [periodData, setPeriodData]         = useState(() => migrateGlobalReminders(loadPeriodData()));
+  const [noteSyncGroups, setNoteSyncGroups] = useState(loadNoteSyncGroups);
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
@@ -282,13 +284,41 @@ export default function App() {
   const handleNoteChange = useCallback((tabIdx, text) => {
     if (!periodKey) return;
     setPeriodData(d => {
-      const existing = d[periodKey]?.notes ?? ["","",""];
-      const notes = [...existing]; notes[tabIdx] = text;
-      const next = { ...d, [periodKey]: { ...d[periodKey], notes } };
+      const labels = [periodKey, ...getSyncMates(noteSyncGroups, periodKey)];
+      const next = { ...d };
+      for (const label of labels) {
+        const existing = next[label]?.notes ?? ["","",""];
+        const notes = [...existing]; notes[tabIdx] = text;
+        next[label] = { ...next[label], notes };
+      }
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });
-  }, [periodKey]);
+  }, [periodKey, noteSyncGroups]);
+
+  // Link `periodKey`'s notes with `mateLabels`; newly-linked periods immediately
+  // inherit this period's current notes so there's nothing left to copy-paste.
+  const handleNoteSyncChange = useCallback((mateLabels) => {
+    if (!periodKey) return;
+    const prevMates = getSyncMates(noteSyncGroups, periodKey);
+    const newlyAdded = mateLabels.filter(l => !prevMates.includes(l));
+
+    const nextGroups = setSyncGroup(noteSyncGroups, periodKey, mateLabels);
+    setNoteSyncGroups(nextGroups);
+    saveNoteSyncGroups(nextGroups);
+
+    if (newlyAdded.length > 0) {
+      setPeriodData(d => {
+        const sourceNotes = d[periodKey]?.notes ?? ["","",""];
+        const next = { ...d };
+        for (const label of newlyAdded) {
+          next[label] = { ...next[label], notes: [...sourceNotes] };
+        }
+        localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+  }, [periodKey, noteSyncGroups]);
 
   const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);
   const handleExcludedChange      = useCallback((excludedNames) => savePeriod(periodKey, { excludedNames }), [periodKey, savePeriod]);
@@ -389,6 +419,9 @@ export default function App() {
         onToggle={() => toggleCollapsed("notes")}
         fontSizes={currentNoteFontSizes}
         onFontSizesChange={handleNoteFontSizesChange}
+        allPeriodLabels={periodNames.map(n => n.label)}
+        syncedWith={periodKey ? getSyncMates(noteSyncGroups, periodKey) : []}
+        onSyncChange={handleNoteSyncChange}
       />
     ),
     wheel: seatingTile === "wheel" ? seatingChartNode : (

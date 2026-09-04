@@ -7,6 +7,7 @@ const KEYS = [
   "classboard_period_data",
   "classboard_global_theme",
   "classboard_camera_settings",
+  "classboard_note_sync_groups",
 ];
 
 export default function ExportImport({ onImport }) {
@@ -47,6 +48,8 @@ export default function ExportImport({ onImport }) {
           localStorage.setItem("classboard_global_theme", data.classboard_global_theme);
         if (data.classboard_camera_settings)
           localStorage.setItem("classboard_camera_settings", JSON.stringify(data.classboard_camera_settings));
+        if (data.classboard_note_sync_groups)
+          localStorage.setItem("classboard_note_sync_groups", JSON.stringify(data.classboard_note_sync_groups));
         onImport?.();
       } catch (err) {
         alert("Could not read file: " + err.message);
