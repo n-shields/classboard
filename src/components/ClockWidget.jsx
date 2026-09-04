@@ -167,22 +167,33 @@ export default function ClockWidget({
     setTimerRunning(true);
   }, []);
 
-  // Global shortcut: number keys 1-9 start a timer of that many minutes,
-  // as long as focus isn't in a text field (notes pane, board, inputs, etc.)
-  // or a modal is open.
+  // Global shortcuts, active as long as focus isn't in a text field (notes
+  // pane, board, inputs, etc.) and no modal is open:
+  //   1-9  start a timer of that many minutes
+  //   p/t  jump to Period / Timer mode
+  //   c    collapse or expand the clock pane
   useEffect(() => {
     const handler = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key < "1" || e.key > "9") return;
       const target = e.target;
       if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (document.querySelector(".modal-overlay")) return;
-      setMode("Timer");
-      setPreset(Number(e.key));
+
+      if (e.key >= "1" && e.key <= "9") {
+        setMode("Timer");
+        setPreset(Number(e.key));
+        return;
+      }
+      switch (e.key.toLowerCase()) {
+        case "p": setMode("Period"); break;
+        case "t": setMode("Timer"); break;
+        case "c": onToggle?.(); break;
+        default: break;
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setPreset]);
+  }, [setPreset, onToggle]);
 
   const handleTimerInputBlur = () => {
     const parts = timerInput.split(":").map(Number);
