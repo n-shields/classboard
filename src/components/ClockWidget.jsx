@@ -167,6 +167,23 @@ export default function ClockWidget({
     setTimerRunning(true);
   }, []);
 
+  // Global shortcut: number keys 1-9 start a timer of that many minutes,
+  // as long as focus isn't in a text field (notes pane, board, inputs, etc.)
+  // or a modal is open.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key < "1" || e.key > "9") return;
+      const target = e.target;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (document.querySelector(".modal-overlay")) return;
+      setMode("Timer");
+      setPreset(Number(e.key));
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setPreset]);
+
   const handleTimerInputBlur = () => {
     const parts = timerInput.split(":").map(Number);
     let secs = 0;
