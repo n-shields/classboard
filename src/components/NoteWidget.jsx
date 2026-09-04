@@ -164,7 +164,7 @@ export default function NoteWidget({
               onMouseDown={e => e.preventDefault()}
               title={syncedWith.length > 0 ? `Synced with ${syncedWith.join(", ")}` : "Sync notes with another period"}
               tabIndex={-1}
-            >⇄</button>
+            >∞</button>
           </div>
         )}
       </div>
