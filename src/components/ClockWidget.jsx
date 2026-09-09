@@ -54,7 +54,10 @@ function formatSeconds(s) {
 
 // Split total seconds into { main: "M" or "MM" or "HH:MM", sec: "SS" }
 // No leading zero on minutes when there are no hours (e.g. 9:45 not 09:45)
-function splitSecs(total) {
+// When `round` is set (seconds hidden), round to the nearest minute instead
+// of truncating, so e.g. 89s reads as "2" rather than "1".
+function splitSecs(total, round = false) {
+  if (round) total = Math.round(total / 60) * 60;
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
@@ -167,11 +170,24 @@ export default function ClockWidget({
     setTimerRunning(true);
   }, []);
 
+  // Nudge the timer by a step that depends on how much time is left: under a
+  // minute, nudge by 10s; otherwise by a full minute.
+  const adjustTimer = useCallback((sign) => {
+    setTimerSecs(s => {
+      const step = s < 60 ? 10 : 60;
+      const next = Math.max(0, s + sign * step);
+      if (next > 0) setTimerDone(false);
+      return next;
+    });
+  }, []);
+
   // Global shortcuts, active as long as focus isn't in a text field (notes
   // pane, board, inputs, etc.) and no modal is open:
-  //   1-9  start a timer of that many minutes
-  //   p/t  jump to Period / Timer mode
-  //   c    collapse or expand the clock pane
+  //   1-9    start a timer of that many minutes
+  //   +/-    add/subtract time on the timer (10s under a minute, else 1min)
+  //   space  pause the timer if running, start it if paused
+  //   p/t    jump to Period / Timer mode
+  //   c      collapse or expand the clock pane
   useEffect(() => {
     const handler = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -184,6 +200,25 @@ export default function ClockWidget({
         setPreset(Number(e.key));
         return;
       }
+      if (e.key === "+" || e.key === "-") {
+        setMode("Timer");
+        adjustTimer(e.key === "+" ? 1 : -1);
+        return;
+      }
+      if (e.key === " ") {
+        e.preventDefault();
+        setMode("Timer");
+        if (timerDone) {
+          restartTimer();
+        } else if (timerRunning) {
+          setTimerRunning(false);
+        } else {
+          setTimerSecs(s => { lastDurationRef.current = s; return s; });
+          setTimerRunning(true);
+          setTimerDone(false);
+        }
+        return;
+      }
       switch (e.key.toLowerCase()) {
         case "p": setMode("Period"); break;
         case "t": setMode("Timer"); break;
@@ -193,7 +228,7 @@ export default function ClockWidget({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setPreset, onToggle]);
+  }, [setPreset, adjustTimer, onToggle, timerDone, timerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTimerInputBlur = () => {
     const parts = timerInput.split(":").map(Number);
@@ -262,14 +297,14 @@ export default function ClockWidget({
   let displayStr = clockTimeStr;
   if (mode === "Period") {
     if (currentPeriod && periodRemaining != null) {
-      const { main, sec } = splitSecs(Math.max(0, periodRemaining));
+      const { main, sec } = splitSecs(Math.max(0, periodRemaining), !showSecsByMode.Period);
       displayStr = main + (showSecsByMode.Period ? `:${sec}` : "");
     } else if (nextPeriod && nextStarting != null) {
-      const { main, sec } = splitSecs(Math.max(0, nextStarting));
+      const { main, sec } = splitSecs(Math.max(0, nextStarting), !showSecsByMode.Period);
       displayStr = main + (showSecsByMode.Period ? `:${sec}` : "");
     }
   } else if (mode === "Timer") {
-    const { main, sec } = splitSecs(timerSecs);
+    const { main, sec } = splitSecs(timerSecs, !showSecsByMode.Timer);
     displayStr = main + (showSecsByMode.Timer ? `:${sec}` : "");
   }
   useEffect(() => { onDisplayChange?.(displayStr); }, [displayStr]); // eslint-disable-line
@@ -324,8 +359,8 @@ export default function ClockWidget({
           </div>
         )}
         {mode === "Period" && (() => {
-          const rem = splitSecs(Math.max(0, periodRemaining ?? 0));
-          const nxt = splitSecs(Math.max(0, nextStarting ?? 0));
+          const rem = splitSecs(Math.max(0, periodRemaining ?? 0), !showSecsByMode.Period);
+          const nxt = splitSecs(Math.max(0, nextStarting ?? 0), !showSecsByMode.Period);
           return (
             <div className="clock-display">
               {currentPeriod ? (
@@ -354,7 +389,7 @@ export default function ClockWidget({
         })()}
 
         {mode === "Timer" && (() => {
-          const t = splitSecs(timerSecs);
+          const t = splitSecs(timerSecs, !showSecsByMode.Timer);
           return (
             <div className="clock-display timer-display">
               <div className={`clock-time ${timerDone ? "clock-warn" : ""}`} style={{ fontSize: fontSizeStyle }}>
