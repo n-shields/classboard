@@ -15,7 +15,7 @@ import { THEMES, applyTheme } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, collectLeaves, isDynamicPaneId, makePaneId } from "./data/layout";
 import { loadNoteSyncGroups, saveNoteSyncGroups, getSyncMates, setSyncGroup } from "./data/noteSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
-import { migratePeriodPages, pagesForPane } from "./data/pages";
+import { migratePeriodPages, pagesForPane, isSamePaneFamily } from "./data/pages";
 import "./App.css";
 
 const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
@@ -432,8 +432,7 @@ export default function App() {
   // already a Board/Notes pane of the matching type, otherwise pop the page
   // out into a brand-new tile next to it.
   const handlePageDrop = (paneType, info, targetTileId, side) => {
-    const isPaneOfType = targetTileId === paneType || targetTileId.startsWith(`${paneType}-pane-`);
-    if (isPaneOfType) handleMergePage(paneType, info, targetTileId);
+    if (isSamePaneFamily(targetTileId, paneType)) handleMergePage(paneType, info, targetTileId);
     else handleDetachPage(paneType, info, targetTileId, side);
   };
 

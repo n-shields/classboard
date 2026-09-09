@@ -100,7 +100,7 @@
   position: relative;
 }
 
-/* ── Tab strip (browser-tab style) ── */
+/* ── Tab strip (browser-tab style) — hidden until hovered/focused ── */
 .textboard-tabstrip {
   display: flex;
   align-items: center;
@@ -108,9 +108,19 @@
   padding: 6px 8px 0;
   flex-shrink: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  max-height: 40px;
+  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
 }
 .textboard-tabstrip::-webkit-scrollbar { display: none; }
+
+.textboard:not(:hover):not(:focus-within) .textboard-tabstrip {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
 
 .textboard-tab {
   display: flex;

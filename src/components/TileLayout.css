@@ -216,3 +216,22 @@
 .tl-drop-bottom { inset: 75% 0 0 0; }
 .tl-drop-left   { inset: 0 70% 0 0; }
 .tl-drop-right  { inset: 0 0 0 70%; }
+
+/* Whole-tile "join this pane's tabs" target, instead of a directional split */
+.tl-drop-merge {
+  inset: 6px;
+  background: transparent;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tl-drop-merge span {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+}

@@ -39,3 +39,19 @@ export function pagesForPane(pages, panes, paneId) {
   const byId = new Map(pages.map(p => [p.id, p]));
   return ids.map(id => byId.get(id)).filter(Boolean);
 }
+
+// "text" | "notes" | null — which page family a pane id belongs to.
+export function paneTypeOf(paneId) {
+  if (!paneId) return null;
+  if (paneId === "text" || paneId.startsWith("text-pane-")) return "text";
+  if (paneId === "notes" || paneId.startsWith("notes-pane-")) return "notes";
+  return null;
+}
+
+// Is `tileId` a Board/Notes pane of the same family as `paneId`? Used to tell
+// a merge target (drop anywhere on it to join its tabs) from a plain tile
+// (drop on an edge to pop out a brand-new pane there).
+export function isSamePaneFamily(tileId, paneId) {
+  const type = paneTypeOf(paneId);
+  return !!type && paneTypeOf(tileId) === type;
+}

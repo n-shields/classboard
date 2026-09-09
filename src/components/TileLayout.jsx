@@ -1,5 +1,6 @@
 import { useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { moveTile, swapLeaves } from "../data/layout";
+import { isSamePaneFamily } from "../data/pages";
 import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./TileLayout.css";
 
@@ -7,7 +8,11 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // ── Drop overlay shown when a tile is being dragged ──────────────────────────
 
-function DropOverlay({ tileId, onDrop, onDropPage }) {
+// `isMergeTarget`: this tile is a Board/Notes pane of the same family as the
+// page being dragged, so dropping anywhere on it joins its tab strip instead
+// of splitting off a new tile — shown as a single full-tile highlight rather
+// than a directional top/bottom/left/right split indicator.
+function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
   const [side, setSide] = useState(null);
 
   const getSide = (e) => {
@@ -40,7 +45,10 @@ function DropOverlay({ tileId, onDrop, onDropPage }) {
         setSide(null);
       }}
     >
-      {side && <div className={`tl-drop-indicator tl-drop-${side}`} />}
+      {side && (isMergeTarget
+        ? <div className="tl-drop-indicator tl-drop-merge"><span>+ Add tab</span></div>
+        : <div className={`tl-drop-indicator tl-drop-${side}`} />
+      )}
     </div>
   );
 }
@@ -83,6 +91,7 @@ function TileSlot({ id, content }) {
       {dragging && dragging !== id && pageDragOrigin !== id && (
         <DropOverlay
           tileId={id}
+          isMergeTarget={isSamePaneFamily(id, pageDragOrigin)}
           onDrop={(fromId, side) => { onMove(fromId, id, side); setDragging(null); }}
           onDropPage={(info, side) => { onPageDrop?.(info.paneType, info, id, side); setDragging(null); setPageDragOrigin(null); }}
         />

@@ -70,7 +70,7 @@
   pointer-events: all;
 }
 
-/* ── Tab strip (browser-tab style) ── */
+/* ── Tab strip (browser-tab style) — hidden until hovered/focused ── */
 .note-tabstrip {
   display: flex;
   align-items: center;
@@ -78,9 +78,19 @@
   padding: 4px 8px 0;
   flex-shrink: 0;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  max-height: 34px;
+  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
 }
 .note-tabstrip::-webkit-scrollbar { display: none; }
+
+.note-widget:not(:hover):not(:focus-within) .note-tabstrip {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
 
 .note-tab {
   display: flex;

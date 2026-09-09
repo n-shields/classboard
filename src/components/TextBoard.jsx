@@ -115,10 +115,10 @@ export default function TextBoard({ pages, onPagesChange, paneId = "text", perio
     e.dataTransfer.setData(PAGE_DND_TYPE, JSON.stringify(info));
     e.dataTransfer.setData("text/plain", "");
     e.dataTransfer.effectAllowed = "move";
-    setTimeout(() => {
-      dragCtx?.setDragging?.(page.id);
-      dragCtx?.setPageDragOrigin?.(paneId);
-    }, 0);
+    // Set synchronously (unlike the tile-handle drag) so the other tiles'
+    // drop overlays are guaranteed live before a fast real drag reaches them.
+    dragCtx?.setDragging?.(page.id);
+    dragCtx?.setPageDragOrigin?.(paneId);
   };
   const onTabDragEnd = () => {
     dragCtx?.setDragging?.(null);
