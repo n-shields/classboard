@@ -1,5 +1,24 @@
 export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders'];
 
+// A detached page (dragged out of a Board/Notes tab strip) lives in the tree
+// as a dynamically-created leaf of the form "<text|notes>-pane-<id>" — these
+// are allowed anywhere in the tree but, unlike TILE_IDS, aren't required.
+export function isDynamicPaneId(id) {
+  return typeof id === 'string' && /^(text|notes)-pane-/.test(id);
+}
+
+export function makePaneId(paneType) {
+  return `${paneType}-pane-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+}
+
+/** All leaf IDs present in a layout tree */
+export function collectLeaves(node, out = new Set()) {
+  if (typeof node === 'string') { out.add(node); return out; }
+  collectLeaves(node.a, out);
+  collectLeaves(node.b, out);
+  return out;
+}
+
 export const DEFAULT_LAYOUT = {
   dir: 'h', ratio: 0.78,
   a: {
@@ -70,23 +89,17 @@ export function moveTile(tree, fromId, toId, side) {
   return insertLeaf(removed, toId, fromId, side);
 }
 
-function collectLeaves(node, out = new Set()) {
-  if (typeof node === 'string') { out.add(node); return out; }
-  collectLeaves(node.a, out);
-  collectLeaves(node.b, out);
-  return out;
-}
-
-/** Validate that a layout tree contains exactly the expected tile IDs */
+/** Validate that a layout tree contains at least the expected tile IDs
+ *  (plus, optionally, any number of detached-page panes alongside them) */
 export function validateLayout(node) {
   function check(n) {
-    if (typeof n === 'string') return TILE_IDS.includes(n);
+    if (typeof n === 'string') return TILE_IDS.includes(n) || isDynamicPaneId(n);
     if (!n || !['h', 'v'].includes(n.dir) || typeof n.ratio !== 'number') return false;
     return check(n.a) && check(n.b);
   }
   if (!check(node)) return false;
   const leaves = collectLeaves(node);
-  return TILE_IDS.every(id => leaves.has(id)) && leaves.size === TILE_IDS.length;
+  return TILE_IDS.every(id => leaves.has(id));
 }
 
 /**
@@ -100,7 +113,7 @@ export function migrateLayout(node) {
   let tree = node;
 
   for (const id of collectLeaves(tree)) {
-    if (!TILE_IDS.includes(id)) {
+    if (!TILE_IDS.includes(id) && !isDynamicPaneId(id)) {
       tree = removeLeaf(tree, id);
       if (!tree) return null;
     }

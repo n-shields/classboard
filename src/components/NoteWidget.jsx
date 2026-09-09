@@ -1,18 +1,24 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import useIdleCaret from "../hooks/useIdleCaret";
 import NoteSyncModal from "./NoteSyncModal";
+import { makePage } from "../data/pages";
+import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./NoteWidget.css";
 
-const PAGE_COUNT = 3;
 const DEFAULT_FONT = 20;
+const PANE_TYPE = "notes";
+
+function pageLabel(page, idx) {
+  const text = (page.html || "").replace(/<[^>]+>/g, "").trim();
+  if (text) return text.length > 14 ? text.slice(0, 14) + "…" : text;
+  return `Page ${idx + 1}`;
+}
 
 export default function NoteWidget({
-  notes = ["", "", ""], onNoteChange, periodLabel, collapsed, onToggle,
-  fontSizes: fontSizesProp, onFontSizesChange,
+  pages, onPagesChange, paneId = "notes", periodLabel, collapsed,
   allPeriodLabels = [], syncedWith = [], onSyncChange,
 }) {
-  const [activeTab, setActiveTab] = useState(0);
-  const [localFontSizes, setLocalFontSizes] = useState(() => Array(PAGE_COUNT).fill(DEFAULT_FONT));
+  const [activePageId, setActivePageId] = useState(pages[0]?.id ?? null);
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [isBold, setIsBold] = useState(false);
@@ -22,25 +28,20 @@ export default function NoteWidget({
   const [hasSelection, setHasSelection] = useState(false);
   const cardRef = useRef(null);
   const editorRef = useRef(null);
+  const dragCtx = useContext(DragCtx);
   useIdleCaret(editorRef);
 
-  const fontSizes = fontSizesProp ?? localFontSizes;
-  const setFontSizes = (updater) => {
-    const next = typeof updater === "function" ? updater(fontSizes) : updater;
-    if (onFontSizesChange) onFontSizesChange(next);
-    else setLocalFontSizes(next);
-  };
+  useEffect(() => {
+    if (!pages.some(p => p.id === activePageId)) setActivePageId(pages[0]?.id ?? null);
+  }, [pages, activePageId]);
 
-  const prevPage = () => setActiveTab(t => (t - 1 + PAGE_COUNT) % PAGE_COUNT);
-  const nextPage = () => setActiveTab(t => (t + 1) % PAGE_COUNT);
+  const activePage = pages.find(p => p.id === activePageId) ?? null;
 
   // Sync content on tab change; period changes remount via key in App
   useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.innerHTML = notes[activeTab] ?? "";
-    }
+    if (editorRef.current) editorRef.current.innerHTML = activePage?.html ?? "";
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activePageId]);
 
   // Track selection state for conditional formatting
   useEffect(() => {
@@ -69,11 +70,11 @@ export default function NoteWidget({
   }, [toolbarVisible]);
 
   const saveContent = () => {
-    if (!editorRef.current) return;
+    if (!editorRef.current || !activePage) return;
     const html = editorRef.current.innerHTML;
     const cleaned = html === "<br>" ? "" : html;
     if (cleaned === "" && html !== "") editorRef.current.innerHTML = "";
-    onNoteChange(activeTab, cleaned);
+    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: cleaned } : p)));
   };
 
   const execFormat = (cmd) => {
@@ -108,14 +109,59 @@ export default function NoteWidget({
   const handleSizeBtn = (delta) => {
     if (hasSelection) {
       changeSizeForSelection(delta);
-    } else {
-      setFontSizes(fs => fs.map((f, i) => i === activeTab ? Math.min(72, Math.max(10, f + delta)) : f));
+    } else if (activePage) {
+      const fontSize = Math.min(72, Math.max(10, activePage.fontSize + delta));
+      onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, fontSize } : p)));
     }
   };
 
   const handleClear = () => {
+    if (!activePage) return;
     if (editorRef.current) editorRef.current.innerHTML = "";
-    onNoteChange(activeTab, "");
+    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: "" } : p)));
+  };
+
+  const addPage = () => {
+    const page = makePage("", DEFAULT_FONT);
+    onPagesChange([...pages, page]);
+    setActivePageId(page.id);
+  };
+
+  const closePage = (id) => onPagesChange(pages.filter(p => p.id !== id));
+
+  const onTabDragStart = (e, page) => {
+    const info = { paneType: PANE_TYPE, pageId: page.id, sourcePaneId: paneId };
+    e.dataTransfer.setData(PAGE_DND_TYPE, JSON.stringify(info));
+    e.dataTransfer.setData("text/plain", "");
+    e.dataTransfer.effectAllowed = "move";
+    setTimeout(() => {
+      dragCtx?.setDragging?.(page.id);
+      dragCtx?.setPageDragOrigin?.(paneId);
+    }, 0);
+  };
+  const onTabDragEnd = () => {
+    dragCtx?.setDragging?.(null);
+    dragCtx?.setPageDragOrigin?.(null);
+  };
+
+  // Cross-pane drops are handled by the outer tile grid's drop overlay
+  // (which merges into a Board/Notes pane, or detaches a new tile elsewhere);
+  // this only reorders a tab within its own strip.
+  const onTabDrop = (e, targetIdx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const json = e.dataTransfer.getData(PAGE_DND_TYPE);
+    const info = json ? JSON.parse(json) : null;
+    if (info?.sourcePaneId === paneId) {
+      const from = pages.findIndex(p => p.id === info.pageId);
+      if (from !== -1 && from !== targetIdx) {
+        const reordered = pages.slice();
+        const [moved] = reordered.splice(from, 1);
+        reordered.splice(from < targetIdx ? targetIdx - 1 : targetIdx, 0, moved);
+        onPagesChange(reordered);
+      }
+    }
+    onTabDragEnd();
   };
 
   return (
@@ -142,21 +188,47 @@ export default function NoteWidget({
         )}
       </div>
       <div className="card-body note-body">
-        <div
-          ref={editorRef}
-          className="note-textarea"
-          contentEditable
-          suppressContentEditableWarning
-          onInput={saveContent}
-          style={{ fontSize: `${fontSizes[activeTab]}px`, lineHeight: 1.4 }}
-          data-placeholder={`Notes ${activeTab + 1}${periodLabel ? ` — ${periodLabel}` : ""}…`}
-        />
-        <div className="note-page-nav">
-          <button className="note-nav-btn" onClick={prevPage} onMouseDown={e => e.preventDefault()} title="Previous page" tabIndex={-1}>‹</button>
-          <span className="note-page-indicator">{activeTab + 1}/{PAGE_COUNT}</span>
-          <button className="note-nav-btn" onClick={nextPage} onMouseDown={e => e.preventDefault()} title="Next page" tabIndex={-1}>›</button>
-        </div>
-        {periodLabel && onSyncChange && (
+        {!collapsed && (
+          <div className="note-tabstrip">
+            {pages.map((p, i) => (
+              <div
+                key={p.id}
+                className={`note-tab ${p.id === activePageId ? "note-tab--active" : ""}`}
+                draggable
+                onDragStart={e => onTabDragStart(e, p)}
+                onDragEnd={onTabDragEnd}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => onTabDrop(e, i)}
+                onClick={() => setActivePageId(p.id)}
+                title="Drag to reorder, merge into another pane, or drop on a tile edge to pop out"
+              >
+                <span className="note-tab-label">{pageLabel(p, i)}</span>
+                <button
+                  className="note-tab-close"
+                  onClick={e => { e.stopPropagation(); closePage(p.id); }}
+                  title="Close page"
+                >×</button>
+              </div>
+            ))}
+            <button className="note-tab-add" onClick={addPage} title="Add a page">+</button>
+          </div>
+        )}
+        {activePage ? (
+          <div
+            ref={editorRef}
+            className="note-textarea"
+            contentEditable
+            suppressContentEditableWarning
+            onInput={saveContent}
+            style={{ fontSize: `${activePage.fontSize}px`, lineHeight: 1.4 }}
+            data-placeholder={`Notes${periodLabel ? ` — ${periodLabel}` : ""}…`}
+          />
+        ) : (
+          <div className="note-empty">
+            <button className="btn btn-ghost btn-sm" onClick={addPage}>+ Add a page</button>
+          </div>
+        )}
+        {paneId === "notes" && periodLabel && onSyncChange && (
           <div className="note-sync-nav">
             <button
               className={`note-nav-btn${syncedWith.length > 0 ? " note-nav-btn-active" : ""}`}

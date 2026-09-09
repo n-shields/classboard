@@ -1,16 +1,13 @@
-import { createContext, useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { moveTile, swapLeaves } from "../data/layout";
+import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./TileLayout.css";
-
-// ── Shared drag context ──────────────────────────────────────────────────────
-
-const DragCtx = createContext(null);
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // ── Drop overlay shown when a tile is being dragged ──────────────────────────
 
-function DropOverlay({ tileId, onDrop }) {
+function DropOverlay({ tileId, onDrop, onDropPage }) {
   const [side, setSide] = useState(null);
 
   const getSide = (e) => {
@@ -33,8 +30,13 @@ function DropOverlay({ tileId, onDrop }) {
       }}
       onDrop={e => {
         e.preventDefault();
-        const fromId = e.dataTransfer.getData("text/plain");
-        if (side && fromId && fromId !== tileId) onDrop(fromId, side);
+        const pageJson = e.dataTransfer.getData(PAGE_DND_TYPE);
+        if (side && pageJson) {
+          onDropPage(JSON.parse(pageJson), side);
+        } else {
+          const fromId = e.dataTransfer.getData("text/plain");
+          if (side && fromId && fromId !== tileId) onDrop(fromId, side);
+        }
         setSide(null);
       }}
     >
@@ -46,7 +48,7 @@ function DropOverlay({ tileId, onDrop }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const didDrag = useRef(false);
   const name = tileNames?.[id] ?? "";
@@ -76,8 +78,14 @@ function TileSlot({ id, content }) {
           title={`Swap with ${tileNames?.[swapTarget] ?? swapTarget}`}
         >⇄</button>
       )}
-      {dragging && dragging !== id && (
-        <DropOverlay tileId={id} onDrop={(fromId, side) => { onMove(fromId, id, side); setDragging(null); }} />
+      {/* Suppress the overlay on the pane a page-tab drag started from, so its
+          own tab strip can handle same-pane reordering locally. */}
+      {dragging && dragging !== id && pageDragOrigin !== id && (
+        <DropOverlay
+          tileId={id}
+          onDrop={(fromId, side) => { onMove(fromId, id, side); setDragging(null); }}
+          onDropPage={(info, side) => { onPageDrop?.(info.paneType, info, id, side); setDragging(null); setPageDragOrigin(null); }}
+        />
       )}
       <div className="tl-slot-content">{content}</div>
     </div>
@@ -161,8 +169,9 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 
 // ── Root export ───────────────────────────────────────────────────────────────
 
-export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap }) {
+export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop }) {
   const [dragging, setDragging] = useState(null);
+  const [pageDragOrigin, setPageDragOrigin] = useState(null);
 
   const onMove = useCallback((fromId, toId, side) => {
     onLayoutChange(prev => moveTile(prev, fromId, toId, side));
@@ -175,14 +184,14 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   // Safety net: if the dragged element remounts (layout changed mid-drag),
   // onDragEnd won't fire on it — clear dragging state from the document level.
   useEffect(() => {
-    const handler = () => setDragging(null);
+    const handler = () => { setDragging(null); setPageDragOrigin(null); };
     document.addEventListener("dragend", handler);
     return () => document.removeEventListener("dragend", handler);
   }, []);
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames }),
-    [dragging, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop }),
+    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop],
   );
 
   return (
