@@ -1,3 +1,5 @@
+import { isPageArray, isPanesMap } from "./pages";
+
 export const PERIOD_DATA_KEY = "classboard_period_data";
 
 // Sanitize each period entry so malformed data doesn't crash components
@@ -15,9 +17,15 @@ export function loadPeriodData() {
       if (p.names  && !Array.isArray(p.names))          delete p.names;
       if (p.excludedNames && !Array.isArray(p.excludedNames)) delete p.excludedNames;
       if (p.birthdays && (typeof p.birthdays !== "object" || Array.isArray(p.birthdays))) delete p.birthdays;
+      if (p.colors && (typeof p.colors !== "object" || Array.isArray(p.colors))) delete p.colors;
       if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
       if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
       if (p.reminders && !Array.isArray(p.reminders))         delete p.reminders;
+      if (p.teacherReminders && !Array.isArray(p.teacherReminders)) delete p.teacherReminders;
+      if (p.textPages && !isPageArray(p.textPages))    delete p.textPages;
+      if (p.notePages && !isPageArray(p.notePages))    delete p.notePages;
+      if (p.textPanes && !isPanesMap(p.textPanes))     delete p.textPanes;
+      if (p.notePanes && !isPanesMap(p.notePanes))     delete p.notePanes;
     }
     return data;
   } catch (_) { return {}; }

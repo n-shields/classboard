@@ -45,7 +45,8 @@ export default function PeriodBar({
   names = [], onNamesChange,
   excludedNames = [], onExcludedNamesChange,
   birthdays = {}, onBirthdaysChange,
-  otherPeriods = [],
+  colors = {}, onColorsChange,
+  otherPeriods = [], onDeleteClassList,
   periodLabel,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
@@ -231,7 +232,10 @@ export default function PeriodBar({
           onExcludedNamesChange={onExcludedNamesChange}
           birthdays={birthdays}
           onBirthdaysChange={onBirthdaysChange}
+          colors={colors}
+          onColorsChange={onColorsChange}
           otherPeriods={otherPeriods}
+          onDeleteClassList={onDeleteClassList}
           periodLabel={periodLabel}
           onClose={() => setStudentsOpen(false)}
         />

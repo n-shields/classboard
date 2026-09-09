@@ -14,6 +14,10 @@
   min-width: 0;
 }
 
+.student-delete-list-btn {
+  flex-shrink: 0;
+}
+
 .student-modal-header {
   display: flex;
   align-items: baseline;
@@ -85,6 +89,19 @@
 }
 
 .student-row--excluded .student-birthday-input {
+  opacity: 0.45;
+}
+
+.student-color-input {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 2px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.student-row--excluded .student-color-input {
   opacity: 0.45;
 }
 

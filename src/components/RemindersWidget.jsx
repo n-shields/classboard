@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import "./RemindersWidget.css";
 
-const DISMISS_KEY = "classboard_reminders_dismissed";
+const DISMISS_KEY_BASE = "classboard_reminders_dismissed";
 
 const DEFAULT_REMINDERS = [
-  { id: 1, text: "Attendance", edge: "start", minutes: 10, enabled: true },
-  { id: 2, text: "Clean-up",   edge: "end",   minutes: 10, enabled: true },
+  { id: 1, text: "Warm Up",  edge: "start", minutes: 10, enabled: true },
+  { id: 2, text: "Clean-up", edge: "end",   minutes: 10, enabled: true },
 ];
 
+const EDGES = ["start", "end", "untilClosed"];
+
 // Coerce a stored/imported list into clean reminder objects with unique ids.
-function normalizeReminders(list) {
-  if (!Array.isArray(list)) return DEFAULT_REMINDERS.map(r => ({ ...r }));
+function normalizeReminders(list, defaults = DEFAULT_REMINDERS) {
+  if (!Array.isArray(list)) return defaults.map(r => ({ ...r }));
   const seen = new Set();
   return list
     .filter(r => r && typeof r.text === "string")
@@ -21,7 +23,7 @@ function normalizeReminders(list) {
       return {
         id,
         text: r.text,
-        edge: r.edge === "end" ? "end" : "start",
+        edge: EDGES.includes(r.edge) ? r.edge : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
         enabled: r.enabled !== false,
       };
@@ -43,27 +45,37 @@ function sittingKey(period, when) {
   return `${when.toDateString()}|${period.label}|${period.start}`;
 }
 
-function loadDismissed() {
+// `scope` keeps the main board's reminders and the teacher-only view's
+// reminders — which can be open in two separate windows at once — from
+// clobbering each other's dismiss state.
+function dismissKeyFor(scope) {
+  return scope === "main" ? DISMISS_KEY_BASE : `${DISMISS_KEY_BASE}_${scope}`;
+}
+
+function loadDismissed(scope) {
   try {
-    const s = JSON.parse(localStorage.getItem(DISMISS_KEY) || "null");
+    const s = JSON.parse(localStorage.getItem(dismissKeyFor(scope)) || "null");
     if (s && typeof s.key === "string" && Array.isArray(s.ids)) return s;
   } catch (_) {}
   return { key: null, ids: [] };
 }
 
-function saveDismissed(rec) {
-  try { localStorage.setItem(DISMISS_KEY, JSON.stringify(rec)); } catch (_) {}
+function saveDismissed(rec, scope) {
+  try { localStorage.setItem(dismissKeyFor(scope), JSON.stringify(rec)); } catch (_) {}
 }
 
-export default function RemindersWidget({ currentPeriod, reminders: remindersProp, onRemindersChange, collapsed }) {
-  const reminders = useMemo(() => normalizeReminders(remindersProp), [remindersProp]);
+export default function RemindersWidget({
+  currentPeriod, reminders: remindersProp, onRemindersChange, collapsed,
+  defaultReminders = DEFAULT_REMINDERS, scope = "main",
+}) {
+  const reminders = useMemo(() => normalizeReminders(remindersProp, defaultReminders), [remindersProp, defaultReminders]);
   const [now, setNow] = useState(() => new Date());
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const overlayMouseDown = useRef(false);
 
   const key = sittingKey(currentPeriod, now);
-  const [dismissedRec, setDismissedRec] = useState(loadDismissed);
+  const [dismissedRec, setDismissedRec] = useState(() => loadDismissed(scope));
   // Dismissals only count for the class sitting they were made in; a stale
   // record is simply ignored, so it clears itself when the period rolls over.
   const dismissedIds = dismissedRec.key === key ? dismissedRec.ids : [];
@@ -76,7 +88,7 @@ export default function RemindersWidget({ currentPeriod, reminders: remindersPro
   const dismiss = (id) => {
     const rec = { key, ids: [...dismissedIds, id] };
     setDismissedRec(rec);
-    saveDismissed(rec);
+    saveDismissed(rec, scope);
   };
 
   const active = [];
@@ -87,6 +99,7 @@ export default function RemindersWidget({ currentPeriod, reminders: remindersPro
       if (r.enabled === false || dismissedIds.includes(r.id)) continue;
       if (r.edge === "start" && sinceStart >= 0 && sinceStart < r.minutes) active.push(r);
       else if (r.edge === "end" && untilEnd > 0 && untilEnd <= r.minutes) active.push(r);
+      else if (r.edge === "untilClosed" && sinceStart >= 0 && untilEnd > 0) active.push(r);
     }
   }
 
@@ -105,7 +118,7 @@ export default function RemindersWidget({ currentPeriod, reminders: remindersPro
       .map(r => ({
         id: r.id,
         text: r.text.trim(),
-        edge: r.edge === "end" ? "end" : "start",
+        edge: EDGES.includes(r.edge) ? r.edge : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
         enabled: r.enabled !== false,
       }))
@@ -148,7 +161,7 @@ export default function RemindersWidget({ currentPeriod, reminders: remindersPro
             <h2>Reminders</h2>
             <p className="reminders-edit-hint">
               Show a message during the first or last few minutes of the class that's
-              currently in session.
+              currently in session — or the whole time, until you dismiss it.
             </p>
             <div className="reminders-edit-list">
               {draft.map((r, i) => (
@@ -169,14 +182,19 @@ export default function RemindersWidget({ currentPeriod, reminders: remindersPro
                   <select value={r.edge} onChange={e => updateDraft(i, "edge", e.target.value)}>
                     <option value="start">First</option>
                     <option value="end">Last</option>
+                    <option value="untilClosed">Until closed</option>
                   </select>
-                  <input
-                    className="reminders-edit-mins"
-                    type="number" min="1" max="120"
-                    value={r.minutes}
-                    onChange={e => updateDraft(i, "minutes", e.target.value)}
-                  />
-                  <span className="reminders-edit-unit">min</span>
+                  {r.edge !== "untilClosed" && (
+                    <>
+                      <input
+                        className="reminders-edit-mins"
+                        type="number" min="1" max="120"
+                        value={r.minutes}
+                        onChange={e => updateDraft(i, "minutes", e.target.value)}
+                      />
+                      <span className="reminders-edit-unit">min</span>
+                    </>
+                  )}
                   <button className="btn btn-danger btn-sm" onClick={() => removeDraft(i)} title="Remove">✕</button>
                 </div>
               ))}

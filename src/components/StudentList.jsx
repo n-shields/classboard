@@ -8,7 +8,10 @@ export default function StudentList({
   onExcludedNamesChange,
   birthdays = {},
   onBirthdaysChange,
+  colors = {},
+  onColorsChange,
   otherPeriods = [],
+  onDeleteClassList,
   periodLabel,
   onClose,
 }) {
@@ -44,12 +47,24 @@ export default function StudentList({
       next[value] = birthdays[old];
       onBirthdaysChange?.(next);
     }
+    if (old !== value && colors[old] !== undefined) {
+      const next = { ...colors };
+      delete next[old];
+      next[value] = colors[old];
+      onColorsChange?.(next);
+    }
   };
 
   const setBirthday = (name, value) => {
     const next = { ...birthdays };
     if (value) next[name] = value; else delete next[name];
     onBirthdaysChange?.(next);
+  };
+
+  const setColor = (name, value) => {
+    const next = { ...colors };
+    if (value) next[name] = value; else delete next[name];
+    onColorsChange?.(next);
   };
 
   const removeAt = (idx) => {
@@ -62,6 +77,11 @@ export default function StudentList({
       const next = { ...birthdays };
       delete next[removed];
       onBirthdaysChange?.(next);
+    }
+    if (colors[removed] !== undefined) {
+      const next = { ...colors };
+      delete next[removed];
+      onColorsChange?.(next);
     }
   };
 
@@ -91,6 +111,12 @@ export default function StudentList({
       for (const n of staleBKeys) delete next[n];
       onBirthdaysChange?.(next);
     }
+    const staleCKeys = Object.keys(colors).filter(n => !seen.has(n));
+    if (staleCKeys.length) {
+      const next = { ...colors };
+      for (const n of staleCKeys) delete next[n];
+      onColorsChange?.(next);
+    }
   };
 
   const importFromPeriod = () => {
@@ -101,9 +127,23 @@ export default function StudentList({
     if (!toAdd.length) return;
     onNamesChange([...names, ...toAdd]);
     const srcBirthdays = src.birthdays || {};
-    const additions = {};
-    for (const n of toAdd) if (srcBirthdays[n]) additions[n] = srcBirthdays[n];
-    if (Object.keys(additions).length) onBirthdaysChange?.({ ...birthdays, ...additions });
+    const bAdditions = {};
+    for (const n of toAdd) if (srcBirthdays[n]) bAdditions[n] = srcBirthdays[n];
+    if (Object.keys(bAdditions).length) onBirthdaysChange?.({ ...birthdays, ...bAdditions });
+    const srcColors = src.colors || {};
+    const cAdditions = {};
+    for (const n of toAdd) if (srcColors[n]) cAdditions[n] = srcColors[n];
+    if (Object.keys(cAdditions).length) onColorsChange?.({ ...colors, ...cAdditions });
+  };
+
+  const deleteClassList = () => {
+    const src = otherPeriods.find(p => p.label === importFrom);
+    if (!src) return;
+    const n = src.names.length;
+    const ok = window.confirm(
+      `Delete the saved class list for "${importFrom}" (${n} student${n === 1 ? "" : "s"})? This can't be undone.`
+    );
+    if (ok) onDeleteClassList?.(importFrom);
   };
 
   const addFromDraft = () => {
@@ -142,6 +182,11 @@ export default function StudentList({
             <button className="btn btn-ghost btn-sm" onClick={importFromPeriod}>
               Import list
             </button>
+            <button
+              className="btn btn-danger btn-sm student-delete-list-btn"
+              onClick={deleteClassList}
+              title="Delete this period's saved class list"
+            >🗑</button>
           </div>
         )}
 
@@ -179,6 +224,13 @@ export default function StudentList({
                       value={birthdays[name] || ""}
                       onChange={e => setBirthday(name, e.target.value)}
                       title="Birthday"
+                    />
+                    <input
+                      type="color"
+                      className="student-color-input"
+                      value={colors[name] || "#888888"}
+                      onChange={e => setColor(name, e.target.value)}
+                      title="Wheel color"
                     />
                     <button
                       className="student-remove"

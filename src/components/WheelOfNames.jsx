@@ -21,7 +21,7 @@ function easeOut(t) {
 }
 
 export default function WheelOfNames({
-  names, excludedNames = [],
+  names, excludedNames = [], colors = {},
   periodLabel, collapsed, onToggle,
   wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
 }) {
@@ -63,6 +63,7 @@ export default function WheelOfNames({
 
     const segAngle = (2 * Math.PI) / n;
     for (let i = 0; i < n; i++) {
+      const name = activeNames[i];
       const startAngle = rotation + i * segAngle - Math.PI / 2;
       const endAngle   = startAngle + segAngle;
 
@@ -70,7 +71,7 @@ export default function WheelOfNames({
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, startAngle, endAngle);
       ctx.closePath();
-      ctx.fillStyle = wheelColors[i % wheelColors.length];
+      ctx.fillStyle = colors[name] || wheelColors[i % wheelColors.length];
       ctx.fill();
       ctx.strokeStyle = "rgba(0,0,0,0.25)";
       ctx.lineWidth = 1.5;
@@ -85,7 +86,6 @@ export default function WheelOfNames({
       ctx.translate(cx + textRadius * Math.cos(textAngle), cy + textRadius * Math.sin(textAngle));
       ctx.rotate(textRotation);
 
-      const name      = activeNames[i];
       const maxWidth  = radius * 0.72;
       const arcHeight = segAngle * textRadius;
       const byWidth   = maxWidth / Math.max(name.length, 1) / 0.58;
@@ -123,7 +123,7 @@ export default function WheelOfNames({
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.5;
     ctx.stroke();
-  }, [activeNames, periodLabel, wheelColors, wheelText]);
+  }, [activeNames, periodLabel, wheelColors, wheelText, colors]);
 
   useEffect(() => { drawWheel(rotationRef.current); }, [drawWheel]);
 

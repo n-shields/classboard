@@ -13,6 +13,12 @@ function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
 }
 
+// The teacher-only reminder list is separate from the main board's — it
+// starts with just an attendance nudge, not "Warm Up"/"Clean-up".
+const TEACHER_DEFAULT_REMINDERS = [
+  { id: 1, text: "Attendance", edge: "start", minutes: 10, enabled: true },
+];
+
 // A small companion window meant for a second, teacher-facing monitor —
 // mirrors whatever the main board has stored (schedule, current period,
 // reminders) by re-reading localStorage rather than sharing React state.
@@ -43,7 +49,7 @@ export default function TeacherView() {
   const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
-  const currentReminders = periodKey ? periodData[periodKey]?.reminders : undefined;
+  const currentReminders = periodKey ? periodData[periodKey]?.teacherReminders : undefined;
   const periodTheme = periodKey ? periodData[periodKey]?.theme : null;
   const currentTheme = periodTheme || globalTheme;
 
@@ -61,7 +67,7 @@ export default function TeacherView() {
   }, []);
 
   const handleRemindersChange = (reminders) => {
-    const next = savePeriodPatch(periodKey, { reminders });
+    const next = savePeriodPatch(periodKey, { teacherReminders: reminders });
     if (next) setPeriodData(next);
   };
 
@@ -77,6 +83,8 @@ export default function TeacherView() {
           reminders={currentReminders}
           onRemindersChange={handleRemindersChange}
           collapsed={false}
+          defaultReminders={TEACHER_DEFAULT_REMINDERS}
+          scope="teacher"
         />
       </div>
     </div>

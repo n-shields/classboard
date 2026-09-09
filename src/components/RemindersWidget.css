@@ -64,8 +64,9 @@
   background: rgba(255, 255, 255, 0.28);
 }
 
-.reminders-message--start { color: var(--accent); }
-.reminders-message--end   { color: var(--warn); }
+.reminders-message--start       { color: var(--accent); }
+.reminders-message--end         { color: var(--warn); }
+.reminders-message--untilClosed { color: var(--danger); }
 
 .reminders-widget--active {
   animation: reminders-pulse 2.4s ease-in-out infinite;
