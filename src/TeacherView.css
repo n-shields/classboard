@@ -1,0 +1,36 @@
+.teacher-view {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 8px;
+}
+
+.teacher-view-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.teacher-view-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.teacher-view-period {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.teacher-view-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.teacher-view-body .reminders-widget {
+  height: 100%;
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import TextBoard from "./components/TextBoard";
 import ClockWidget from "./components/ClockWidget";
 import PeriodBar from "./components/PeriodBar";
@@ -14,9 +14,9 @@ import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadP
 import { THEMES, applyTheme } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT } from "./data/layout";
 import { loadNoteSyncGroups, saveNoteSyncGroups, getSyncMates, setSyncGroup } from "./data/noteSync";
+import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
 import "./App.css";
 
-const PERIOD_DATA_KEY         = "classboard_period_data";
 const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
 const PERIOD_LAYOUT_TREES_KEY = "classboard_period_layout_trees";
 
@@ -29,28 +29,6 @@ const DEFAULT_COLLAPSED = { date: false, clock: false, notes: false, wheel: fals
 const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
-
-function loadPeriodData() {
-  try {
-    const s = localStorage.getItem(PERIOD_DATA_KEY);
-    if (!s) return {};
-    const data = JSON.parse(s);
-    if (typeof data !== "object" || data === null || Array.isArray(data)) return {};
-    // Sanitize each period entry so malformed data doesn't crash components
-    for (const key of Object.keys(data)) {
-      const p = data[key];
-      if (typeof p !== "object" || p === null) { data[key] = {}; continue; }
-      if (p.texts  && !Array.isArray(p.texts))          delete p.texts;
-      if (p.notes  && !Array.isArray(p.notes))          delete p.notes;
-      if (p.names  && !Array.isArray(p.names))          delete p.names;
-      if (p.excludedNames && !Array.isArray(p.excludedNames)) delete p.excludedNames;
-      if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
-      if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
-      if (p.reminders && !Array.isArray(p.reminders))         delete p.reminders;
-    }
-    return data;
-  } catch (_) { return {}; }
-}
 
 // One-time: reminders used to be a single global list. Seed each period that
 // doesn't already have its own with the old global list so existing setups
@@ -156,6 +134,14 @@ export default function App() {
   const currentNotes         = periodKey ? (periodData[periodKey]?.notes         ?? ["","",""]) : ["","",""];
   const currentNames         = periodKey ? (periodData[periodKey]?.names         ?? DEFAULT_NAMES) : DEFAULT_NAMES;
   const currentExcluded      = periodKey ? (periodData[periodKey]?.excludedNames  ?? [])          : [];
+  const currentBirthdays     = periodKey ? (periodData[periodKey]?.birthdays     ?? {})          : {};
+
+  // Other periods with a saved roster, for the "import student list" picker
+  const otherPeriodOptions = useMemo(() => (
+    Object.keys(periodData)
+      .filter(k => k !== periodKey && Array.isArray(periodData[k]?.names) && periodData[k].names.length > 0)
+      .map(k => ({ label: k, names: periodData[k].names, birthdays: periodData[k].birthdays || {} }))
+  ), [periodData, periodKey]);
   const currentProgress      = periodKey ? (periodData[periodKey]?.progress      ?? null)        : null;
   const currentReminders     = periodKey ? periodData[periodKey]?.reminders : undefined;
   const currentTextFontSizes = periodKey ? (periodData[periodKey]?.textFontSizes ?? [48, 48, 48]) : [48, 48, 48];
@@ -322,6 +308,7 @@ export default function App() {
 
   const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);
   const handleExcludedChange      = useCallback((excludedNames) => savePeriod(periodKey, { excludedNames }), [periodKey, savePeriod]);
+  const handleBirthdaysChange     = useCallback((birthdays)     => savePeriod(periodKey, { birthdays }),     [periodKey, savePeriod]);
   const handleProgressChange      = useCallback((progress)      => savePeriod(periodKey, { progress }),      [periodKey, savePeriod]);
   const handleRemindersChange     = useCallback((reminders)     => savePeriod(periodKey, { reminders }),     [periodKey, savePeriod]);
   const handleTextFontSizesChange = useCallback((textFontSizes) => savePeriod(periodKey, { textFontSizes }), [periodKey, savePeriod]);
@@ -394,7 +381,7 @@ export default function App() {
     ),
     text: seatingTile === "text" ? seatingChartNode : (
       <TextBoard
-        key={periodKey}
+        key={`text-${periodKey}`}
         texts={currentTexts}
         onTextChange={handleTextChange}
         periodLabel={displayPeriod?.label}
@@ -411,7 +398,7 @@ export default function App() {
     ),
     notes: seatingTile === "notes" ? seatingChartNode : (
       <NoteWidget
-        key={periodKey}
+        key={`notes-${periodKey}`}
         notes={currentNotes}
         onNoteChange={handleNoteChange}
         periodLabel={displayPeriod?.label}
@@ -445,7 +432,7 @@ export default function App() {
     ),
     reminders: seatingTile === "reminders" ? seatingChartNode : (
       <RemindersWidget
-        key={periodKey}
+        key={`reminders-${periodKey}`}
         currentPeriod={clockPeriod}
         reminders={currentReminders}
         onRemindersChange={handleRemindersChange}
@@ -474,6 +461,8 @@ export default function App() {
         onOpenSeatingChart={openSeatingChart}
         names={currentNames}            onNamesChange={handleNamesChange}
         excludedNames={currentExcluded} onExcludedNamesChange={handleExcludedChange}
+        birthdays={currentBirthdays}    onBirthdaysChange={handleBirthdaysChange}
+        otherPeriods={otherPeriodOptions}
         periodLabel={displayPeriod?.label}
       />
       <TileLayout

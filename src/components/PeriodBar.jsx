@@ -3,6 +3,7 @@ import LZString from "lz-string";
 import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
 import { THEMES, THEME_KEYS } from "../data/themes";
+import { loadTeacherViewBounds } from "../data/teacherView";
 import "./PeriodBar.css";
 
 function collectData() {
@@ -43,6 +44,8 @@ export default function PeriodBar({
   onOpenSeatingChart,
   names = [], onNamesChange,
   excludedNames = [], onExcludedNamesChange,
+  birthdays = {}, onBirthdaysChange,
+  otherPeriods = [],
   periodLabel,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
@@ -83,6 +86,19 @@ export default function PeriodBar({
 
   const show = () => { clearTimeout(hideTimer.current); setVisible(true); };
   const scheduleHide = () => { hideTimer.current = setTimeout(() => setVisible(false), 300); };
+
+  const openTeacherView = () => {
+    const bounds = loadTeacherViewBounds();
+    const width  = bounds?.width  || 380;
+    const height = bounds?.height || 280;
+    const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + window.outerWidth;
+    const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY;
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "teacher");
+    url.searchParams.delete("s");
+    const popup = window.open(url.toString(), "classboard-teacher-view", `width=${width},height=${height},left=${left},top=${top}`);
+    popup?.focus();
+  };
 
   const handleImportFile = (e) => {
     const file = e.target.files[0];
@@ -139,7 +155,7 @@ export default function PeriodBar({
           const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
           return (
             <button
-              key={p.id}
+              key={p.id ?? `${p.label}-${i}`}
               className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
               onClick={() => onPeriodSelect(i)}
               title={`${p.start}–${p.end}`}
@@ -170,6 +186,11 @@ export default function PeriodBar({
         {onOpenSeatingChart && (
           <button className="btn btn-ghost btn-sm tb-btn" onClick={onOpenSeatingChart} title="Open seating chart">⊞ Seats</button>
         )}
+
+        {/* Teacher-only popup window, draggable to a second monitor */}
+        <button className="btn btn-ghost btn-sm tb-btn" onClick={openTeacherView} title="Open a teacher-only window (drag it to another monitor)">
+          🧑‍🏫 Teacher View
+        </button>
 
         {/* Import / export / share — pinned right */}
         <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
@@ -208,6 +229,9 @@ export default function PeriodBar({
           onNamesChange={onNamesChange}
           excludedNames={excludedNames}
           onExcludedNamesChange={onExcludedNamesChange}
+          birthdays={birthdays}
+          onBirthdaysChange={onBirthdaysChange}
+          otherPeriods={otherPeriods}
           periodLabel={periodLabel}
           onClose={() => setStudentsOpen(false)}
         />

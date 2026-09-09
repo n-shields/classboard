@@ -6,10 +6,20 @@ export default function StudentList({
   onNamesChange,
   excludedNames = [],
   onExcludedNamesChange,
+  birthdays = {},
+  onBirthdaysChange,
+  otherPeriods = [],
   periodLabel,
   onClose,
 }) {
   const [draft, setDraft] = useState("");
+  const [importFrom, setImportFrom] = useState(otherPeriods[0]?.label ?? "");
+
+  useEffect(() => {
+    if (!otherPeriods.some(p => p.label === importFrom)) {
+      setImportFrom(otherPeriods[0]?.label ?? "");
+    }
+  }, [otherPeriods]); // eslint-disable-line
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -28,6 +38,18 @@ export default function StudentList({
     if (old !== value && excludedNames.includes(old)) {
       onExcludedNamesChange?.(excludedNames.map(n => (n === old ? value : n)));
     }
+    if (old !== value && birthdays[old] !== undefined) {
+      const next = { ...birthdays };
+      delete next[old];
+      next[value] = birthdays[old];
+      onBirthdaysChange?.(next);
+    }
+  };
+
+  const setBirthday = (name, value) => {
+    const next = { ...birthdays };
+    if (value) next[name] = value; else delete next[name];
+    onBirthdaysChange?.(next);
   };
 
   const removeAt = (idx) => {
@@ -35,6 +57,11 @@ export default function StudentList({
     onNamesChange(names.filter((_, i) => i !== idx));
     if (excludedNames.includes(removed)) {
       onExcludedNamesChange?.(excludedNames.filter(n => n !== removed));
+    }
+    if (birthdays[removed] !== undefined) {
+      const next = { ...birthdays };
+      delete next[removed];
+      onBirthdaysChange?.(next);
     }
   };
 
@@ -58,6 +85,25 @@ export default function StudentList({
     if (changed) onNamesChange(cleaned);
     const ex = excludedNames.filter(n => seen.has(n));
     if (ex.length !== excludedNames.length) onExcludedNamesChange?.(ex);
+    const staleBKeys = Object.keys(birthdays).filter(n => !seen.has(n));
+    if (staleBKeys.length) {
+      const next = { ...birthdays };
+      for (const n of staleBKeys) delete next[n];
+      onBirthdaysChange?.(next);
+    }
+  };
+
+  const importFromPeriod = () => {
+    const src = otherPeriods.find(p => p.label === importFrom);
+    if (!src) return;
+    const existing = new Set(names.map(n => n.trim()));
+    const toAdd = src.names.filter(n => !existing.has(n));
+    if (!toAdd.length) return;
+    onNamesChange([...names, ...toAdd]);
+    const srcBirthdays = src.birthdays || {};
+    const additions = {};
+    for (const n of toAdd) if (srcBirthdays[n]) additions[n] = srcBirthdays[n];
+    if (Object.keys(additions).length) onBirthdaysChange?.({ ...birthdays, ...additions });
   };
 
   const addFromDraft = () => {
@@ -81,6 +127,23 @@ export default function StudentList({
             <span className="student-count">{activeCount} / {names.length} in wheel</span>
           )}
         </div>
+
+        {otherPeriods.length > 0 && (
+          <div className="student-import-row">
+            <select
+              className="tb-select student-import-select"
+              value={importFrom}
+              onChange={e => setImportFrom(e.target.value)}
+            >
+              {otherPeriods.map(p => (
+                <option key={p.label} value={p.label}>{p.label} ({p.names.length})</option>
+              ))}
+            </select>
+            <button className="btn btn-ghost btn-sm" onClick={importFromPeriod}>
+              Import list
+            </button>
+          </div>
+        )}
 
         {names.length > 0 && (
           <>
@@ -109,6 +172,13 @@ export default function StudentList({
                       onChange={e => setName(idx, e.target.value)}
                       onBlur={cleanup}
                       onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                    />
+                    <input
+                      type="date"
+                      className="student-birthday-input"
+                      value={birthdays[name] || ""}
+                      onChange={e => setBirthday(name, e.target.value)}
+                      title="Birthday"
                     />
                     <button
                       className="student-remove"
