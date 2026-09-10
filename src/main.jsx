@@ -4,6 +4,7 @@ import LZString from 'lz-string'
 import './index.css'
 import App from './App.jsx'
 import TeacherView from './TeacherView.jsx'
+import SeatingView from './SeatingView.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import DEFAULT_BOARD from './data/defaultBoard.json'
 
@@ -45,12 +46,12 @@ import DEFAULT_BOARD from './data/defaultBoard.json'
   }
 }());
 
-const isTeacherView = new URLSearchParams(window.location.search).get('view') === 'teacher';
+const view = new URLSearchParams(window.location.search).get('view');
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      {isTeacherView ? <TeacherView /> : <App />}
+      {view === 'teacher' ? <TeacherView /> : view === 'seating' ? <SeatingView /> : <App />}
     </ErrorBoundary>
   </StrictMode>,
 )

@@ -23,6 +23,7 @@ export default function StudentList({
 }) {
   const [draft, setDraft] = useState("");
   const [importFrom, setImportFrom] = useState(otherPeriods[0]?.label ?? "");
+  const [editingGemsLabel, setEditingGemsLabel] = useState(false);
 
   useEffect(() => {
     if (!otherPeriods.some(p => p.label === importFrom)) {
@@ -203,25 +204,31 @@ export default function StudentList({
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose?.()}>
-      <div className={`modal student-modal${simple ? "" : " student-modal--full"}`}>
+      <div className="modal student-modal student-modal--full">
         <div className="student-modal-header">
           <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
+          {editingGemsLabel ? (
+            <input
+              className="student-gems-label-edit"
+              autoFocus
+              defaultValue={gemsLabel}
+              onBlur={e => { onGemsLabelChange?.(e.target.value.trim() || "Gems"); setEditingGemsLabel(false); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setEditingGemsLabel(false);
+              }}
+            />
+          ) : (
+            <span
+              className="student-gems-label"
+              onClick={() => setEditingGemsLabel(true)}
+              title="Click to rename this currency"
+            >{gemsLabel}</span>
+          )}
           {!simple && names.length > 0 && (
             <span className="student-count">{activeCount} / {names.length} in wheel</span>
           )}
         </div>
-
-        {!simple && (
-          <div className="student-gems-label-row">
-            <span className="student-gems-label-hint">Currency name:</span>
-            <input
-              className="student-gems-label-input"
-              value={gemsLabel}
-              onChange={e => onGemsLabelChange?.(e.target.value)}
-              placeholder="Gems"
-            />
-          </div>
-        )}
 
         {otherPeriods.length > 0 && (
           <div className="student-import-row">
@@ -295,21 +302,19 @@ export default function StudentList({
                         title="Wheel color"
                       />
                     )}
-                    {!simple && (
-                      <div className="student-gems" title={gemsLabel}>
-                        <button
-                          className="btn btn-ghost btn-sm student-gems-btn"
-                          onClick={() => adjustGems(name, -100)}
-                          title={`-100 ${gemsLabel}`}
-                        >−100</button>
-                        <span className="student-gems-value">{gems[name] || 0}</span>
-                        <button
-                          className="btn btn-ghost btn-sm student-gems-btn"
-                          onClick={() => adjustGems(name, 100)}
-                          title={`+100 ${gemsLabel}`}
-                        >+100</button>
-                      </div>
-                    )}
+                    <div className="student-gems" title={gemsLabel}>
+                      <button
+                        className="btn btn-ghost btn-sm student-gems-btn"
+                        onClick={() => adjustGems(name, -100)}
+                        title={`-100 ${gemsLabel}`}
+                      >−100</button>
+                      <span className="student-gems-value">{gems[name] || 0}</span>
+                      <button
+                        className="btn btn-ghost btn-sm student-gems-btn"
+                        onClick={() => adjustGems(name, 100)}
+                        title={`+100 ${gemsLabel}`}
+                      >+100</button>
+                    </div>
                     <button
                       className="student-remove"
                       onClick={() => removeAt(idx)}

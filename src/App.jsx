@@ -7,13 +7,12 @@ import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
 import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
-import SeatingChart from "./components/SeatingChart";
 import RemindersWidget from "./components/RemindersWidget";
-import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
+import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId } from "./data/layout";
 import { loadNoteSyncGroups, saveNoteSyncGroups, getSyncMates, setSyncGroup } from "./data/noteSync";
-import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
+import { PERIOD_DATA_KEY, loadPeriodData, loadGemsLabel, saveGemsLabel } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import "./App.css";
 
@@ -146,20 +145,8 @@ export default function App() {
 
   // Theme
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
-
-  // Seating chart — stores which tile ID it's open in (null = closed)
-  const [seatingTile, setSeatingTile] = useState(null);
-
-  const openSeatingChart = useCallback(() => {
-    const slots = document.querySelectorAll("[data-tile]");
-    let bestId = null, bestArea = -1;
-    slots.forEach(el => {
-      const { width, height } = el.getBoundingClientRect();
-      const area = width * height;
-      if (area > bestArea) { bestArea = area; bestId = el.dataset.tile; }
-    });
-    if (bestId) setSeatingTile(bestId);
-  }, []);
+  const [gemsLabel, setGemsLabel] = useState(loadGemsLabel);
+  const handleGemsLabelChange = useCallback((label) => { saveGemsLabel(label); setGemsLabel(label); }, []);
 
   // Layout tree
   const [layout, setLayout] = useState(loadLayout);
@@ -187,6 +174,7 @@ export default function App() {
   const currentExcluded      = periodKey ? (periodData[periodKey]?.excludedNames  ?? [])          : [];
   const currentBirthdays     = periodKey ? (periodData[periodKey]?.birthdays     ?? {})          : {};
   const currentColors        = periodKey ? (periodData[periodKey]?.colors        ?? {})          : {};
+  const currentGems          = periodKey ? (periodData[periodKey]?.gems          ?? {})          : {};
 
   // Other periods with a saved roster, for the "import student list" picker
   const otherPeriodOptions = useMemo(() => (
@@ -252,6 +240,12 @@ export default function App() {
       setNextPeriodIndex(detectNextPeriod(periods));
     }
   }, [scheduleType]); // eslint-disable-line
+
+  // Let popup windows (Teacher View, seating chart) mirror whichever period
+  // is active here, instead of independently time-detecting their own.
+  useEffect(() => {
+    saveActivePeriod(autoMode, currentPeriod?.label ?? null);
+  }, [autoMode, currentPeriod]);
 
   // ── Per-period layout: restore on period change ──────────────────────────
   useEffect(() => {
@@ -421,6 +415,7 @@ export default function App() {
   const handleExcludedChange      = useCallback((excludedNames) => savePeriod(periodKey, { excludedNames }), [periodKey, savePeriod]);
   const handleBirthdaysChange     = useCallback((birthdays)     => savePeriod(periodKey, { birthdays }),     [periodKey, savePeriod]);
   const handleColorsChange        = useCallback((colors)        => savePeriod(periodKey, { colors }),        [periodKey, savePeriod]);
+  const handleGemsChange          = useCallback((gems)          => savePeriod(periodKey, { gems }),          [periodKey, savePeriod]);
   const handleProgressChange      = useCallback((progress)      => savePeriod(periodKey, { progress }),      [periodKey, savePeriod]);
   const handleRemindersChange     = useCallback((reminders)     => savePeriod(periodKey, { reminders }),     [periodKey, savePeriod]);
 
@@ -484,18 +479,9 @@ export default function App() {
   // ── Tile content map ─────────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
 
-  const seatingChartNode = (
-    <SeatingChart
-      names={currentNames}
-      periodLabel={displayPeriod?.label}
-      periodKey={periodKey}
-      onClose={() => setSeatingTile(null)}
-    />
-  );
-
   const tiles = {
-    date: seatingTile === "date" ? seatingChartNode : <DateWidget />,
-    clock: seatingTile === "clock" ? seatingChartNode : (
+    date: <DateWidget />,
+    clock: (
       <ClockWidget
         currentPeriod={clockPeriod}
         nextPeriod={clockNextPeriod}
@@ -505,7 +491,7 @@ export default function App() {
         onSettingsChange={s => setClockFontSize(s.fontSize)}
       />
     ),
-    text: seatingTile === "text" ? seatingChartNode : (
+    text: (
       <TextPane
         key={`text-${periodKey}`}
         paneId="text"
@@ -516,14 +502,14 @@ export default function App() {
         periodLabel={displayPeriod?.label}
       />
     ),
-    camera: seatingTile === "camera" ? seatingChartNode : (
+    camera: (
       <CameraFeed
         periodKey={periodKey}
         clockDisplay={clockDisplay}
         clockFontSize={clockFontSize}
       />
     ),
-    notes: seatingTile === "notes" ? seatingChartNode : (
+    notes: (
       <TextPane
         key={`notes-${periodKey}`}
         paneId="notes"
@@ -547,7 +533,7 @@ export default function App() {
         periodLabel={displayPeriod?.label}
       />,
     ])),
-    wheel: seatingTile === "wheel" ? seatingChartNode : (
+    wheel: (
       <WheelOfNames
         names={currentNames}
         excludedNames={currentExcluded}
@@ -559,7 +545,7 @@ export default function App() {
         wheelText={wheelTheme.wheelText}
       />
     ),
-    prize: seatingTile === "prize" ? seatingChartNode : (
+    prize: (
       <ProgressWidget
         data={currentProgress}
         onChange={handleProgressChange}
@@ -567,7 +553,7 @@ export default function App() {
         onToggle={() => toggleCollapsed("prize")}
       />
     ),
-    reminders: seatingTile === "reminders" ? seatingChartNode : (
+    reminders: (
       <RemindersWidget
         key={`reminders-${periodKey}`}
         currentPeriod={clockPeriod}
@@ -595,11 +581,12 @@ export default function App() {
         autoMode={autoMode}             onAutoModeChange={setAutoMode}
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
         onImport={() => window.location.reload()}
-        onOpenSeatingChart={openSeatingChart}
         names={currentNames}            onNamesChange={handleNamesChange}
         excludedNames={currentExcluded} onExcludedNamesChange={handleExcludedChange}
         birthdays={currentBirthdays}    onBirthdaysChange={handleBirthdaysChange}
         colors={currentColors}          onColorsChange={handleColorsChange}
+        gems={currentGems}              onGemsChange={handleGemsChange}
+        gemsLabel={gemsLabel}           onGemsLabelChange={handleGemsLabelChange}
         wheelColors={wheelTheme.wheelColors}
         otherPeriods={otherPeriodOptions}
         onDeleteClassList={handleDeleteClassList}

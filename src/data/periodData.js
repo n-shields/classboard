@@ -73,3 +73,15 @@ export function deleteClassList(periodData, label) {
   localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
   return next;
 }
+
+// The Gems currency's display name — global (not per-period), shared and
+// renamable from either the main board or Teacher View's Students modal.
+const GEMS_LABEL_KEY = "classboard_gems_label";
+
+export function loadGemsLabel() {
+  return localStorage.getItem(GEMS_LABEL_KEY) || "Gems";
+}
+
+export function saveGemsLabel(label) {
+  localStorage.setItem(GEMS_LABEL_KEY, label);
+}

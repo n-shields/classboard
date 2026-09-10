@@ -3,7 +3,7 @@ import LZString from "lz-string";
 import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
 import { THEMES, THEME_KEYS } from "../data/themes";
-import { loadTeacherViewBounds } from "../data/teacherView";
+import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
 import "./PeriodBar.css";
 
 function collectData() {
@@ -41,11 +41,12 @@ export default function PeriodBar({
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
   onImport,
-  onOpenSeatingChart,
   names = [], onNamesChange,
   excludedNames = [], onExcludedNamesChange,
   birthdays = {}, onBirthdaysChange,
   colors = {}, onColorsChange,
+  gems = {}, onGemsChange,
+  gemsLabel = "Gems", onGemsLabelChange,
   wheelColors = [],
   otherPeriods = [], onDeleteClassList,
   periodLabel,
@@ -99,6 +100,19 @@ export default function PeriodBar({
     url.searchParams.set("view", "teacher");
     url.searchParams.delete("s");
     const popup = window.open(url.toString(), "classboard-teacher-view", `width=${width},height=${height},left=${left},top=${top}`);
+    popup?.focus();
+  };
+
+  const openSeatingView = () => {
+    const bounds = loadSeatingViewBounds();
+    const width  = bounds?.width  || 1000;
+    const height = bounds?.height || 700;
+    const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + 40;
+    const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + 40;
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "seating");
+    url.searchParams.delete("s");
+    const popup = window.open(url.toString(), "classboard-seating-view", `width=${width},height=${height},left=${left},top=${top}`);
     popup?.focus();
   };
 
@@ -184,10 +198,8 @@ export default function PeriodBar({
           </button>
         )}
 
-        {/* Seating chart */}
-        {onOpenSeatingChart && (
-          <button className="btn btn-ghost btn-sm tb-btn" onClick={onOpenSeatingChart} title="Open seating chart">⊞ Seats</button>
-        )}
+        {/* Seating chart — opens in its own popup window, like Teacher View */}
+        <button className="btn btn-ghost btn-sm tb-btn" onClick={openSeatingView} title="Open the seating chart in its own window">⊞ Seats</button>
 
         {/* Teacher-only popup window, draggable to a second monitor */}
         <button className="btn btn-ghost btn-sm tb-btn" onClick={openTeacherView} title="Open a teacher-only window (drag it to another monitor)">
@@ -235,6 +247,10 @@ export default function PeriodBar({
           onBirthdaysChange={onBirthdaysChange}
           colors={colors}
           onColorsChange={onColorsChange}
+          gems={gems}
+          onGemsChange={onGemsChange}
+          gemsLabel={gemsLabel}
+          onGemsLabelChange={onGemsLabelChange}
           wheelColors={wheelColors}
           otherPeriods={otherPeriods}
           onDeleteClassList={onDeleteClassList}

@@ -155,3 +155,32 @@ export function secondsUntilStart(period) {
   startDate.setHours(sh, sm, 0, 0);
   return Math.max(0, Math.round((startDate - now) / 1000));
 }
+
+const ACTIVE_PERIOD_KEY = "classboard_active_period";
+
+// The main board's currently-active period (whatever's highlighted there —
+// auto-detected by time, or manually pinned when Auto is off) — popup
+// windows (Teacher View, the seating chart) mirror this instead of doing
+// their own independent time-based detection when the main board isn't in
+// Auto mode.
+export function saveActivePeriod(autoMode, label) {
+  try { localStorage.setItem(ACTIVE_PERIOD_KEY, JSON.stringify({ autoMode, label: label ?? null })); } catch (_) {}
+}
+
+export function loadActivePeriod() {
+  try {
+    const s = JSON.parse(localStorage.getItem(ACTIVE_PERIOD_KEY) || "null");
+    if (s && typeof s === "object") return { autoMode: s.autoMode !== false, label: s.label ?? null };
+  } catch (_) {}
+  return { autoMode: true, label: null };
+}
+
+/** Current-period index for a popup window: mirrors the main board's pinned
+ *  period when it's not in Auto mode, otherwise falls back to time detection. */
+export function resolveActivePeriodIndex(periods, activePeriod) {
+  if (activePeriod && activePeriod.autoMode === false && activePeriod.label) {
+    const idx = periods.findIndex(p => p.label === activePeriod.label);
+    if (idx !== -1) return idx;
+  }
+  return detectCurrentPeriod(periods);
+}

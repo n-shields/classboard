@@ -4,8 +4,8 @@ import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
-import { loadSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
-import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
+import { loadSchedules, detectNextPeriod, loadActivePeriod, resolveActivePeriodIndex } from "./data/schedules";
+import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, loadGemsLabel, saveGemsLabel } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
 import { saveTeacherViewBounds } from "./data/teacherView";
@@ -20,12 +20,6 @@ function loadScheduleType() {
 }
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
-}
-function loadGemsLabel() {
-  return localStorage.getItem("classboard_gems_label") || "Gems";
-}
-function saveGemsLabel(label) {
-  localStorage.setItem("classboard_gems_label", label);
 }
 
 // The teacher-only reminder list is separate from the main board's — it
@@ -47,6 +41,7 @@ export default function TeacherView() {
   const [periodData, setPeriodData]   = useState(loadPeriodData);
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [gemsLabel, setGemsLabel]     = useState(loadGemsLabel);
+  const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
   const [now, setNow] = useState(() => new Date());
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [layout, setLayout] = useState(loadTeacherLayout);
@@ -71,6 +66,7 @@ export default function TeacherView() {
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
       setGemsLabel(loadGemsLabel());
+      setActivePeriod(loadActivePeriod());
     };
     const id = setInterval(() => { setNow(new Date()); reload(); }, 15_000);
     window.addEventListener("storage", reload);
@@ -78,7 +74,7 @@ export default function TeacherView() {
   }, []);
 
   const periods = schedules[scheduleType] || [];
-  const currentIndex = useMemo(() => detectCurrentPeriod(periods), [periods, now]); // eslint-disable-line
+  const currentIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
   const nextIndex = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
   const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
   const nextPeriod    = nextIndex    >= 0 ? periods[nextIndex]    : null;

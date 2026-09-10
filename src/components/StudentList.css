@@ -7,24 +7,22 @@
   max-width: 620px;
 }
 
-.student-gems-label-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.student-gems-label-hint {
-  font-size: 0.8rem;
+.student-gems-label {
+  font-size: 0.78rem;
   color: var(--text-dim);
-  flex-shrink: 0;
+  border-bottom: 1px dashed var(--border);
+  cursor: pointer;
 }
 
-.student-gems-label-input {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  font-size: 0.85rem;
+.student-gems-label:hover {
+  color: var(--text);
+  border-bottom-color: var(--text-dim);
+}
+
+.student-gems-label-edit {
+  width: 90px;
+  padding: 1px 4px;
+  font-size: 0.78rem;
 }
 
 .student-import-row {
