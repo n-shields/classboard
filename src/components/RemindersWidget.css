@@ -67,6 +67,7 @@
 .reminders-message--start       { color: var(--accent); }
 .reminders-message--end         { color: var(--warn); }
 .reminders-message--untilClosed { color: var(--danger); }
+.reminders-message--time        { color: var(--success); }
 
 .reminders-widget--active {
   animation: reminders-pulse 2.4s ease-in-out infinite;
@@ -142,6 +143,7 @@
 .reminders-edit-row--off .reminders-edit-text,
 .reminders-edit-row--off select,
 .reminders-edit-row--off .reminders-edit-mins,
+.reminders-edit-row--off .reminders-edit-time,
 .reminders-edit-row--off .reminders-edit-unit {
   opacity: 0.4;
 }
@@ -154,6 +156,11 @@
 .reminders-edit-mins {
   width: 56px;
   text-align: center;
+}
+
+.reminders-edit-time {
+  width: 100px;
+  color-scheme: light dark;
 }
 
 .reminders-edit-unit {

@@ -10,6 +10,7 @@ export default function StudentList({
   onBirthdaysChange,
   colors = {},
   onColorsChange,
+  wheelColors = [],
   otherPeriods = [],
   onDeleteClassList,
   periodLabel,
@@ -30,10 +31,20 @@ export default function StudentList({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const activeCount = useMemo(
-    () => names.filter(n => !excludedNames.includes(n)).length,
+  const activeNames = useMemo(
+    () => names.filter(n => !excludedNames.includes(n)),
     [names, excludedNames],
   );
+  const activeCount = activeNames.length;
+
+  // A student's color swatch defaults to whatever color they'd currently get
+  // on the wheel (same index-based cycling WheelOfNames uses), until the
+  // teacher picks an explicit override.
+  const defaultColorFor = (name) => {
+    const idx = activeNames.indexOf(name);
+    if (idx === -1 || wheelColors.length === 0) return "#888888";
+    return wheelColors[idx % wheelColors.length];
+  };
 
   const setName = (idx, value) => {
     const old = names[idx];
@@ -228,7 +239,7 @@ export default function StudentList({
                     <input
                       type="color"
                       className="student-color-input"
-                      value={colors[name] || "#888888"}
+                      value={colors[name] || defaultColorFor(name)}
                       onChange={e => setColor(name, e.target.value)}
                       title="Wheel color"
                     />

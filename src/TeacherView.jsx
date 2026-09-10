@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import RemindersWidget from "./components/RemindersWidget";
+import TextPane from "./components/TextPane";
 import { loadSchedules, detectCurrentPeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch } from "./data/periodData";
+import { pagesForPane } from "./data/pages";
 import { applyTheme } from "./data/themes";
 import { saveTeacherViewBounds } from "./data/teacherView";
 import "./TeacherView.css";
@@ -18,6 +20,10 @@ function loadGlobalTheme() {
 const TEACHER_DEFAULT_REMINDERS = [
   { id: 1, text: "Attendance", edge: "start", minutes: 10, enabled: true },
 ];
+
+const TEACHER_NOTES_PANE = "teacher-notes";
+const FALLBACK_TEACHER_PAGE = { id: "fallback-teacher-notes", html: "", fontSize: 20 };
+const FALLBACK_TEACHER_PANES = { [TEACHER_NOTES_PANE]: ["fallback-teacher-notes"] };
 
 // A small companion window meant for a second, teacher-facing monitor —
 // mirrors whatever the main board has stored (schedule, current period,
@@ -50,6 +56,8 @@ export default function TeacherView() {
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   const currentReminders = periodKey ? periodData[periodKey]?.teacherReminders : undefined;
+  const currentTeacherPages = periodKey ? (periodData[periodKey]?.teacherPages ?? [FALLBACK_TEACHER_PAGE]) : [FALLBACK_TEACHER_PAGE];
+  const currentTeacherPanes = periodKey ? (periodData[periodKey]?.teacherPanes ?? FALLBACK_TEACHER_PANES) : FALLBACK_TEACHER_PANES;
   const periodTheme = periodKey ? periodData[periodKey]?.theme : null;
   const currentTheme = periodTheme || globalTheme;
 
@@ -71,6 +79,19 @@ export default function TeacherView() {
     if (next) setPeriodData(next);
   };
 
+  // Private, per-period notes — separate from the main board's Notes tile.
+  const handleTeacherPagesChange = (pages) => {
+    if (!periodKey) return;
+    const pool = Array.isArray(periodData[periodKey]?.teacherPages) ? periodData[periodKey].teacherPages : [];
+    const poolById = new Map(pool.map(p => [p.id, p]));
+    for (const p of pages) poolById.set(p.id, p);
+    const teacherPanes = { [TEACHER_NOTES_PANE]: pages.map(p => p.id) };
+    const referenced = new Set(teacherPanes[TEACHER_NOTES_PANE]);
+    const teacherPages = [...poolById.values()].filter(p => referenced.has(p.id));
+    const next = savePeriodPatch(periodKey, { teacherPages, teacherPanes });
+    if (next) setPeriodData(next);
+  };
+
   return (
     <div className="teacher-view">
       <div className="teacher-view-header">
@@ -78,14 +99,27 @@ export default function TeacherView() {
         <span className="teacher-view-period">{currentPeriod ? currentPeriod.label : "No class in session"}</span>
       </div>
       <div className="teacher-view-body">
-        <RemindersWidget
-          currentPeriod={currentPeriod}
-          reminders={currentReminders}
-          onRemindersChange={handleRemindersChange}
-          collapsed={false}
-          defaultReminders={TEACHER_DEFAULT_REMINDERS}
-          scope="teacher"
-        />
+        <div className="teacher-view-reminders">
+          <RemindersWidget
+            currentPeriod={currentPeriod}
+            reminders={currentReminders}
+            onRemindersChange={handleRemindersChange}
+            collapsed={false}
+            defaultReminders={TEACHER_DEFAULT_REMINDERS}
+            scope="teacher"
+          />
+        </div>
+        <div className="teacher-view-notes">
+          <TextPane
+            key={`teacher-notes-${periodKey}`}
+            paneId={TEACHER_NOTES_PANE}
+            kind="Notes"
+            defaultFontSize={20}
+            pages={pagesForPane(currentTeacherPages, currentTeacherPanes, TEACHER_NOTES_PANE)}
+            onPagesChange={handleTeacherPagesChange}
+            periodLabel={currentPeriod?.label}
+          />
+        </div>
       </div>
     </div>
   );

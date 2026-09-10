@@ -29,8 +29,21 @@
 .teacher-view-body {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.teacher-view-body .reminders-widget {
+.teacher-view-reminders {
+  flex-shrink: 0;
+  height: 100px;
+}
+
+.teacher-view-reminders .reminders-widget {
   height: 100%;
+}
+
+.teacher-view-notes {
+  flex: 1;
+  min-height: 0;
 }

@@ -8,7 +8,8 @@ const DEFAULT_REMINDERS = [
   { id: 2, text: "Clean-up", edge: "end",   minutes: 10, enabled: true },
 ];
 
-const EDGES = ["start", "end", "untilClosed"];
+const EDGES = ["start", "end", "untilClosed", "time"];
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Coerce a stored/imported list into clean reminder objects with unique ids.
 function normalizeReminders(list, defaults = DEFAULT_REMINDERS) {
@@ -25,6 +26,7 @@ function normalizeReminders(list, defaults = DEFAULT_REMINDERS) {
         text: r.text,
         edge: EDGES.includes(r.edge) ? r.edge : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
+        time: TIME_RE.test(r.time) ? r.time : "12:00",
         enabled: r.enabled !== false,
       };
     });
@@ -100,6 +102,10 @@ export default function RemindersWidget({
       if (r.edge === "start" && sinceStart >= 0 && sinceStart < r.minutes) active.push(r);
       else if (r.edge === "end" && untilEnd > 0 && untilEnd <= r.minutes) active.push(r);
       else if (r.edge === "untilClosed" && sinceStart >= 0 && untilEnd > 0) active.push(r);
+      else if (r.edge === "time") {
+        const sinceTime = (now - timeToday(r.time, now)) / 60000;
+        if (sinceTime >= 0 && sinceTime < r.minutes) active.push(r);
+      }
     }
   }
 
@@ -111,7 +117,7 @@ export default function RemindersWidget({
     setDraft(d => d.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   const removeDraft = (i) => setDraft(d => d.filter((_, idx) => idx !== i));
   const addDraft = () =>
-    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id || 0)) + 1, text: "", edge: "start", minutes: 5, enabled: true }]);
+    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id || 0)) + 1, text: "", edge: "start", minutes: 5, time: "12:00", enabled: true }]);
 
   const saveEdit = () => {
     const cleaned = draft
@@ -120,6 +126,7 @@ export default function RemindersWidget({
         text: r.text.trim(),
         edge: EDGES.includes(r.edge) ? r.edge : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
+        time: TIME_RE.test(r.time) ? r.time : "12:00",
         enabled: r.enabled !== false,
       }))
       .filter(r => r.text);
@@ -161,7 +168,8 @@ export default function RemindersWidget({
             <h2>Reminders</h2>
             <p className="reminders-edit-hint">
               Show a message during the first or last few minutes of the class that's
-              currently in session — or the whole time, until you dismiss it.
+              currently in session, starting at a specific time, or the whole
+              time until you dismiss it.
             </p>
             <div className="reminders-edit-list">
               {draft.map((r, i) => (
@@ -182,8 +190,17 @@ export default function RemindersWidget({
                   <select value={r.edge} onChange={e => updateDraft(i, "edge", e.target.value)}>
                     <option value="start">First</option>
                     <option value="end">Last</option>
+                    <option value="time">At time</option>
                     <option value="untilClosed">Until closed</option>
                   </select>
+                  {r.edge === "time" && (
+                    <input
+                      className="reminders-edit-time"
+                      type="time"
+                      value={r.time}
+                      onChange={e => updateDraft(i, "time", e.target.value)}
+                    />
+                  )}
                   {r.edge !== "untilClosed" && (
                     <>
                       <input
