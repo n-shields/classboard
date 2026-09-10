@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
+import ClockWidget from "./components/ClockWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
-import { loadSchedules, detectCurrentPeriod } from "./data/schedules";
+import { loadSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { applyTheme } from "./data/themes";
@@ -52,7 +53,9 @@ export default function TeacherView() {
 
   const periods = schedules[scheduleType] || [];
   const currentIndex = useMemo(() => detectCurrentPeriod(periods), [periods, now]); // eslint-disable-line
+  const nextIndex = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
   const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
+  const nextPeriod    = nextIndex    >= 0 ? periods[nextIndex]    : null;
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   const currentReminders = periodKey ? periodData[periodKey]?.teacherReminders : undefined;
@@ -99,6 +102,12 @@ export default function TeacherView() {
         <span className="teacher-view-period">{currentPeriod ? currentPeriod.label : "No class in session"}</span>
       </div>
       <div className="teacher-view-body">
+        <div className="teacher-view-clock">
+          <ClockWidget
+            currentPeriod={currentPeriod}
+            nextPeriod={nextPeriod}
+          />
+        </div>
         <div className="teacher-view-reminders">
           <RemindersWidget
             currentPeriod={currentPeriod}

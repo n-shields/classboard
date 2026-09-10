@@ -34,6 +34,11 @@
   gap: 8px;
 }
 
+.teacher-view-clock {
+  flex-shrink: 0;
+  height: 160px;
+}
+
 .teacher-view-reminders {
   flex-shrink: 0;
   height: 100px;

@@ -92,7 +92,7 @@ export default function PeriodBar({
   const openTeacherView = () => {
     const bounds = loadTeacherViewBounds();
     const width  = bounds?.width  || 380;
-    const height = bounds?.height || 520;
+    const height = bounds?.height || 640;
     const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + window.outerWidth;
     const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY;
     const url = new URL(window.location.href);
