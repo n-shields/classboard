@@ -197,6 +197,14 @@ export default function TextPane({
               contentEditable
               suppressContentEditableWarning
               onInput={saveContent}
+              // A tab dropped here (missing the tab strip, e.g. reordering
+              // within this same pane, which the outer tile grid's drop
+              // overlay deliberately ignores) would otherwise fall through to
+              // the browser's default contentEditable drop handling, which
+              // inserts the dragged element's own text — the tab's label —
+              // into the content. Suppress that; drops are handled elsewhere.
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => e.preventDefault()}
               style={{ fontSize: `${activePage.fontSize}px` }}
               data-placeholder={`${kind}${periodLabel ? ` — ${periodLabel}` : ""}…`}
             />
