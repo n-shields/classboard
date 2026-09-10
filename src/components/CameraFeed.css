@@ -23,7 +23,7 @@
   opacity: 0;
 }
 
-/* Reuse sidebar utility classes from TextBoard */
+/* Camera's own sidebar label styling (not shared with any other component) */
 .camera-sidebar .sidebar-label {
   font-size: 0.6rem;
   font-weight: 700;

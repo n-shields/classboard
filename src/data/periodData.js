@@ -26,6 +26,8 @@ export function loadPeriodData() {
       if (p.notePages && !isPageArray(p.notePages))    delete p.notePages;
       if (p.textPanes && !isPanesMap(p.textPanes))     delete p.textPanes;
       if (p.notePanes && !isPanesMap(p.notePanes))     delete p.notePanes;
+      if (p.pages && !isPageArray(p.pages))            delete p.pages;
+      if (p.panes && !isPanesMap(p.panes))             delete p.panes;
     }
     return data;
   } catch (_) { return {}; }

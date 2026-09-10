@@ -1,14 +1,22 @@
 export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders'];
 
-// A detached page (dragged out of a Board/Notes tab strip) lives in the tree
-// as a dynamically-created leaf of the form "<text|notes>-pane-<id>" — these
-// are allowed anywhere in the tree but, unlike TILE_IDS, aren't required.
+// A detached page (dragged out of a text-pane's tab strip) lives in the tree
+// as a dynamically-created leaf of the form "pane-<id>" — these are allowed
+// anywhere in the tree but, unlike TILE_IDS, aren't required. The older
+// "text-pane-*"/"notes-pane-*" forms are still recognized for layouts saved
+// before Board and Notes became one interchangeable pane type.
 export function isDynamicPaneId(id) {
-  return typeof id === 'string' && /^(text|notes)-pane-/.test(id);
+  return typeof id === 'string' && /^(pane-|text-pane-|notes-pane-)/.test(id);
 }
 
-export function makePaneId(paneType) {
-  return `${paneType}-pane-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+// Any tile that hosts a text pane — the fixed "text"/"notes" tiles, or a
+// detached pane — and so is a valid drop target to join tabs with.
+export function isPaneTile(id) {
+  return id === 'text' || id === 'notes' || isDynamicPaneId(id);
+}
+
+export function makePaneId() {
+  return `pane-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
 /** All leaf IDs present in a layout tree */

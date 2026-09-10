@@ -1,7 +1,9 @@
-// Shared helpers for the Board/Notes "pages" model: a flat pool of pages
+// Shared helpers for the text-pane "pages" model: a flat pool of pages
 // (`{ id, html, fontSize }`) per period, plus a `panes` map recording which
-// pane instance (the main tile, or a detached tile dragged out of it) shows
-// which pages, in what order — `{ [paneId]: pageId[] }`.
+// pane instance (the "text" or "notes" tile, or a tile detached from either)
+// shows which pages, in what order — `{ [paneId]: pageId[] }`. There's no
+// distinction between a "Board" page and a "Notes" page — any page can live
+// in any pane — so this is one pool per period, not one per pane type.
 
 export function genPageId() {
   return `pg_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
@@ -20,17 +22,37 @@ export function isPanesMap(v) {
     && Object.values(v).every(list => Array.isArray(list) && list.every(id => typeof id === "string"));
 }
 
-// One-time migration of a period's old fixed-3 texts/notes arrays into the
-// new pages+panes shape. Returns null if `period` is already migrated, or if
-// it never had the old shape in the first place (nothing to convert — a
-// period with no texts/notes yet should stay empty, not get blank pages
-// stamped onto it just for existing), otherwise the { pages, panes } to merge in.
-export function migratePeriodPages(period, { textKey, fontKey, pagesKey, panesKey, mainPaneId, defaultFont }) {
-  if (isPageArray(period?.[pagesKey]) && isPanesMap(period?.[panesKey])) return null;
-  if (!Array.isArray(period?.[textKey])) return null;
-  const oldFonts = Array.isArray(period?.[fontKey]) ? period[fontKey] : [];
-  const pages = period[textKey].map((html, i) => makePage(html || "", oldFonts[i] ?? defaultFont));
-  return { [pagesKey]: pages, [panesKey]: { [mainPaneId]: pages.map(p => p.id) } };
+// One-time migration of a period's old text-pane data — whichever stage it's
+// in — into the unified { pages, panes } shape. Returns null if already
+// migrated, or if there was never any text-pane data for this period (stays
+// empty rather than getting blank pages stamped on just for existing).
+export function migrateToUnifiedPages(period) {
+  if (isPageArray(period?.pages) && isPanesMap(period?.panes)) return null;
+
+  // Already-migrated two-pool stage (textPages/notePages + textPanes/notePanes)
+  if (isPageArray(period?.textPages) || isPageArray(period?.notePages)) {
+    const pages = [...(period.textPages || []), ...(period.notePages || [])];
+    const panes = { ...(period.textPanes || {}), ...(period.notePanes || {}) };
+    return { pages, panes };
+  }
+
+  // Original fixed-3-array stage (texts/textFontSizes, notes/noteFontSizes)
+  if (!Array.isArray(period?.texts) && !Array.isArray(period?.notes)) return null;
+  const pages = [];
+  const panes = {};
+  if (Array.isArray(period.texts)) {
+    const fonts = Array.isArray(period.textFontSizes) ? period.textFontSizes : [];
+    const textPages = period.texts.map((html, i) => makePage(html || "", fonts[i] ?? 48));
+    pages.push(...textPages);
+    panes.text = textPages.map(p => p.id);
+  }
+  if (Array.isArray(period.notes)) {
+    const fonts = Array.isArray(period.noteFontSizes) ? period.noteFontSizes : [];
+    const notePages = period.notes.map((html, i) => makePage(html || "", fonts[i] ?? 20));
+    pages.push(...notePages);
+    panes.notes = notePages.map(p => p.id);
+  }
+  return { pages, panes };
 }
 
 // Pages a given pane currently shows, in the pane's own order.
@@ -38,20 +60,4 @@ export function pagesForPane(pages, panes, paneId) {
   const ids = panes?.[paneId] ?? [];
   const byId = new Map(pages.map(p => [p.id, p]));
   return ids.map(id => byId.get(id)).filter(Boolean);
-}
-
-// "text" | "notes" | null — which page family a pane id belongs to.
-export function paneTypeOf(paneId) {
-  if (!paneId) return null;
-  if (paneId === "text" || paneId.startsWith("text-pane-")) return "text";
-  if (paneId === "notes" || paneId.startsWith("notes-pane-")) return "notes";
-  return null;
-}
-
-// Is `tileId` a Board/Notes pane of the same family as `paneId`? Used to tell
-// a merge target (drop anywhere on it to join its tabs) from a plain tile
-// (drop on an edge to pop out a brand-new pane there).
-export function isSamePaneFamily(tileId, paneId) {
-  const type = paneTypeOf(paneId);
-  return !!type && paneTypeOf(tileId) === type;
 }

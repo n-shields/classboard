@@ -3,41 +3,47 @@ import useIdleCaret from "../hooks/useIdleCaret";
 import NoteSyncModal from "./NoteSyncModal";
 import { makePage } from "../data/pages";
 import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
-import "./NoteWidget.css";
+import "./TextPane.css";
 
-const DEFAULT_FONT = 20;
-const PANE_TYPE = "notes";
-
+// Short tab label derived from a page's content, browser-tab style.
 function pageLabel(page, idx) {
   const text = (page.html || "").replace(/<[^>]+>/g, "").trim();
   if (text) return text.length > 14 ? text.slice(0, 14) + "…" : text;
   return `Page ${idx + 1}`;
 }
 
-export default function NoteWidget({
-  pages, onPagesChange, paneId = "notes", periodLabel, collapsed,
+// One kind of rich-text pane, used for both the Board and Notes tiles (and
+// any pane detached from either) — there's no functional difference between
+// them, so any tab can dock into any pane. `kind`/`defaultFontSize` only
+// flavor the placeholder text and the font size a brand-new page starts at.
+//
+// The tab strip and formatting toolbar live outside the pane's own bordered
+// box — above and below it — and collapse away to nothing when not hovered
+// or focused, so the pane itself fills the tile when they're hidden.
+export default function TextPane({
+  pages, onPagesChange, paneId, periodLabel,
+  kind = "Page", defaultFontSize = 24,
   allPeriodLabels = [], syncedWith = [], onSyncChange,
 }) {
   const [activePageId, setActivePageId] = useState(pages[0]?.id ?? null);
-  const [toolbarVisible, setToolbarVisible] = useState(true);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isBullet, setIsBullet] = useState(false);
   const [isNumbered, setIsNumbered] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
-  const cardRef = useRef(null);
   const editorRef = useRef(null);
   const dragCtx = useContext(DragCtx);
   useIdleCaret(editorRef);
 
+  // Keep the active tab pointed at a page that still exists (closed/merged away)
   useEffect(() => {
     if (!pages.some(p => p.id === activePageId)) setActivePageId(pages[0]?.id ?? null);
   }, [pages, activePageId]);
 
   const activePage = pages.find(p => p.id === activePageId) ?? null;
 
-  // Sync content on tab change; period changes remount via key in App
+  // Sync content on tab change; period changes remount this component via key in App
   useEffect(() => {
     if (editorRef.current) editorRef.current.innerHTML = activePage?.html ?? "";
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,16 +64,6 @@ export default function NoteWidget({
     document.addEventListener("selectionchange", update);
     return () => document.removeEventListener("selectionchange", update);
   }, []);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (toolbarVisible && cardRef.current && !cardRef.current.contains(e.target)) {
-        setToolbarVisible(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [toolbarVisible]);
 
   const saveContent = () => {
     if (!editorRef.current || !activePage) return;
@@ -110,7 +106,7 @@ export default function NoteWidget({
     if (hasSelection) {
       changeSizeForSelection(delta);
     } else if (activePage) {
-      const fontSize = Math.min(72, Math.max(10, activePage.fontSize + delta));
+      const fontSize = Math.min(144, Math.max(10, activePage.fontSize + delta));
       onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, fontSize } : p)));
     }
   };
@@ -122,15 +118,17 @@ export default function NoteWidget({
   };
 
   const addPage = () => {
-    const page = makePage("", DEFAULT_FONT);
+    const page = makePage("", defaultFontSize);
     onPagesChange([...pages, page]);
     setActivePageId(page.id);
   };
 
   const closePage = (id) => onPagesChange(pages.filter(p => p.id !== id));
 
+  // ── Drag-and-drop: reorder within this strip, detach to a new tile (via
+  // TileLayout's edge drop zones), or merge a tab dragged in from elsewhere ──
   const onTabDragStart = (e, page) => {
-    const info = { paneType: PANE_TYPE, pageId: page.id, sourcePaneId: paneId };
+    const info = { pageId: page.id, sourcePaneId: paneId };
     e.dataTransfer.setData(PAGE_DND_TYPE, JSON.stringify(info));
     e.dataTransfer.setData("text/plain", "");
     e.dataTransfer.effectAllowed = "move";
@@ -145,7 +143,7 @@ export default function NoteWidget({
   };
 
   // Cross-pane drops are handled by the outer tile grid's drop overlay
-  // (which merges into a Board/Notes pane, or detaches a new tile elsewhere);
+  // (which merges into any other pane, or detaches a new tile elsewhere);
   // this only reorders a tab within its own strip.
   const onTabDrop = (e, targetIdx) => {
     e.preventDefault();
@@ -165,79 +163,69 @@ export default function NoteWidget({
   };
 
   return (
-    <div
-      className={`card note-widget card--header-bottom ${collapsed ? "card--collapsed" : ""}`}
-      ref={cardRef}
-      onMouseDown={() => setToolbarVisible(true)}
-      tabIndex={-1}
-    >
-      <div className="card-header">
-        {!collapsed && toolbarVisible && (
-          <div className="note-header-controls">
-            <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(4); }} title={hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
-            <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(-4); }} title={hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
-            <div className="note-divider" />
-            <button className={`btn btn-ghost btn-sm${isBold ? " note-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("bold"); }} title="Bold"><strong>B</strong></button>
-            <button className={`btn btn-ghost btn-sm${isItalic ? " note-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
-            <div className="note-divider" />
-            <button className={`btn btn-ghost btn-sm${isBullet ? " note-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
-            <button className={`btn btn-ghost btn-sm${isNumbered ? " note-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
-            <div className="note-divider" />
-            <button className="btn btn-ghost btn-sm note-clear-btn" onClick={handleClear} title="Clear this page">✕</button>
-          </div>
-        )}
-      </div>
-      <div className="card-body note-body">
-        {!collapsed && (
-          <div className="note-tabstrip">
-            {pages.map((p, i) => (
-              <div
-                key={p.id}
-                className={`note-tab ${p.id === activePageId ? "note-tab--active" : ""}`}
-                draggable
-                onDragStart={e => onTabDragStart(e, p)}
-                onDragEnd={onTabDragEnd}
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => onTabDrop(e, i)}
-                onClick={() => setActivePageId(p.id)}
-                title="Drag to reorder, merge into another pane, or drop on a tile edge to pop out"
-              >
-                <span className="note-tab-label">{pageLabel(p, i)}</span>
-                <button
-                  className="note-tab-close"
-                  onClick={e => { e.stopPropagation(); closePage(p.id); }}
-                  title="Close page"
-                >×</button>
-              </div>
-            ))}
-            <button className="note-tab-add" onClick={addPage} title="Add a page">+</button>
-          </div>
-        )}
-        {activePage ? (
+    <div className="textpane-wrap" tabIndex={-1}>
+      <div className="textpane-tabstrip">
+        {pages.map((p, i) => (
           <div
-            ref={editorRef}
-            className="note-textarea"
-            contentEditable
-            suppressContentEditableWarning
-            onInput={saveContent}
-            style={{ fontSize: `${activePage.fontSize}px`, lineHeight: 1.4 }}
-            data-placeholder={`Notes${periodLabel ? ` — ${periodLabel}` : ""}…`}
-          />
-        ) : (
-          <div className="note-empty">
-            <button className="btn btn-ghost btn-sm" onClick={addPage}>+ Add a page</button>
-          </div>
-        )}
-        {paneId === "notes" && periodLabel && onSyncChange && (
-          <div className="note-sync-nav">
+            key={p.id}
+            className={`textpane-tab ${p.id === activePageId ? "textpane-tab--active" : ""}`}
+            draggable
+            onDragStart={e => onTabDragStart(e, p)}
+            onDragEnd={onTabDragEnd}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => onTabDrop(e, i)}
+            onClick={() => setActivePageId(p.id)}
+            title="Drag to reorder, merge into another pane, or drop on a tile edge to pop out"
+          >
+            <span className="textpane-tab-label">{pageLabel(p, i)}</span>
             <button
-              className={`note-nav-btn${syncedWith.length > 0 ? " note-nav-btn-active" : ""}`}
-              onClick={() => setSyncModalOpen(true)}
-              onMouseDown={e => e.preventDefault()}
-              title={syncedWith.length > 0 ? `Synced with ${syncedWith.join(", ")}` : "Sync notes with another period"}
-              tabIndex={-1}
-            >∞</button>
+              className="textpane-tab-close"
+              onClick={e => { e.stopPropagation(); closePage(p.id); }}
+              title="Close page"
+            >×</button>
           </div>
+        ))}
+        <button className="textpane-tab-add" onClick={addPage} title="Add a page">+</button>
+      </div>
+
+      <div className="card textpane">
+        <div className="card-body textpane-body">
+          {activePage ? (
+            <div
+              ref={editorRef}
+              className="textpane-textarea"
+              contentEditable
+              suppressContentEditableWarning
+              onInput={saveContent}
+              style={{ fontSize: `${activePage.fontSize}px` }}
+              data-placeholder={`${kind}${periodLabel ? ` — ${periodLabel}` : ""}…`}
+            />
+          ) : (
+            <div className="textpane-empty">
+              <button className="btn btn-ghost btn-sm" onClick={addPage}>+ Add a page</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="textpane-toolbar">
+        <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(4); }} title={hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
+        <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(-4); }} title={hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
+        <div className="textpane-divider" />
+        <button className={`btn btn-ghost btn-sm${isBold ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("bold"); }} title="Bold"><strong>B</strong></button>
+        <button className={`btn btn-ghost btn-sm${isItalic ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
+        <div className="textpane-divider" />
+        <button className={`btn btn-ghost btn-sm${isBullet ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
+        <button className={`btn btn-ghost btn-sm${isNumbered ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
+        <div className="textpane-divider" />
+        <button className="btn btn-ghost btn-sm textpane-clear-btn" onClick={handleClear} title="Clear this page">✕</button>
+        {onSyncChange && (
+          <button
+            className={`btn btn-ghost btn-sm textpane-sync-btn${syncedWith.length > 0 ? " textpane-btn-active" : ""}`}
+            onClick={() => setSyncModalOpen(true)}
+            onMouseDown={e => e.preventDefault()}
+            title={syncedWith.length > 0 ? `Synced with ${syncedWith.join(", ")}` : "Sync with another period"}
+          >∞</button>
         )}
       </div>
 

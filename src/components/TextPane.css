@@ -1,0 +1,189 @@
+/* Tab strip and toolbar live OUTSIDE the pane's bordered box — above and
+   below it — and collapse to nothing until hovered/focused, so the pane
+   itself grows to fill the tile when they're hidden. */
+.textpane-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.textpane {
+  flex: 1;
+  min-height: 0;
+}
+
+.textpane-body {
+  padding: 0;
+  position: relative;
+}
+
+/* ── Tab strip ── */
+.textpane-tabstrip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  max-height: 34px;
+  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
+}
+.textpane-tabstrip::-webkit-scrollbar { display: none; }
+
+.textpane-wrap:not(:hover):not(:focus-within) .textpane-tabstrip {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+.textpane-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 140px;
+  padding: 5px 8px;
+  border-radius: 6px 6px 0 0;
+  background: var(--surface2);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+.textpane-tab:hover {
+  color: var(--text);
+}
+.textpane-tab--active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.textpane-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.textpane-tab-close {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.75rem;
+  line-height: 1;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  opacity: 0.5;
+}
+.textpane-tab-close:hover {
+  opacity: 1;
+  background: rgba(255,255,255,0.15);
+}
+
+.textpane-tab-add {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+}
+.textpane-tab-add:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+/* ── The pane's own content ── */
+.textpane-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textpane-textarea {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  padding: 14px 16px;
+  font-family: inherit;
+  outline: none;
+  width: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.textpane-textarea::-webkit-scrollbar { display: none; }
+
+.textpane-textarea:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.textpane-textarea ul,
+.textpane-textarea ol {
+  padding-left: 1.4em;
+  margin: 0.15em 0;
+}
+
+/* ── Formatting toolbar ── */
+.textpane-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 6px;
+  max-height: 34px;
+  overflow: hidden;
+  transition: max-height 0.18s ease, padding 0.18s ease, opacity 0.18s ease;
+}
+
+.textpane-wrap:not(:hover):not(:focus-within) .textpane-toolbar {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+.textpane-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.textpane-btn-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+.textpane-clear-btn {
+  color: var(--danger) !important;
+}
+
+.textpane-sync-btn {
+  margin-left: auto;
+}

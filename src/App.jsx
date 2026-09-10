@@ -1,21 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import TextBoard from "./components/TextBoard";
+import TextPane from "./components/TextPane";
 import ClockWidget from "./components/ClockWidget";
 import PeriodBar from "./components/PeriodBar";
 import CameraFeed from "./components/CameraFeed";
 import WheelOfNames from "./components/WheelOfNames";
 import ProgressWidget from "./components/ProgressWidget";
-import NoteWidget from "./components/NoteWidget";
 import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
 import SeatingChart from "./components/SeatingChart";
 import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, collectLeaves, isDynamicPaneId, makePaneId } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId } from "./data/layout";
 import { loadNoteSyncGroups, saveNoteSyncGroups, getSyncMates, setSyncGroup } from "./data/noteSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
-import { migratePeriodPages, pagesForPane, isSamePaneFamily } from "./data/pages";
+import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import "./App.css";
 
 const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
@@ -26,37 +25,35 @@ function loadPeriodLayoutTrees() {
   return {};
 }
 
-const DEFAULT_COLLAPSED = { date: false, clock: false, notes: false, wheel: false, prize: false, reminders: false };
+const DEFAULT_COLLAPSED = { date: false, clock: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
 const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
-// Fallback pages/panes shown when no period is selected yet (edge case only)
-const FALLBACK_TEXT_PAGES = [{ id: "fallback-text", html: "", fontSize: 48 }];
-const FALLBACK_TEXT_PANES = { text: ["fallback-text"] };
-const FALLBACK_NOTE_PAGES = [{ id: "fallback-notes", html: "", fontSize: 20 }];
-const FALLBACK_NOTE_PANES = { notes: ["fallback-notes"] };
+// Each of the two fixed panes starts with one blank page, shown until it's
+// edited (at which point it becomes a real stored page) or closed. Applied
+// per-pane, not per-period, so editing one doesn't blank out the other's.
+const FALLBACK_TEXT_PAGE = { id: "fallback-text", html: "", fontSize: 48 };
+const FALLBACK_NOTE_PAGE = { id: "fallback-notes", html: "", fontSize: 20 };
 
-// One-time: Board/Notes used to be a fixed 3-page array (texts/textFontSizes,
-// notes/noteFontSizes). Convert every period that still has the old shape
-// into the new { pages, panes } shape, then persist and drop the old fields.
+// One-time: text panes used to come in two separate flavors (Board vs Notes),
+// each with their own pool going back to a fixed 3-page array before that.
+// Convert every period still on an old shape into the unified { pages, panes }
+// shape (any page can live in any pane now), then persist and drop old fields.
 function migrateTextNotesPages(periodData) {
   let changed = false;
   const next = { ...periodData };
   for (const key of Object.keys(next)) {
     const period = next[key];
-    const textMig = migratePeriodPages(period, {
-      textKey: "texts", fontKey: "textFontSizes", pagesKey: "textPages", panesKey: "textPanes",
-      mainPaneId: "text", defaultFont: 48,
-    });
-    const noteMig = migratePeriodPages(period, {
-      textKey: "notes", fontKey: "noteFontSizes", pagesKey: "notePages", panesKey: "notePanes",
-      mainPaneId: "notes", defaultFont: 20,
-    });
-    if (textMig || noteMig) {
+    const mig = migrateToUnifiedPages(period);
+    if (mig) {
       changed = true;
-      const { texts: _texts, textFontSizes: _textFontSizes, notes: _notes, noteFontSizes: _noteFontSizes, ...rest } = period;
-      next[key] = { ...rest, ...textMig, ...noteMig };
+      const {
+        texts: _texts, textFontSizes: _textFontSizes, notes: _notes, noteFontSizes: _noteFontSizes,
+        textPages: _textPages, textPanes: _textPanes, notePages: _notePages, notePanes: _notePanes,
+        ...rest
+      } = period;
+      next[key] = { ...rest, ...mig };
     }
   }
   if (changed) localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
@@ -182,10 +179,10 @@ export default function App() {
   const clockPeriod     = clockPeriodIndex     >= 0 ? periods[clockPeriodIndex]     : null;
   const clockNextPeriod = clockNextPeriodIndex >= 0 ? periods[clockNextPeriodIndex] : null;
 
-  const currentTextPages     = periodKey ? (periodData[periodKey]?.textPages ?? FALLBACK_TEXT_PAGES) : FALLBACK_TEXT_PAGES;
-  const currentTextPanes     = periodKey ? (periodData[periodKey]?.textPanes ?? FALLBACK_TEXT_PANES) : FALLBACK_TEXT_PANES;
-  const currentNotePages     = periodKey ? (periodData[periodKey]?.notePages ?? FALLBACK_NOTE_PAGES) : FALLBACK_NOTE_PAGES;
-  const currentNotePanes     = periodKey ? (periodData[periodKey]?.notePanes ?? FALLBACK_NOTE_PANES) : FALLBACK_NOTE_PANES;
+  const storedPages          = periodKey ? (periodData[periodKey]?.pages ?? []) : [];
+  const storedPanes          = periodKey ? (periodData[periodKey]?.panes ?? {}) : {};
+  const currentPages         = [FALLBACK_TEXT_PAGE, FALLBACK_NOTE_PAGE, ...storedPages];
+  const currentPanes         = { text: ["fallback-text"], notes: ["fallback-notes"], ...storedPanes };
   const currentNames         = periodKey ? (periodData[periodKey]?.names         ?? DEFAULT_NAMES) : DEFAULT_NAMES;
   const currentExcluded      = periodKey ? (periodData[periodKey]?.excludedNames  ?? [])          : [];
   const currentBirthdays     = periodKey ? (periodData[periodKey]?.birthdays     ?? {})          : {};
@@ -200,10 +197,8 @@ export default function App() {
   const currentProgress      = periodKey ? (periodData[periodKey]?.progress      ?? null)        : null;
   const currentReminders     = periodKey ? periodData[periodKey]?.reminders : undefined;
 
-  // Detached pages (dragged out of a Board/Notes tab strip into their own tile)
-  const dynamicPaneIds     = [...collectLeaves(layout)].filter(isDynamicPaneId);
-  const dynamicTextPanes   = dynamicPaneIds.filter(id => id.startsWith("text-pane-"));
-  const dynamicNotePanes   = dynamicPaneIds.filter(id => id.startsWith("notes-pane-"));
+  // Detached pages (dragged out of a text pane's tab strip into their own tile)
+  const dynamicPaneIds = [...collectLeaves(layout)].filter(isDynamicPaneId);
 
   // Per-period theme overrides global
   const periodTheme  = periodKey ? periodData[periodKey]?.theme : null;
@@ -318,47 +313,30 @@ export default function App() {
   // and reordering pages. New/edited pages are merged into the pool; pages no
   // longer referenced by any pane (this period's) are dropped from it. If a
   // detached pane's last page is closed this way, its tile closes too (the
-  // main text/notes tile never does).
-  const updatePanePages = (poolKey, panesKey, paneId, newPagesForPane) => {
+  // main text/notes tile never does). The main "notes" pane also mirrors to
+  // synced periods.
+  const handlePagesChange = (paneId, newPagesForPane) => {
     if (!periodKey) return;
     const willClose = newPagesForPane.length === 0 && isDynamicPaneId(paneId);
-    setPeriodData(d => {
-      const period = d[periodKey] || {};
-      const pool = Array.isArray(period[poolKey]) ? period[poolKey] : [];
-      const poolById = new Map(pool.map(p => [p.id, p]));
-      for (const p of newPagesForPane) poolById.set(p.id, p);
-      const nextPanes = { ...(period[panesKey] || {}), [paneId]: newPagesForPane.map(p => p.id) };
-      if (willClose) delete nextPanes[paneId];
-      const referenced = new Set(Object.values(nextPanes).flat());
-      const nextPool = [...poolById.values()].filter(p => referenced.has(p.id));
-      const next = { ...d, [periodKey]: { ...period, [poolKey]: nextPool, [panesKey]: nextPanes } };
-      localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
-      return next;
-    });
-    if (willClose) handleLayoutChange(prev => removeLeaf(prev, paneId) ?? prev);
-  };
-
-  const handleTextPagesChange = (paneId, pages) => updatePanePages("textPages", "textPanes", paneId, pages);
-
-  // The main notes pane mirrors to synced periods; detached note panes are per-period only.
-  const handleNotePagesChange = (paneId, pages) => {
-    if (!periodKey) return;
     const mates = paneId === "notes" ? getSyncMates(noteSyncGroups, periodKey) : [];
-    if (mates.length === 0) { updatePanePages("notePages", "notePanes", paneId, pages); return; }
+    const labels = mates.length > 0 ? [periodKey, ...mates] : [periodKey];
+
     setPeriodData(d => {
       const next = { ...d };
-      for (const label of [periodKey, ...mates]) {
+      for (const label of labels) {
         const period = next[label] || {};
-        const pool = Array.isArray(period.notePages) ? period.notePages : [];
+        const pool = Array.isArray(period.pages) ? period.pages : [];
         const poolById = new Map(pool.map(p => [p.id, p]));
-        for (const p of pages) poolById.set(p.id, p);
-        const nextPanes = { ...(period.notePanes || {}), notes: pages.map(p => p.id) };
+        for (const p of newPagesForPane) poolById.set(p.id, p);
+        const nextPanes = { ...(period.panes || {}), [paneId]: newPagesForPane.map(p => p.id) };
+        if (willClose) delete nextPanes[paneId];
         const referenced = new Set(Object.values(nextPanes).flat());
-        next[label] = { ...period, notePages: [...poolById.values()].filter(p => referenced.has(p.id)), notePanes: nextPanes };
+        next[label] = { ...period, pages: [...poolById.values()].filter(p => referenced.has(p.id)), panes: nextPanes };
       }
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });
+    if (willClose) handleLayoutChange(prev => removeLeaf(prev, paneId) ?? prev);
   };
 
   // Link `periodKey`'s notes with `mateLabels`; newly-linked periods immediately
@@ -374,11 +352,17 @@ export default function App() {
 
     if (newlyAdded.length > 0) {
       setPeriodData(d => {
-        const sourcePages = d[periodKey]?.notePages ?? [];
-        const sourcePanes = d[periodKey]?.notePanes?.notes ?? [];
+        const sourceNoteIds = d[periodKey]?.panes?.notes ?? [];
+        const sourcePages = (d[periodKey]?.pages ?? []).filter(p => sourceNoteIds.includes(p.id));
         const next = { ...d };
         for (const label of newlyAdded) {
-          next[label] = { ...next[label], notePages: [...sourcePages], notePanes: { ...next[label]?.notePanes, notes: [...sourcePanes] } };
+          const period = next[label] || {};
+          const pool = Array.isArray(period.pages) ? period.pages : [];
+          const poolById = new Map(pool.map(p => [p.id, p]));
+          for (const p of sourcePages) poolById.set(p.id, p);
+          const nextPanes = { ...(period.panes || {}), notes: sourceNoteIds };
+          const referenced = new Set(Object.values(nextPanes).flat());
+          next[label] = { ...period, pages: [...poolById.values()].filter(p => referenced.has(p.id)), panes: nextPanes };
         }
         localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
         return next;
@@ -387,17 +371,16 @@ export default function App() {
   }, [periodKey, noteSyncGroups]);
 
   // Detach a page tab into a brand-new tile, dropped next to `targetTileId`.
-  const handleDetachPage = (paneType, info, targetTileId, side) => {
+  const handleDetachPage = (info, targetTileId, side) => {
     if (!periodKey) return;
-    const panesKey = paneType === "text" ? "textPanes" : "notePanes";
     const { pageId, sourcePaneId } = info;
-    const newPaneId = makePaneId(paneType);
+    const newPaneId = makePaneId();
     setPeriodData(d => {
       const period = d[periodKey] || {};
-      const panes = { ...(period[panesKey] || {}) };
+      const panes = { ...(period.panes || {}) };
       panes[sourcePaneId] = (panes[sourcePaneId] || []).filter(id => id !== pageId);
       panes[newPaneId] = [pageId];
-      const next = { ...d, [periodKey]: { ...period, [panesKey]: panes } };
+      const next = { ...d, [periodKey]: { ...period, panes } };
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });
@@ -406,34 +389,32 @@ export default function App() {
 
   // Merge a dragged-in page tab into an existing pane; if that empties a
   // detached pane, close it (the main text/notes tile is never closed).
-  const handleMergePage = (paneType, info, targetPaneId) => {
+  const handleMergePage = (info, targetPaneId) => {
     if (!periodKey) return;
-    const panesKey = paneType === "text" ? "textPanes" : "notePanes";
     const { pageId, sourcePaneId } = info;
     if (sourcePaneId === targetPaneId) return;
-    const currentPanes = periodData[periodKey]?.[panesKey] || {};
-    const remaining = (currentPanes[sourcePaneId] || []).filter(id => id !== pageId);
+    const panesNow = periodData[periodKey]?.panes || {};
+    const remaining = (panesNow[sourcePaneId] || []).filter(id => id !== pageId);
     const willClose = remaining.length === 0 && isDynamicPaneId(sourcePaneId);
 
     setPeriodData(d => {
       const period = d[periodKey] || {};
-      const panes = { ...(period[panesKey] || {}) };
+      const panes = { ...(period.panes || {}) };
       panes[sourcePaneId] = remaining;
       panes[targetPaneId] = [...(panes[targetPaneId] || []), pageId];
       if (willClose) delete panes[sourcePaneId];
-      const next = { ...d, [periodKey]: { ...period, [panesKey]: panes } };
+      const next = { ...d, [periodKey]: { ...period, panes } };
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });
     if (willClose) handleLayoutChange(prev => removeLeaf(prev, sourcePaneId) ?? prev);
   };
 
-  // A page tab was dropped on tile `targetTileId`: merge into it if it's
-  // already a Board/Notes pane of the matching type, otherwise pop the page
-  // out into a brand-new tile next to it.
-  const handlePageDrop = (paneType, info, targetTileId, side) => {
-    if (isSamePaneFamily(targetTileId, paneType)) handleMergePage(paneType, info, targetTileId);
-    else handleDetachPage(paneType, info, targetTileId, side);
+  // A page tab was dropped on tile `targetTileId`: merge into it if it already
+  // hosts a text pane, otherwise pop the page out into a brand-new tile next to it.
+  const handlePageDrop = (info, targetTileId, side) => {
+    if (isPaneTile(targetTileId)) handleMergePage(info, targetTileId);
+    else handleDetachPage(info, targetTileId, side);
   };
 
   const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);
@@ -525,11 +506,13 @@ export default function App() {
       />
     ),
     text: seatingTile === "text" ? seatingChartNode : (
-      <TextBoard
+      <TextPane
         key={`text-${periodKey}`}
         paneId="text"
-        pages={pagesForPane(currentTextPages, currentTextPanes, "text")}
-        onPagesChange={pages => handleTextPagesChange("text", pages)}
+        kind="Announcement"
+        defaultFontSize={48}
+        pages={pagesForPane(currentPages, currentPanes, "text")}
+        onPagesChange={pages => handlePagesChange("text", pages)}
         periodLabel={displayPeriod?.label}
       />
     ),
@@ -541,36 +524,26 @@ export default function App() {
       />
     ),
     notes: seatingTile === "notes" ? seatingChartNode : (
-      <NoteWidget
+      <TextPane
         key={`notes-${periodKey}`}
         paneId="notes"
-        pages={pagesForPane(currentNotePages, currentNotePanes, "notes")}
-        onPagesChange={pages => handleNotePagesChange("notes", pages)}
+        kind="Notes"
+        defaultFontSize={20}
+        pages={pagesForPane(currentPages, currentPanes, "notes")}
+        onPagesChange={pages => handlePagesChange("notes", pages)}
         periodLabel={displayPeriod?.label}
-        collapsed={collapsed.notes}
-        onToggle={() => toggleCollapsed("notes")}
         allPeriodLabels={periodNames.map(n => n.label)}
         syncedWith={periodKey ? getSyncMates(noteSyncGroups, periodKey) : []}
         onSyncChange={handleNoteSyncChange}
       />
     ),
-    ...Object.fromEntries(dynamicTextPanes.map(paneId => [
+    ...Object.fromEntries(dynamicPaneIds.map(paneId => [
       paneId,
-      <TextBoard
-        key={`text-${periodKey}-${paneId}`}
+      <TextPane
+        key={`pane-${periodKey}-${paneId}`}
         paneId={paneId}
-        pages={pagesForPane(currentTextPages, currentTextPanes, paneId)}
-        onPagesChange={pages => handleTextPagesChange(paneId, pages)}
-        periodLabel={displayPeriod?.label}
-      />,
-    ])),
-    ...Object.fromEntries(dynamicNotePanes.map(paneId => [
-      paneId,
-      <NoteWidget
-        key={`notes-${periodKey}-${paneId}`}
-        paneId={paneId}
-        pages={pagesForPane(currentNotePages, currentNotePanes, paneId)}
-        onPagesChange={pages => handleNotePagesChange(paneId, pages)}
+        pages={pagesForPane(currentPages, currentPanes, paneId)}
+        onPagesChange={pages => handlePagesChange(paneId, pages)}
         periodLabel={displayPeriod?.label}
       />,
     ])),
@@ -627,6 +600,7 @@ export default function App() {
         excludedNames={currentExcluded} onExcludedNamesChange={handleExcludedChange}
         birthdays={currentBirthdays}    onBirthdaysChange={handleBirthdaysChange}
         colors={currentColors}          onColorsChange={handleColorsChange}
+        wheelColors={wheelTheme.wheelColors}
         otherPeriods={otherPeriodOptions}
         onDeleteClassList={handleDeleteClassList}
         periodLabel={displayPeriod?.label}
