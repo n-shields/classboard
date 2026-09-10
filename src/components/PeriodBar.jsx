@@ -240,6 +240,7 @@ export default function PeriodBar({
           onDeleteClassList={onDeleteClassList}
           periodLabel={periodLabel}
           onClose={() => setStudentsOpen(false)}
+          simple
         />
       )}
     </>

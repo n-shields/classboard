@@ -3,6 +3,30 @@
   max-width: 460px;
 }
 
+.student-modal--full {
+  max-width: 620px;
+}
+
+.student-gems-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.student-gems-label-hint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.student-gems-label-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
 .student-import-row {
   display: flex;
   gap: 6px;
@@ -57,8 +81,10 @@
 .student-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 2px;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 4px;
+  padding: 4px 2px;
   border-radius: 4px;
 }
 
@@ -69,8 +95,8 @@
 }
 
 .student-name-input {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 90px;
+  min-width: 70px;
   padding: 4px 8px;
   font-size: 0.9rem;
 }
@@ -103,6 +129,29 @@
 
 .student-row--excluded .student-color-input {
   opacity: 0.45;
+}
+
+.student-gems {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.student-row--excluded .student-gems {
+  opacity: 0.45;
+}
+
+.student-gems-btn {
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+
+.student-gems-value {
+  min-width: 32px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .student-remove {

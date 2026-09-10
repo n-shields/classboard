@@ -11,10 +11,15 @@ export default function StudentList({
   colors = {},
   onColorsChange,
   wheelColors = [],
+  gems = {},
+  onGemsChange,
+  gemsLabel = "Gems",
+  onGemsLabelChange,
   otherPeriods = [],
   onDeleteClassList,
   periodLabel,
   onClose,
+  simple = false,
 }) {
   const [draft, setDraft] = useState("");
   const [importFrom, setImportFrom] = useState(otherPeriods[0]?.label ?? "");
@@ -64,6 +69,12 @@ export default function StudentList({
       next[value] = colors[old];
       onColorsChange?.(next);
     }
+    if (old !== value && gems[old] !== undefined) {
+      const next = { ...gems };
+      delete next[old];
+      next[value] = gems[old];
+      onGemsChange?.(next);
+    }
   };
 
   const setBirthday = (name, value) => {
@@ -76,6 +87,12 @@ export default function StudentList({
     const next = { ...colors };
     if (value) next[name] = value; else delete next[name];
     onColorsChange?.(next);
+  };
+
+  const adjustGems = (name, delta) => {
+    const current = gems[name] || 0;
+    const next = Math.max(0, current + delta);
+    onGemsChange?.({ ...gems, [name]: next });
   };
 
   const removeAt = (idx) => {
@@ -93,6 +110,11 @@ export default function StudentList({
       const next = { ...colors };
       delete next[removed];
       onColorsChange?.(next);
+    }
+    if (gems[removed] !== undefined) {
+      const next = { ...gems };
+      delete next[removed];
+      onGemsChange?.(next);
     }
   };
 
@@ -128,6 +150,12 @@ export default function StudentList({
       for (const n of staleCKeys) delete next[n];
       onColorsChange?.(next);
     }
+    const staleGKeys = Object.keys(gems).filter(n => !seen.has(n));
+    if (staleGKeys.length) {
+      const next = { ...gems };
+      for (const n of staleGKeys) delete next[n];
+      onGemsChange?.(next);
+    }
   };
 
   const importFromPeriod = () => {
@@ -145,6 +173,10 @@ export default function StudentList({
     const cAdditions = {};
     for (const n of toAdd) if (srcColors[n]) cAdditions[n] = srcColors[n];
     if (Object.keys(cAdditions).length) onColorsChange?.({ ...colors, ...cAdditions });
+    const srcGems = src.gems || {};
+    const gAdditions = {};
+    for (const n of toAdd) if (srcGems[n]) gAdditions[n] = srcGems[n];
+    if (Object.keys(gAdditions).length) onGemsChange?.({ ...gems, ...gAdditions });
   };
 
   const deleteClassList = () => {
@@ -171,13 +203,25 @@ export default function StudentList({
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose?.()}>
-      <div className="modal student-modal">
+      <div className={`modal student-modal${simple ? "" : " student-modal--full"}`}>
         <div className="student-modal-header">
           <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
-          {names.length > 0 && (
+          {!simple && names.length > 0 && (
             <span className="student-count">{activeCount} / {names.length} in wheel</span>
           )}
         </div>
+
+        {!simple && (
+          <div className="student-gems-label-row">
+            <span className="student-gems-label-hint">Currency name:</span>
+            <input
+              className="student-gems-label-input"
+              value={gemsLabel}
+              onChange={e => onGemsLabelChange?.(e.target.value)}
+              placeholder="Gems"
+            />
+          </div>
+        )}
 
         {otherPeriods.length > 0 && (
           <div className="student-import-row">
@@ -203,25 +247,29 @@ export default function StudentList({
 
         {names.length > 0 && (
           <>
-            <div className="student-list-actions">
-              <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.([])}>
-                All in wheel
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.(names.slice())}>
-                None
-              </button>
-            </div>
+            {!simple && (
+              <div className="student-list-actions">
+                <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.([])}>
+                  All in wheel
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.(names.slice())}>
+                  None
+                </button>
+              </div>
+            )}
             <div className="student-list">
               {names.map((name, idx) => {
                 const excluded = excludedNames.includes(name);
                 return (
-                  <div key={idx} className={`student-row ${excluded ? "student-row--excluded" : ""}`}>
-                    <input
-                      type="checkbox"
-                      checked={!excluded}
-                      onChange={() => toggleExclude(name)}
-                      title={excluded ? "Add to wheel" : "Remove from wheel"}
-                    />
+                  <div key={idx} className={`student-row ${excluded && !simple ? "student-row--excluded" : ""}`}>
+                    {!simple && (
+                      <input
+                        type="checkbox"
+                        checked={!excluded}
+                        onChange={() => toggleExclude(name)}
+                        title={excluded ? "Add to wheel" : "Remove from wheel"}
+                      />
+                    )}
                     <input
                       className="student-name-input"
                       value={name}
@@ -229,20 +277,39 @@ export default function StudentList({
                       onBlur={cleanup}
                       onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
                     />
-                    <input
-                      type="date"
-                      className="student-birthday-input"
-                      value={birthdays[name] || ""}
-                      onChange={e => setBirthday(name, e.target.value)}
-                      title="Birthday"
-                    />
-                    <input
-                      type="color"
-                      className="student-color-input"
-                      value={colors[name] || defaultColorFor(name)}
-                      onChange={e => setColor(name, e.target.value)}
-                      title="Wheel color"
-                    />
+                    {!simple && (
+                      <input
+                        type="date"
+                        className="student-birthday-input"
+                        value={birthdays[name] || ""}
+                        onChange={e => setBirthday(name, e.target.value)}
+                        title="Birthday"
+                      />
+                    )}
+                    {!simple && (
+                      <input
+                        type="color"
+                        className="student-color-input"
+                        value={colors[name] || defaultColorFor(name)}
+                        onChange={e => setColor(name, e.target.value)}
+                        title="Wheel color"
+                      />
+                    )}
+                    {!simple && (
+                      <div className="student-gems" title={gemsLabel}>
+                        <button
+                          className="btn btn-ghost btn-sm student-gems-btn"
+                          onClick={() => adjustGems(name, -100)}
+                          title={`-100 ${gemsLabel}`}
+                        >−100</button>
+                        <span className="student-gems-value">{gems[name] || 0}</span>
+                        <button
+                          className="btn btn-ghost btn-sm student-gems-btn"
+                          onClick={() => adjustGems(name, 100)}
+                          title={`+100 ${gemsLabel}`}
+                        >+100</button>
+                      </div>
+                    )}
                     <button
                       className="student-remove"
                       onClick={() => removeAt(idx)}

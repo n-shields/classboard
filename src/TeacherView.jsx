@@ -1,19 +1,31 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import ClockWidget from "./components/ClockWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
+import StudentList from "./components/StudentList";
+import TileLayout from "./components/TileLayout";
 import { loadSchedules, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
-import { loadPeriodData, savePeriodPatch } from "./data/periodData";
+import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
-import { applyTheme } from "./data/themes";
+import { THEMES, applyTheme } from "./data/themes";
 import { saveTeacherViewBounds } from "./data/teacherView";
+import { loadTeacherLayout, saveTeacherLayout } from "./data/teacherLayout";
 import "./TeacherView.css";
+
+const DEFAULT_COLLAPSED = { clock: false, reminders: false, notes: false };
+const TILE_NAMES = { clock: "Timer", reminders: "Reminders", notes: "Notes" };
 
 function loadScheduleType() {
   return localStorage.getItem("classboard_schedule_type") || "Regular";
 }
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
+}
+function loadGemsLabel() {
+  return localStorage.getItem("classboard_gems_label") || "Gems";
+}
+function saveGemsLabel(label) {
+  localStorage.setItem("classboard_gems_label", label);
 }
 
 // The teacher-only reminder list is separate from the main board's — it
@@ -34,7 +46,20 @@ export default function TeacherView() {
   const [scheduleType, setScheduleType] = useState(loadScheduleType);
   const [periodData, setPeriodData]   = useState(loadPeriodData);
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
+  const [gemsLabel, setGemsLabel]     = useState(loadGemsLabel);
   const [now, setNow] = useState(() => new Date());
+  const [studentsOpen, setStudentsOpen] = useState(false);
+  const [layout, setLayout] = useState(loadTeacherLayout);
+  const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
+  const toggleCollapsed = useCallback((key) => setCollapsed(c => ({ ...c, [key]: !c[key] })), []);
+
+  const handleLayoutChange = useCallback((updater) => {
+    setLayout(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveTeacherLayout(next);
+      return next;
+    });
+  }, []);
 
   // Re-read everything the main window might have changed, either on a
   // storage event (change made in the other window) or periodically as a
@@ -45,6 +70,7 @@ export default function TeacherView() {
       setScheduleType(loadScheduleType());
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
+      setGemsLabel(loadGemsLabel());
     };
     const id = setInterval(() => { setNow(new Date()); reload(); }, 15_000);
     window.addEventListener("storage", reload);
@@ -58,11 +84,22 @@ export default function TeacherView() {
   const nextPeriod    = nextIndex    >= 0 ? periods[nextIndex]    : null;
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
+  const currentNames     = periodKey ? (periodData[periodKey]?.names        ?? []) : [];
+  const currentExcluded  = periodKey ? (periodData[periodKey]?.excludedNames ?? []) : [];
+  const currentBirthdays = periodKey ? (periodData[periodKey]?.birthdays    ?? {}) : {};
+  const currentColors    = periodKey ? (periodData[periodKey]?.colors       ?? {}) : {};
+  const currentGems      = periodKey ? (periodData[periodKey]?.gems         ?? {}) : {};
+  const otherPeriodOptions = useMemo(
+    () => otherPeriodsWithRosters(periodData, periodKey),
+    [periodData, periodKey],
+  );
+
   const currentReminders = periodKey ? periodData[periodKey]?.teacherReminders : undefined;
   const currentTeacherPages = periodKey ? (periodData[periodKey]?.teacherPages ?? [FALLBACK_TEACHER_PAGE]) : [FALLBACK_TEACHER_PAGE];
   const currentTeacherPanes = periodKey ? (periodData[periodKey]?.teacherPanes ?? FALLBACK_TEACHER_PANES) : FALLBACK_TEACHER_PANES;
   const periodTheme = periodKey ? periodData[periodKey]?.theme : null;
   const currentTheme = periodTheme || globalTheme;
+  const wheelColors = THEMES[currentTheme]?.wheelColors ?? [];
 
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
 
@@ -82,6 +119,17 @@ export default function TeacherView() {
     if (next) setPeriodData(next);
   };
 
+  const handleNamesChange     = (names)         => { const next = savePeriodPatch(periodKey, { names });         if (next) setPeriodData(next); };
+  const handleExcludedChange  = (excludedNames) => { const next = savePeriodPatch(periodKey, { excludedNames });  if (next) setPeriodData(next); };
+  const handleBirthdaysChange = (birthdays)     => { const next = savePeriodPatch(periodKey, { birthdays });      if (next) setPeriodData(next); };
+  const handleColorsChange    = (colors)        => { const next = savePeriodPatch(periodKey, { colors });        if (next) setPeriodData(next); };
+  const handleGemsChange      = (gems)          => { const next = savePeriodPatch(periodKey, { gems });          if (next) setPeriodData(next); };
+  const handleGemsLabelChange = (label) => { saveGemsLabel(label); setGemsLabel(label); };
+
+  const handleDeleteClassList = (label) => {
+    setPeriodData(deleteClassList(periodData, label));
+  };
+
   // Private, per-period notes — separate from the main board's Notes tile.
   const handleTeacherPagesChange = (pages) => {
     if (!periodKey) return;
@@ -95,41 +143,81 @@ export default function TeacherView() {
     if (next) setPeriodData(next);
   };
 
+  const tiles = {
+    clock: (
+      <ClockWidget
+        currentPeriod={currentPeriod}
+        nextPeriod={nextPeriod}
+        collapsed={collapsed.clock}
+        onToggle={() => toggleCollapsed("clock")}
+      />
+    ),
+    reminders: (
+      <RemindersWidget
+        currentPeriod={currentPeriod}
+        reminders={currentReminders}
+        onRemindersChange={handleRemindersChange}
+        collapsed={collapsed.reminders}
+        defaultReminders={TEACHER_DEFAULT_REMINDERS}
+        scope="teacher"
+      />
+    ),
+    notes: (
+      <TextPane
+        key={`teacher-notes-${periodKey}`}
+        paneId={TEACHER_NOTES_PANE}
+        kind="Notes"
+        defaultFontSize={20}
+        pages={pagesForPane(currentTeacherPages, currentTeacherPanes, TEACHER_NOTES_PANE)}
+        onPagesChange={handleTeacherPagesChange}
+        periodLabel={currentPeriod?.label}
+      />
+    ),
+  };
+
   return (
     <div className="teacher-view">
       <div className="teacher-view-header">
         <span className="teacher-view-title">Teacher View</span>
         <span className="teacher-view-period">{currentPeriod ? currentPeriod.label : "No class in session"}</span>
+        <button
+          className="btn btn-ghost btn-sm teacher-view-students-btn"
+          onClick={() => setStudentsOpen(true)}
+          title="Edit the student list"
+        >👥 Students</button>
       </div>
       <div className="teacher-view-body">
-        <div className="teacher-view-clock">
-          <ClockWidget
-            currentPeriod={currentPeriod}
-            nextPeriod={nextPeriod}
-          />
-        </div>
-        <div className="teacher-view-reminders">
-          <RemindersWidget
-            currentPeriod={currentPeriod}
-            reminders={currentReminders}
-            onRemindersChange={handleRemindersChange}
-            collapsed={false}
-            defaultReminders={TEACHER_DEFAULT_REMINDERS}
-            scope="teacher"
-          />
-        </div>
-        <div className="teacher-view-notes">
-          <TextPane
-            key={`teacher-notes-${periodKey}`}
-            paneId={TEACHER_NOTES_PANE}
-            kind="Notes"
-            defaultFontSize={20}
-            pages={pagesForPane(currentTeacherPages, currentTeacherPanes, TEACHER_NOTES_PANE)}
-            onPagesChange={handleTeacherPagesChange}
-            periodLabel={currentPeriod?.label}
-          />
-        </div>
+        <TileLayout
+          layout={layout}
+          onLayoutChange={handleLayoutChange}
+          tiles={tiles}
+          isCollapsed={id => collapsed[id] || false}
+          onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
+          tileNames={TILE_NAMES}
+        />
       </div>
+
+      {studentsOpen && (
+        <StudentList
+          names={currentNames}
+          onNamesChange={handleNamesChange}
+          excludedNames={currentExcluded}
+          onExcludedNamesChange={handleExcludedChange}
+          birthdays={currentBirthdays}
+          onBirthdaysChange={handleBirthdaysChange}
+          colors={currentColors}
+          onColorsChange={handleColorsChange}
+          wheelColors={wheelColors}
+          gems={currentGems}
+          onGemsChange={handleGemsChange}
+          gemsLabel={gemsLabel}
+          onGemsLabelChange={handleGemsLabelChange}
+          otherPeriods={otherPeriodOptions}
+          onDeleteClassList={handleDeleteClassList}
+          periodLabel={currentPeriod?.label}
+          onClose={() => setStudentsOpen(false)}
+        />
+      )}
     </div>
   );
 }
