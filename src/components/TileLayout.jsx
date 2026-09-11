@@ -54,7 +54,7 @@ function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const didDrag = useRef(false);
   const name = tileNames?.[id] ?? "";
@@ -95,6 +95,15 @@ function TileSlot({ id, content }) {
           onClick={() => onSwap(id, swapTarget)}
           title={`Swap with ${tileNames?.[swapTarget] ?? swapTarget}`}
         >⇄</button>
+      )}
+      {/* Any pane tile can be deleted directly — text/notes are no
+          different from a detached pane now that either can close. */}
+      {!collapsed && pagePayload && (
+        <button
+          className="tl-delete-btn"
+          onClick={() => onDeleteTab?.(id)}
+          title="Delete this tab"
+        >✕</button>
       )}
       {/* Suppress the overlay on the pane a tab drag started from — dropping
           a tab back onto its own pane isn't a meaningful move. */}
@@ -188,7 +197,7 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 
 // ── Root export ───────────────────────────────────────────────────────────────
 
-export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop, getTileDragPayload }) {
+export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop, getTileDragPayload, onDeleteTab }) {
   const [dragging, setDragging] = useState(null);
   const [pageDragOrigin, setPageDragOrigin] = useState(null);
 
@@ -209,8 +218,8 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   }, []);
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload }),
-    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab }),
+    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab],
   );
 
   return (

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import LZString from "lz-string";
 import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
+import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
 import "./PeriodBar.css";
@@ -28,10 +28,6 @@ function doExport() {
   URL.revokeObjectURL(url);
 }
 
-function encodeData(data) {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(data));
-}
-
 export default function PeriodBar({
   schedules, onSchedulesChange,
   scheduleType, onScheduleTypeChange,
@@ -51,11 +47,12 @@ export default function PeriodBar({
   otherPeriods = [], onDeleteClassList,
   periodLabel,
   textPaneStatus, textPaneActions,
+  layout, onLayoutChange,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
   const [studentsOpen,  setStudentsOpen]  = useState(false);
+  const [layoutToolOpen, setLayoutToolOpen] = useState(false);
   const [visible,       setVisible]       = useState(false);
-  const [linkCopied,    setLinkCopied]    = useState(false);
   const [isFullscreen,  setIsFullscreen]  = useState(false);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
@@ -69,20 +66,6 @@ export default function PeriodBar({
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen?.();
-  };
-
-  const doShareLink = () => {
-    try {
-      const encoded = encodeData(collectData());
-      const url = new URL(window.location.href);
-      url.searchParams.set('s', encoded);
-      navigator.clipboard.writeText(url.toString()).then(() => {
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2500);
-      });
-    } catch (e) {
-      alert('Could not copy link: ' + e.message);
-    }
   };
 
   const periods       = schedules[scheduleType] || [];
@@ -164,6 +147,7 @@ export default function PeriodBar({
           >Auto</button>
 
           <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setEditorOpen(true)}>Edit</button>
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setLayoutToolOpen(true)} title="Show/hide panes, presets, and saved layouts">▦ Layout</button>
 
           <div className="tb-divider" />
 
@@ -208,14 +192,9 @@ export default function PeriodBar({
             🧑‍🏫 Teacher View
           </button>
 
-          {/* Import / export / share — pinned right */}
+          {/* Import / export — pinned right */}
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
-          <button
-            className={`btn btn-sm tb-btn ei-btn ${linkCopied ? "btn-primary" : "btn-ghost"}`}
-            onClick={doShareLink}
-            title="Copy shareable link with all settings encoded"
-          >{linkCopied ? "✓ Copied" : "↗ Share"}</button>
           <button
             className={`btn btn-sm tb-btn ${isFullscreen ? "btn-primary" : "btn-ghost"}`}
             onClick={toggleFullscreen}
@@ -290,6 +269,14 @@ export default function PeriodBar({
           periodLabel={periodLabel}
           onClose={() => setStudentsOpen(false)}
           simple
+        />
+      )}
+
+      {layoutToolOpen && (
+        <LayoutTool
+          layout={layout}
+          onLayoutChange={onLayoutChange}
+          onClose={() => setLayoutToolOpen(false)}
         />
       )}
     </>

@@ -1,10 +1,36 @@
 export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders'];
 
-// "text" and "notes" are recognized tile types, but — like a detached pane —
-// not required to be present: dragging the last page out of one closes it
-// (see App's canCloseSourcePane), and it's never auto-grafted back in.
-// Everything else in TILE_IDS always has exactly one instance in the tree.
-export const REQUIRED_TILE_IDS = TILE_IDS.filter(id => id !== 'text' && id !== 'notes');
+const HIDDEN_TILES_KEY = 'classboard_hidden_tiles';
+
+// Tiles the user has deliberately removed — via the Layout tool's
+// checkboxes, or by dragging a pane's last page away — as opposed to one
+// that's merely missing because the saved layout predates it being
+// introduced. migrateLayout auto-heals the latter (grafting the tile back
+// in) but leaves anything in this set alone, so an intentional removal
+// sticks across reloads while a genuinely new tile type still appears for
+// everyone automatically.
+export function loadHiddenTileIds() {
+  try {
+    const s = JSON.parse(localStorage.getItem(HIDDEN_TILES_KEY) || '[]');
+    if (Array.isArray(s)) return s.filter(id => TILE_IDS.includes(id));
+  } catch (_) {}
+  return [];
+}
+
+export function saveHiddenTileIds(ids) {
+  localStorage.setItem(HIDDEN_TILES_KEY, JSON.stringify(ids));
+}
+
+/** Drop each of `hiddenIds` from a tree (e.g. a fresh DEFAULT_LAYOUT), so a
+ *  period that's never had a layout saved still honors the user's hidden
+ *  tiles instead of showing everything. */
+export function stripHiddenTiles(tree, hiddenIds) {
+  let next = tree;
+  for (const id of hiddenIds) {
+    if (collectLeaves(next).has(id)) next = removeLeaf(next, id) ?? next;
+  }
+  return next;
+}
 
 // A detached page (dragged out of a text-pane's tab strip) lives in the tree
 // as a dynamically-created leaf of the form "pane-<id>" — these are allowed
@@ -103,9 +129,10 @@ export function moveTile(tree, fromId, toId, side) {
   return insertLeaf(removed, toId, fromId, side);
 }
 
-/** Validate that a layout tree contains at least the expected tile IDs
- *  (plus, optionally, any number of detached-page panes alongside them) */
-export function validateLayout(node) {
+/** Validate that a layout tree contains at least the expected tile IDs,
+ *  other than any the user has deliberately hidden (plus, optionally, any
+ *  number of detached-page panes alongside them) */
+export function validateLayout(node, hiddenIds = []) {
   function check(n) {
     if (typeof n === 'string') return TILE_IDS.includes(n) || isDynamicPaneId(n);
     if (!n || !['h', 'v'].includes(n.dir) || typeof n.ratio !== 'number') return false;
@@ -113,16 +140,17 @@ export function validateLayout(node) {
   }
   if (!check(node)) return false;
   const leaves = collectLeaves(node);
-  return REQUIRED_TILE_IDS.every(id => leaves.has(id));
+  return TILE_IDS.filter(id => !hiddenIds.includes(id)).every(id => leaves.has(id));
 }
 
 /**
  * Bring a previously-saved layout up to date: drop any leaves we no longer
  * recognise, then graft in any tile IDs added since it was saved (near a
- * sensible neighbour, falling back to the first leaf). Returns a tree that
+ * sensible neighbour, falling back to the first leaf) — skipping any the
+ * user has deliberately hidden (see loadHiddenTileIds). Returns a tree that
  * should pass validateLayout, or null if it can't be salvaged.
  */
-export function migrateLayout(node) {
+export function migrateLayout(node, hiddenIds = []) {
   if (!node) return null;
   let tree = node;
 
@@ -133,7 +161,8 @@ export function migrateLayout(node) {
     }
   }
 
-  for (const id of REQUIRED_TILE_IDS) {
+  for (const id of TILE_IDS) {
+    if (hiddenIds.includes(id)) continue;
     const leaves = collectLeaves(tree);
     if (leaves.has(id)) continue;
     const place = NEW_TILE_PLACEMENT[id];
@@ -149,8 +178,9 @@ export function loadLayout() {
   try {
     const saved = localStorage.getItem('classboard_layout_v2');
     if (saved) {
-      const layout = migrateLayout(JSON.parse(saved));
-      if (layout && validateLayout(layout)) return layout;
+      const hidden = loadHiddenTileIds();
+      const layout = migrateLayout(JSON.parse(saved), hidden);
+      if (layout && validateLayout(layout, hidden)) return layout;
     }
   } catch (_) {}
   return JSON.parse(JSON.stringify(DEFAULT_LAYOUT));

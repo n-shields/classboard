@@ -10,7 +10,7 @@ import DateWidget from "./components/DateWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, loadGemsLabel, saveGemsLabel } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
@@ -329,11 +329,12 @@ export default function App() {
       setCollapsed({ ...DEFAULT_COLLAPSED });
     }
     // Restore per-period tile layout (fall back to hard-coded default, not global)
-    const savedTree = migrateLayout(periodLayoutTreesRef.current[periodKey]);
-    if (savedTree && validateLayout(savedTree)) {
+    const hiddenTileIds = loadHiddenTileIds();
+    const savedTree = migrateLayout(periodLayoutTreesRef.current[periodKey], hiddenTileIds);
+    if (savedTree && validateLayout(savedTree, hiddenTileIds)) {
       setLayout(savedTree);
     } else {
-      setLayout(JSON.parse(JSON.stringify(DEFAULT_LAYOUT)));
+      setLayout(stripHiddenTiles(JSON.parse(JSON.stringify(DEFAULT_LAYOUT)), hiddenTileIds));
     }
   }, [periodKey]);
 
@@ -356,12 +357,26 @@ export default function App() {
         saveLayout(next);
       }
     };
-    if (typeof updater === "function") {
-      setLayout(prev => { const next = updater(prev); persist(next); return next; });
-    } else {
-      setLayout(updater);
-      persist(updater);
-    }
+    // Whenever a tile is added or removed (Layout tool checkbox, a pane's
+    // last page dragged away, a preset applied...), remember it as
+    // deliberately shown/hidden so migrateLayout won't second-guess it later.
+    const trackHidden = (prev, next) => {
+      const prevLeaves = collectLeaves(prev);
+      const nextLeaves = collectLeaves(next);
+      if (TILE_IDS.every(id => prevLeaves.has(id) === nextLeaves.has(id))) return;
+      const hidden = new Set(loadHiddenTileIds());
+      for (const id of TILE_IDS) {
+        if (prevLeaves.has(id) && !nextLeaves.has(id)) hidden.add(id);
+        else if (!prevLeaves.has(id) && nextLeaves.has(id)) hidden.delete(id);
+      }
+      saveHiddenTileIds([...hidden]);
+    };
+    setLayout(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      trackHidden(prev, next);
+      persist(next);
+      return next;
+    });
   }, [periodKey]);
 
   // ── Data persistence ─────────────────────────────────────────────────────
@@ -376,14 +391,15 @@ export default function App() {
 
   // Replace one pane's ordered page list — used for editing, adding, closing,
   // and reordering pages. New/edited pages are merged into the pool; pages no
-  // longer referenced by any pane (this period's) are dropped from it. If a
-  // detached pane's last page is closed this way, its tile closes too (the
-  // main text/notes tile never does). Any tab synced with other periods (see
+  // longer referenced by any pane (this period's) are dropped from it. If
+  // this was the pane's last page, its tile closes too (see
+  // canCloseSourcePane — every pane tile behaves the same way here, fixed
+  // text/notes included). Any tab synced with other periods (see
   // handleTabSyncChange) mirrors its edited content there too; a tab closed
   // here just drops out of the sync group rather than disappearing elsewhere.
   const handlePagesChange = (paneId, newPagesForPane) => {
     if (!periodKey) return;
-    const willClose = newPagesForPane.length === 0 && isDynamicPaneId(paneId);
+    const willClose = newPagesForPane.length === 0 && canCloseSourcePane(paneId);
     const priorIds = new Set(periodData[periodKey]?.panes?.[paneId] || []);
     const newIds = new Set(newPagesForPane.map(p => p.id));
     const removedIds = [...priorIds].filter(id => !newIds.has(id));
@@ -429,6 +445,17 @@ export default function App() {
       });
     }
     if (willClose) handleLayoutChange(prev => removeLeaf(prev, paneId) ?? prev);
+  };
+
+  // The tile grid's own "delete this tab" button (next to swap) — removes
+  // whichever page is active in that pane, same as the toolbar's close-page
+  // button but reachable without first giving the pane focus.
+  const handleDeleteTab = (tileId) => {
+    const pagesHere = pagesForPane(currentPages, currentPanes, tileId);
+    const activeId = pagesHere.some(p => p.id === activePageIdByPane[tileId])
+      ? activePageIdByPane[tileId] : pagesHere[0]?.id;
+    if (!activeId) return;
+    handlePagesChange(tileId, pagesHere.filter(p => p.id !== activeId));
   };
 
   // Sync one tab with `mateLabels` (other periods, same paneId). Newly-linked
@@ -751,6 +778,8 @@ export default function App() {
         periodLabel={displayPeriod?.label}
         textPaneStatus={activePaneId ? activePaneStatus : null}
         textPaneActions={textPaneActions}
+        layout={layout}
+        onLayoutChange={handleLayoutChange}
       />
       <TileLayout
         layout={layout}
@@ -762,6 +791,7 @@ export default function App() {
         swapMap={SWAP_MAP}
         onPageDrop={handlePageDrop}
         getTileDragPayload={getTileDragPayload}
+        onDeleteTab={handleDeleteTab}
       />
     </div>
   );
