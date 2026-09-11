@@ -16,8 +16,8 @@
   right: 0;
   z-index: 199;
   display: flex;
-  align-items: center;
-  gap: 5px;
+  flex-direction: column;
+  gap: 4px;
   padding: 6px 12px;
   background: var(--surface2);
   border-bottom: 1px solid var(--border);
@@ -25,14 +25,26 @@
   transform: translateY(-110%);
   opacity: 0;
   transition: transform 0.2s ease, opacity 0.15s ease;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .period-toolbar--visible {
   transform: translateY(0);
   opacity: 1;
+}
+
+.period-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.period-toolbar-row::-webkit-scrollbar { display: none; }
+
+.period-toolbar-textrow {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
 }
 
 /* ── Toolbar controls ── */

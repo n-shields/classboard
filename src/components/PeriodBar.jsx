@@ -147,60 +147,94 @@ export default function PeriodBar({
         onMouseEnter={show}
         onMouseLeave={scheduleHide}
       >
-        {/* Schedule selector */}
-        <select
-          className="tb-select"
-          value={scheduleType}
-          onChange={e => onScheduleTypeChange(e.target.value)}
-        >
-          {scheduleNames.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <div className="period-toolbar-row">
+          {/* Schedule selector */}
+          <select
+            className="tb-select"
+            value={scheduleType}
+            onChange={e => onScheduleTypeChange(e.target.value)}
+          >
+            {scheduleNames.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
 
-        <button
-          className={`btn btn-sm tb-btn ${autoMode ? "btn-primary" : "btn-ghost"}`}
-          onClick={() => onAutoModeChange(!autoMode)}
-          title="Auto-detect period from time"
-        >Auto</button>
+          <button
+            className={`btn btn-sm tb-btn ${autoMode ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => onAutoModeChange(!autoMode)}
+            title="Auto-detect period from time"
+          >Auto</button>
 
-        <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setEditorOpen(true)}>Edit</button>
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setEditorOpen(true)}>Edit</button>
 
-        <div className="tb-divider" />
+          <div className="tb-divider" />
 
-        {/* Period buttons */}
-        {periods.map((p, i) => {
-          const isActive = i === currentPeriodIndex;
-          const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
-          return (
-            <button
-              key={p.id ?? `${p.label}-${i}`}
-              className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
-              onClick={() => onPeriodSelect(i)}
-              title={`${p.start}–${p.end}`}
-            >
-              {p.label}
+          {/* Period buttons */}
+          {periods.map((p, i) => {
+            const isActive = i === currentPeriodIndex;
+            const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
+            return (
+              <button
+                key={p.id ?? `${p.label}-${i}`}
+                className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
+                onClick={() => onPeriodSelect(i)}
+                title={`${p.start}–${p.end}`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+
+          <div className="tb-divider" />
+
+          {/* Theme picker — click dot to cycle */}
+          <button
+            className="tb-theme-dot"
+            style={{ background: THEMES[currentTheme]?.swatch }}
+            onClick={() => onThemeChange(THEME_KEYS[(THEME_KEYS.indexOf(currentTheme) + 1) % THEME_KEYS.length])}
+            title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
+          />
+
+          {/* Student list */}
+          {onNamesChange && (
+            <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setStudentsOpen(true)} title="Edit the student list">
+              👥 Students
             </button>
-          );
-        })}
+          )}
 
-        <div className="tb-divider" />
+          {/* Seating chart — opens in its own popup window, like Teacher View */}
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={openSeatingView} title="Open the seating chart in its own window">⊞ Seats</button>
 
-        {/* Theme picker — click dot to cycle */}
-        <button
-          className="tb-theme-dot"
-          style={{ background: THEMES[currentTheme]?.swatch }}
-          onClick={() => onThemeChange(THEME_KEYS[(THEME_KEYS.indexOf(currentTheme) + 1) % THEME_KEYS.length])}
-          title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
-        />
+          {/* Teacher-only popup window, draggable to a second monitor */}
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={openTeacherView} title="Open a teacher-only window (drag it to another monitor)">
+            🧑‍🏫 Teacher View
+          </button>
 
-        {/* Text controls — act on whichever pane last had focus */}
+          {/* Import / export / share — pinned right */}
+          <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
+          <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
+          <button
+            className={`btn btn-sm tb-btn ei-btn ${linkCopied ? "btn-primary" : "btn-ghost"}`}
+            onClick={doShareLink}
+            title="Copy shareable link with all settings encoded"
+          >{linkCopied ? "✓ Copied" : "↗ Share"}</button>
+          <button
+            className={`btn btn-sm tb-btn ${isFullscreen ? "btn-primary" : "btn-ghost"}`}
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            style={{ fontSize: "1rem", padding: "0 8px" }}
+          >⛶</button>
+          <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
+        </div>
+
+        {/* Text controls — a second row, acting on whichever pane last had focus */}
         {textPaneActions && (
-          <>
+          <div className="period-toolbar-row period-toolbar-textrow">
             <button className="btn btn-ghost btn-sm tb-btn" onMouseDown={e => { e.preventDefault(); textPaneActions.sizeUp(); }} title={textPaneStatus?.hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
             <button className="btn btn-ghost btn-sm tb-btn" onMouseDown={e => { e.preventDefault(); textPaneActions.sizeDown(); }} title={textPaneStatus?.hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
             <button className={`btn btn-sm tb-btn ${textPaneStatus?.isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.bold(); }} title="Bold"><strong>B</strong></button>
             <button className={`btn btn-sm tb-btn ${textPaneStatus?.isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.italic(); }} title="Italic"><em>I</em></button>
             <button className={`btn btn-sm tb-btn ${textPaneStatus?.isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.bulletList(); }} title="Bullet list">•—</button>
             <button className={`btn btn-sm tb-btn ${textPaneStatus?.isNumbered ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.numberedList(); }} title="Numbered list">1.</button>
+            <div className="tb-divider" />
             <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
             <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.addPage} title="Add a page">+</button>
             <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.closePage} title="Close this page">🗑</button>
@@ -209,40 +243,8 @@ export default function PeriodBar({
               onClick={textPaneActions.openSync}
               title={textPaneStatus?.isSynced ? `This tab is synced with ${textPaneStatus.syncMates.join(", ")}` : "Sync this tab with another period"}
             >∞</button>
-            <div className="tb-divider" />
-          </>
+          </div>
         )}
-
-        {/* Student list */}
-        {onNamesChange && (
-          <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setStudentsOpen(true)} title="Edit the student list">
-            👥 Students
-          </button>
-        )}
-
-        {/* Seating chart — opens in its own popup window, like Teacher View */}
-        <button className="btn btn-ghost btn-sm tb-btn" onClick={openSeatingView} title="Open the seating chart in its own window">⊞ Seats</button>
-
-        {/* Teacher-only popup window, draggable to a second monitor */}
-        <button className="btn btn-ghost btn-sm tb-btn" onClick={openTeacherView} title="Open a teacher-only window (drag it to another monitor)">
-          🧑‍🏫 Teacher View
-        </button>
-
-        {/* Import / export / share — pinned right */}
-        <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
-        <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
-        <button
-          className={`btn btn-sm tb-btn ei-btn ${linkCopied ? "btn-primary" : "btn-ghost"}`}
-          onClick={doShareLink}
-          title="Copy shareable link with all settings encoded"
-        >{linkCopied ? "✓ Copied" : "↗ Share"}</button>
-        <button
-          className={`btn btn-sm tb-btn ${isFullscreen ? "btn-primary" : "btn-ghost"}`}
-          onClick={toggleFullscreen}
-          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-          style={{ fontSize: "1rem", padding: "0 8px" }}
-        >⛶</button>
-        <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
       </div>
 
       {editorOpen && (
