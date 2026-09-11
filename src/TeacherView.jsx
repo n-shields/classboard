@@ -89,9 +89,7 @@ export default function TeacherView() {
   // active on the main board — auto-detected in Auto mode, or the
   // manually-pinned period otherwise.
   const currentIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
-  const nextIndex = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
   const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
-  const nextPeriod    = nextIndex    >= 0 ? periods[nextIndex]    : null;
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   const currentNames     = periodKey ? (periodData[periodKey]?.names        ?? []) : [];
@@ -153,6 +151,8 @@ export default function TeacherView() {
     if (next) setPeriodData(next);
   };
 
+  const currentTeacherNotesPages = pagesForPane(currentTeacherPages, currentTeacherPanes, TEACHER_NOTES_PANE);
+
   const tiles = {
     clock: (
       <ClockWidget
@@ -175,10 +175,9 @@ export default function TeacherView() {
     notes: (
       <TextPane
         key={`teacher-notes-${periodKey}`}
-        paneId={TEACHER_NOTES_PANE}
         kind="Notes"
         defaultFontSize={20}
-        pages={pagesForPane(currentTeacherPages, currentTeacherPanes, TEACHER_NOTES_PANE)}
+        pages={currentTeacherNotesPages}
         onPagesChange={handleTeacherPagesChange}
         periodLabel={currentPeriod?.label}
       />

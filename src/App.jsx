@@ -143,6 +143,14 @@ export default function App() {
   const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
   const toggleCollapsed = useCallback((key) => setCollapsed(c => ({ ...c, [key]: !c[key] })), []);
 
+  // Which page is active in each pane — reported up by TextPane so a pane
+  // with more than one page (and thus no tab strip of its own) knows which
+  // page its tile's own corner grip should drag.
+  const [activePageIdByPane, setActivePageIdByPane] = useState({});
+  const handleActivePageChange = useCallback((paneId, pageId) => {
+    setActivePageIdByPane(prev => (prev[paneId] === pageId ? prev : { ...prev, [paneId]: pageId }));
+  }, []);
+
   // Theme
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [gemsLabel, setGemsLabel] = useState(loadGemsLabel);
@@ -187,6 +195,18 @@ export default function App() {
 
   // Detached pages (dragged out of a text pane's tab strip into their own tile)
   const dynamicPaneIds = [...collectLeaves(layout)].filter(isDynamicPaneId);
+
+  // A pane with more than one page has no tab strip of its own — dragging
+  // its tile's corner grip instead moves just the active page (to merge
+  // into another pane, or detach to a new tile), leaving the rest behind.
+  const getTileDragPayload = (tileId) => {
+    if (!isPaneTile(tileId)) return null;
+    const pagesHere = pagesForPane(currentPages, currentPanes, tileId);
+    if (pagesHere.length <= 1) return null;
+    const activeId = pagesHere.some(p => p.id === activePageIdByPane[tileId])
+      ? activePageIdByPane[tileId] : pagesHere[0].id;
+    return { pageId: activeId, sourcePaneId: tileId };
+  };
 
   // Per-period theme overrides global
   const periodTheme  = periodKey ? periodData[periodKey]?.theme : null;
@@ -540,6 +560,7 @@ export default function App() {
         allPeriodLabels={periodNames.map(n => n.label)}
         pageSyncMates={pageId => pageSyncMates("text", pageId)}
         onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange("text", pageId, mateLabels)}
+        onActivePageChange={pageId => handleActivePageChange("text", pageId)}
       />
     ),
     camera: (
@@ -561,6 +582,7 @@ export default function App() {
         allPeriodLabels={periodNames.map(n => n.label)}
         pageSyncMates={pageId => pageSyncMates("notes", pageId)}
         onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange("notes", pageId, mateLabels)}
+        onActivePageChange={pageId => handleActivePageChange("notes", pageId)}
       />
     ),
     ...Object.fromEntries(dynamicPaneIds.map(paneId => [
@@ -574,6 +596,7 @@ export default function App() {
         allPeriodLabels={periodNames.map(n => n.label)}
         pageSyncMates={pageId => pageSyncMates(paneId, pageId)}
         onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange(paneId, pageId, mateLabels)}
+        onActivePageChange={pageId => handleActivePageChange(paneId, pageId)}
       />,
     ])),
     wheel: (
@@ -644,6 +667,7 @@ export default function App() {
         tileNames={TILE_NAMES}
         swapMap={SWAP_MAP}
         onPageDrop={handlePageDrop}
+        getTileDragPayload={getTileDragPayload}
       />
     </div>
   );

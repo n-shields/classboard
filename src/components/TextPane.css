@@ -1,15 +1,15 @@
-/* The tab strip and formatting toolbar float ABOVE the pane's own content as
-   overlays — they never take up layout space, so the pane itself is always
-   exactly the size of its tile and never resizes/slides as the mouse enters
-   or exits. They fade in only while hovered/focused. */
+/* A normal, always-visible toolbar sits above the pane — no tab strip, no
+   hover-based show/hide — so the pane's own size never changes and its
+   content never resizes or slides as the mouse enters or exits. */
 .textpane-wrap {
-  position: relative;
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .textpane {
-  position: absolute;
-  inset: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 .textpane-body {
@@ -17,132 +17,56 @@
   position: relative;
 }
 
-/* ── Floating chrome (tab strip / toolbar): shared overlay behavior ── */
-.textpane-tabstrip,
+/* ── Toolbar ── */
 .textpane-toolbar {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  z-index: 6;
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 5px 6px;
-  border-radius: 8px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.textpane-wrap:hover .textpane-tabstrip,
-.textpane-wrap:hover .textpane-toolbar,
-.textpane-wrap:focus-within .textpane-tabstrip,
-.textpane-wrap:focus-within .textpane-toolbar {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.textpane-tabstrip {
-  top: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  transform: translateY(-4px);
-}
-.textpane-tabstrip::-webkit-scrollbar { display: none; }
-
-.textpane-wrap:hover .textpane-tabstrip,
-.textpane-wrap:focus-within .textpane-tabstrip {
-  transform: translateY(0);
-}
-
-.textpane-toolbar {
-  bottom: 6px;
   flex-wrap: wrap;
-  transform: translateY(4px);
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border);
 }
 
-.textpane-wrap:hover .textpane-toolbar,
-.textpane-wrap:focus-within .textpane-toolbar {
-  transform: translateY(0);
+.textpane-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
-.textpane-tab {
+.textpane-btn-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+.textpane-clear-btn {
+  color: var(--danger) !important;
+}
+
+.textpane-sync-btn {
+  margin-left: auto;
+}
+
+/* ── Page navigation (replaces the tab strip) ── */
+.textpane-pagenav {
   display: flex;
   align-items: center;
-  gap: 5px;
-  max-width: 140px;
-  padding: 5px 8px;
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--text-dim);
-  font-size: 0.75rem;
-  cursor: grab;
-  flex-shrink: 0;
-  user-select: none;
-  transition: background 0.12s, color 0.12s;
-}
-.textpane-tab:hover {
-  color: var(--text);
-}
-.textpane-tab--active {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
+  gap: 2px;
 }
 
-.textpane-tab-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.textpane-pagenav-count {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  min-width: 32px;
+  text-align: center;
 }
 
 .textpane-tab-sync-dot {
-  flex-shrink: 0;
   font-size: 0.7rem;
   opacity: 0.75;
-}
-
-.textpane-tab-close {
-  flex-shrink: 0;
-  width: 15px;
-  height: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: 0.75rem;
-  line-height: 1;
-  border-radius: 50%;
-  background: transparent;
-  color: inherit;
-  opacity: 0.5;
-}
-.textpane-tab-close:hover {
-  opacity: 1;
-  background: rgba(255,255,255,0.15);
-}
-
-.textpane-tab-add {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: 0.9rem;
-  line-height: 1;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text-dim);
-}
-.textpane-tab-add:hover {
-  background: var(--surface);
-  color: var(--text);
 }
 
 /* ── The pane's own content ── */
@@ -182,26 +106,4 @@
 .textpane-textarea ol {
   padding-left: 1.4em;
   margin: 0.15em 0;
-}
-
-.textpane-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
-.textpane-btn-active {
-  background: var(--accent) !important;
-  color: #fff !important;
-  border-color: var(--accent) !important;
-}
-
-.textpane-clear-btn {
-  color: var(--danger) !important;
-}
-
-.textpane-sync-btn {
-  margin-left: auto;
 }

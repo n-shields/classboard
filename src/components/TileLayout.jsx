@@ -54,11 +54,15 @@ function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const didDrag = useRef(false);
   const name = tileNames?.[id] ?? "";
   const swapTarget = swapMap?.[id];
+  // A pane with more than one tab has no tab strip of its own to drag from —
+  // this same corner grip instead drags its active tab (to merge into
+  // another pane, or detach to a new tile), leaving the rest of the tabs here.
+  const pagePayload = getTileDragPayload?.(id);
 
   return (
     <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""}`} data-tile={id}>
@@ -67,13 +71,21 @@ function TileSlot({ id, content }) {
         draggable
         onDragStart={e => {
           didDrag.current = true;
-          e.dataTransfer.setData("text/plain", id);
-          e.dataTransfer.effectAllowed = "move";
-          setTimeout(() => setDragging(id), 0);
+          if (pagePayload) {
+            e.dataTransfer.setData(PAGE_DND_TYPE, JSON.stringify(pagePayload));
+            e.dataTransfer.setData("text/plain", "");
+            e.dataTransfer.effectAllowed = "move";
+            setPageDragOrigin(pagePayload.sourcePaneId);
+            setTimeout(() => setDragging(pagePayload.pageId), 0);
+          } else {
+            e.dataTransfer.setData("text/plain", id);
+            e.dataTransfer.effectAllowed = "move";
+            setTimeout(() => setDragging(id), 0);
+          }
         }}
-        onDragEnd={() => { setDragging(null); }}
+        onDragEnd={() => { setDragging(null); setPageDragOrigin(null); }}
         onClick={() => { if (!didDrag.current) onToggle?.(id); didDrag.current = false; }}
-        title={collapsed ? "Click to expand" : "Drag to reposition · click to minimize"}
+        title={collapsed ? "Click to expand" : pagePayload ? "Drag to move this tab · click to minimize" : "Drag to reposition · click to minimize"}
       >
         {collapsed ? <>▶{name && <span className="tl-drag-handle-name">{name}</span>}</> : "⠿"}
       </div>
@@ -84,8 +96,8 @@ function TileSlot({ id, content }) {
           title={`Swap with ${tileNames?.[swapTarget] ?? swapTarget}`}
         >⇄</button>
       )}
-      {/* Suppress the overlay on the pane a page-tab drag started from, so its
-          own tab strip can handle same-pane reordering locally. */}
+      {/* Suppress the overlay on the pane a tab drag started from — dropping
+          a tab back onto its own pane isn't a meaningful move. */}
       {dragging && dragging !== id && pageDragOrigin !== id && (
         <DropOverlay
           tileId={id}
@@ -176,7 +188,7 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 
 // ── Root export ───────────────────────────────────────────────────────────────
 
-export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop }) {
+export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop, getTileDragPayload }) {
   const [dragging, setDragging] = useState(null);
   const [pageDragOrigin, setPageDragOrigin] = useState(null);
 
@@ -197,8 +209,8 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   }, []);
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop }),
-    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload }),
+    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload],
   );
 
   return (

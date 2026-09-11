@@ -1,30 +1,24 @@
-import { useState, useEffect, useRef, useContext } from "react";
+import { useState, useEffect, useRef } from "react";
 import useIdleCaret from "../hooks/useIdleCaret";
 import NoteSyncModal from "./NoteSyncModal";
 import { makePage } from "../data/pages";
-import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./TextPane.css";
-
-// Tabs are labeled positionally (A, B, C…) rather than from their content,
-// so a tab's name doesn't change — and doesn't require reading the content —
-// as it's edited.
-function pageLabel(idx) {
-  if (idx < 26) return String.fromCharCode(65 + idx);
-  return `Tab ${idx + 1}`;
-}
 
 // One kind of rich-text pane, used for both the Board and Notes tiles (and
 // any pane detached from either) — there's no functional difference between
 // them, so any tab can dock into any pane. `kind`/`defaultFontSize` only
 // flavor the placeholder text and the font size a brand-new page starts at.
 //
-// The tab strip and formatting toolbar float above the pane's own content as
-// overlays, fading in only while hovered/focused — the pane itself always
-// fills the tile, so it never resizes/slides as they appear or disappear.
+// There's no tab strip — with more than one page, the toolbar shows a
+// ‹ n/total › counter to step between them instead. Dragging a pane with
+// multiple pages by its tile's own corner grip (see TileLayout) moves just
+// the active page (to merge into another pane, or detach to a new tile);
+// the toolbar itself is a normal, always-visible bar so the pane's content
+// never resizes as the mouse enters or exits.
 export default function TextPane({
-  pages, onPagesChange, paneId, periodLabel,
+  pages, onPagesChange, periodLabel,
   kind = "Page", defaultFontSize = 24,
-  allPeriodLabels = [], pageSyncMates, onTabSyncChange,
+  allPeriodLabels = [], pageSyncMates, onTabSyncChange, onActivePageChange,
 }) {
   const [activePageId, setActivePageId] = useState(pages[0]?.id ?? null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
@@ -34,7 +28,6 @@ export default function TextPane({
   const [isNumbered, setIsNumbered] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const editorRef = useRef(null);
-  const dragCtx = useContext(DragCtx);
   useIdleCaret(editorRef);
 
   // Keep the active tab pointed at a page that still exists (closed/merged away)
@@ -42,7 +35,14 @@ export default function TextPane({
     if (!pages.some(p => p.id === activePageId)) setActivePageId(pages[0]?.id ?? null);
   }, [pages, activePageId]);
 
-  const activePage = pages.find(p => p.id === activePageId) ?? null;
+  // Report which page is active so the tile grid's drag handle knows which
+  // one to move (see App's getTileDragPayload).
+  useEffect(() => {
+    if (activePageId) onActivePageChange?.(activePageId);
+  }, [activePageId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeIndex = pages.findIndex(p => p.id === activePageId);
+  const activePage = activeIndex !== -1 ? pages[activeIndex] : null;
   const activeSyncMates = (activePageId && pageSyncMates?.(activePageId)) || [];
 
   // Sync content on tab change; period changes remount this component via key in App
@@ -127,101 +127,14 @@ export default function TextPane({
 
   const closePage = (id) => onPagesChange(pages.filter(p => p.id !== id));
 
-  // ── Drag-and-drop: reorder within this strip, detach to a new tile (via
-  // TileLayout's edge drop zones), or merge a tab dragged in from elsewhere ──
-  const onTabDragStart = (e, page) => {
-    const info = { pageId: page.id, sourcePaneId: paneId };
-    e.dataTransfer.setData(PAGE_DND_TYPE, JSON.stringify(info));
-    e.dataTransfer.setData("text/plain", "");
-    e.dataTransfer.effectAllowed = "move";
-    // Set synchronously (unlike the tile-handle drag) so the other tiles'
-    // drop overlays are guaranteed live before a fast real drag reaches them.
-    dragCtx?.setDragging?.(page.id);
-    dragCtx?.setPageDragOrigin?.(paneId);
-  };
-  const onTabDragEnd = () => {
-    dragCtx?.setDragging?.(null);
-    dragCtx?.setPageDragOrigin?.(null);
-  };
-
-  // Cross-pane drops are handled by the outer tile grid's drop overlay
-  // (which merges into any other pane, or detaches a new tile elsewhere);
-  // this only reorders a tab within its own strip.
-  const onTabDrop = (e, targetIdx) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const json = e.dataTransfer.getData(PAGE_DND_TYPE);
-    const info = json ? JSON.parse(json) : null;
-    if (info?.sourcePaneId === paneId) {
-      const from = pages.findIndex(p => p.id === info.pageId);
-      if (from !== -1 && from !== targetIdx) {
-        const reordered = pages.slice();
-        const [moved] = reordered.splice(from, 1);
-        reordered.splice(from < targetIdx ? targetIdx - 1 : targetIdx, 0, moved);
-        onPagesChange(reordered);
-      }
-    }
-    onTabDragEnd();
+  const goToPage = (delta) => {
+    if (activeIndex === -1) return;
+    const next = pages[activeIndex + delta];
+    if (next) setActivePageId(next.id);
   };
 
   return (
     <div className="textpane-wrap" tabIndex={-1}>
-      <div className="textpane-tabstrip">
-        {pages.map((p, i) => {
-          const mates = pageSyncMates?.(p.id) || [];
-          return (
-            <div
-              key={p.id}
-              className={`textpane-tab ${p.id === activePageId ? "textpane-tab--active" : ""}`}
-              draggable
-              onDragStart={e => onTabDragStart(e, p)}
-              onDragEnd={onTabDragEnd}
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => onTabDrop(e, i)}
-              onClick={() => setActivePageId(p.id)}
-              title={mates.length > 0 ? `Drag to reorder · synced with ${mates.join(", ")}` : "Drag to reorder, merge into another pane, or drop on a tile edge to pop out"}
-            >
-              {mates.length > 0 && <span className="textpane-tab-sync-dot">∞</span>}
-              <span className="textpane-tab-label">{pageLabel(i)}</span>
-              <button
-                className="textpane-tab-close"
-                onClick={e => { e.stopPropagation(); closePage(p.id); }}
-                title="Close page"
-              >×</button>
-            </div>
-          );
-        })}
-        <button className="textpane-tab-add" onClick={addPage} title="Add a page">+</button>
-      </div>
-
-      <div className="card textpane">
-        <div className="card-body textpane-body">
-          {activePage ? (
-            <div
-              ref={editorRef}
-              className="textpane-textarea"
-              contentEditable
-              suppressContentEditableWarning
-              onInput={saveContent}
-              // A tab dropped here (missing the tab strip, e.g. reordering
-              // within this same pane, which the outer tile grid's drop
-              // overlay deliberately ignores) would otherwise fall through to
-              // the browser's default contentEditable drop handling, which
-              // inserts the dragged element's own text — the tab's label —
-              // into the content. Suppress that; drops are handled elsewhere.
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => e.preventDefault()}
-              style={{ fontSize: `${activePage.fontSize}px` }}
-              data-placeholder={`${kind}${periodLabel ? ` — ${periodLabel}` : ""}…`}
-            />
-          ) : (
-            <div className="textpane-empty">
-              <button className="btn btn-ghost btn-sm" onClick={addPage}>+ Add a page</button>
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className="textpane-toolbar">
         <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(4); }} title={hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
         <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(-4); }} title={hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
@@ -233,14 +146,55 @@ export default function TextPane({
         <button className={`btn btn-ghost btn-sm${isNumbered ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
         <div className="textpane-divider" />
         <button className="btn btn-ghost btn-sm textpane-clear-btn" onClick={handleClear} title="Clear this page">✕</button>
+        <div className="textpane-divider" />
+
+        {pages.length > 1 && (
+          <div className="textpane-pagenav">
+            <button className="btn btn-ghost btn-sm" onClick={() => goToPage(-1)} disabled={activeIndex <= 0} title="Previous page">‹</button>
+            <span className="textpane-pagenav-count">{activeIndex + 1}/{pages.length}</span>
+            <button className="btn btn-ghost btn-sm" onClick={() => goToPage(1)} disabled={activeIndex === -1 || activeIndex >= pages.length - 1} title="Next page">›</button>
+          </div>
+        )}
+        <button className="btn btn-ghost btn-sm" onClick={addPage} title="Add a page">+</button>
+        {activePage && (
+          <button className="btn btn-ghost btn-sm" onClick={() => closePage(activePageId)} title="Close this page">🗑</button>
+        )}
+
         {onTabSyncChange && activePage && (
           <button
             className={`btn btn-ghost btn-sm textpane-sync-btn${activeSyncMates.length > 0 ? " textpane-btn-active" : ""}`}
             onClick={() => setSyncModalOpen(true)}
-            onMouseDown={e => e.preventDefault()}
             title={activeSyncMates.length > 0 ? `This tab is synced with ${activeSyncMates.join(", ")}` : "Sync this tab with another period"}
           >∞</button>
         )}
+      </div>
+
+      <div className="card textpane">
+        <div className="card-body textpane-body">
+          {activePage ? (
+            <div
+              ref={editorRef}
+              className="textpane-textarea"
+              contentEditable
+              suppressContentEditableWarning
+              onInput={saveContent}
+              // A drag ending here (missing the tile's drop overlay, which
+              // covers the whole slot but not always this exact target)
+              // would otherwise fall through to the browser's default
+              // contentEditable drop handling, which inserts the dragged
+              // element's own text into the content. Suppress that; drops
+              // are handled by the tile grid's drop overlay instead.
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => e.preventDefault()}
+              style={{ fontSize: `${activePage.fontSize}px` }}
+              data-placeholder={`${kind}${periodLabel ? ` — ${periodLabel}` : ""}…`}
+            />
+          ) : (
+            <div className="textpane-empty">
+              <button className="btn btn-ghost btn-sm" onClick={addPage}>+ Add a page</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {syncModalOpen && activePage && (
