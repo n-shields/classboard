@@ -19,13 +19,12 @@
   position: relative;
 }
 
-/* ── Page navigation — a small floating pill, bottom-center, overlaying the
-   pane's own content rather than reserving space for it ── */
+/* ── Page navigation — a small floating pill, bottom-right corner,
+   overlaying the pane's own content rather than reserving space for it ── */
 .textpane-pagenav {
   position: absolute;
   bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 8px;
   z-index: 4;
   display: flex;
   align-items: center;
