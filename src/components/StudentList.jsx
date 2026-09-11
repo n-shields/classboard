@@ -256,6 +256,7 @@ export default function StudentList({
                       onChange={e => setName(idx, e.target.value)}
                       onBlur={cleanup}
                       onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      style={simple ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}
                     />
                     {!simple && (
                       <input
@@ -276,17 +277,21 @@ export default function StudentList({
                       />
                     )}
                     <div className="student-gems" title={gemsLabel}>
-                      <button
-                        className="btn btn-ghost btn-sm student-gems-btn"
-                        onClick={() => adjustGems(name, -100)}
-                        title={`-100 ${gemsLabel}`}
-                      >−100</button>
+                      {!simple && (
+                        <button
+                          className="btn btn-ghost btn-sm student-gems-btn"
+                          onClick={() => adjustGems(name, -100)}
+                          title={`-100 ${gemsLabel}`}
+                        >−100</button>
+                      )}
                       <span className="student-gems-value">{gems[name] || 0}</span>
-                      <button
-                        className="btn btn-ghost btn-sm student-gems-btn"
-                        onClick={() => adjustGems(name, 100)}
-                        title={`+100 ${gemsLabel}`}
-                      >+100</button>
+                      {!simple && (
+                        <button
+                          className="btn btn-ghost btn-sm student-gems-btn"
+                          onClick={() => adjustGems(name, 100)}
+                          title={`+100 ${gemsLabel}`}
+                        >+100</button>
+                      )}
                     </div>
                     <button
                       className="student-remove"

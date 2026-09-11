@@ -472,17 +472,27 @@ export default function App() {
     [periodKey, pageSyncGroups],
   );
 
+  // A pane whose last page is being dragged away closes along with it —
+  // even the fixed text/notes tiles, which are otherwise permanent — as
+  // long as at least one other pane tile will still be left somewhere to
+  // add pages from (so there's always a way to get a text pane back).
+  const canCloseSourcePane = (sourcePaneId) => {
+    if (isDynamicPaneId(sourcePaneId)) return true;
+    const paneTileCount = [...collectLeaves(layout)].filter(isPaneTile).length;
+    return paneTileCount > 1;
+  };
+
   // Detach a page tab into a brand-new tile, dropped next to `targetTileId`.
-  // If that was the source pane's only page and it's a detached pane (not
-  // the fixed text/notes tiles, which are never closed), close it too,
-  // instead of leaving an empty stray tile behind.
+  // If that emptied the source pane and it can be closed (see
+  // canCloseSourcePane), close it too instead of leaving an empty stray tile
+  // behind.
   const handleDetachPage = (info, targetTileId, side) => {
     if (!periodKey) return;
     const { pageId, sourcePaneId } = info;
     const newPaneId = makePaneId();
     const panesNow = periodData[periodKey]?.panes || {};
     const remaining = (panesNow[sourcePaneId] || []).filter(id => id !== pageId);
-    const willClose = remaining.length === 0 && isDynamicPaneId(sourcePaneId);
+    const willClose = remaining.length === 0 && canCloseSourcePane(sourcePaneId);
 
     setPeriodData(d => {
       const period = d[periodKey] || {};
@@ -500,15 +510,15 @@ export default function App() {
     });
   };
 
-  // Merge a dragged-in page tab into an existing pane; if that empties a
-  // detached pane, close it (the main text/notes tile is never closed).
+  // Merge a dragged-in page tab into an existing pane; if that empties the
+  // source pane and it can be closed (see canCloseSourcePane), close it too.
   const handleMergePage = (info, targetPaneId) => {
     if (!periodKey) return;
     const { pageId, sourcePaneId } = info;
     if (sourcePaneId === targetPaneId) return;
     const panesNow = periodData[periodKey]?.panes || {};
     const remaining = (panesNow[sourcePaneId] || []).filter(id => id !== pageId);
-    const willClose = remaining.length === 0 && isDynamicPaneId(sourcePaneId);
+    const willClose = remaining.length === 0 && canCloseSourcePane(sourcePaneId);
 
     setPeriodData(d => {
       const period = d[periodKey] || {};
@@ -523,12 +533,14 @@ export default function App() {
     if (willClose) handleLayoutChange(prev => removeLeaf(prev, sourcePaneId) ?? prev);
   };
 
-  // A page tab was dropped on tile `targetTileId`: merge into it if it already
-  // hosts a text pane, otherwise pop the page out into a brand-new tile next
-  // to it — unless it's the only page in a fixed tile (text/notes), which
-  // can't be closed; reposition that tile as a whole instead of orphaning an
-  // empty one behind, so the drag reads as "move this pane" like it would if
-  // it had no pages to speak of.
+  // A page tab was dropped on tile `targetTileId`: merge into it if it
+  // already hosts a text pane (closing the source pane if that was its last
+  // page — see canCloseSourcePane), otherwise pop the page out into a
+  // brand-new tile next to it — unless it's the only page in a fixed tile
+  // (text/notes) being dropped on a non-pane target, where there's no pane
+  // to merge into; reposition that tile as a whole instead of duplicating
+  // it, so the drag reads as "move this pane" like it would if it had no
+  // pages to speak of.
   const handlePageDrop = (info, targetTileId, side) => {
     if (isPaneTile(targetTileId)) {
       handleMergePage(info, targetTileId);

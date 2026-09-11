@@ -1,5 +1,11 @@
 export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders'];
 
+// "text" and "notes" are recognized tile types, but — like a detached pane —
+// not required to be present: dragging the last page out of one closes it
+// (see App's canCloseSourcePane), and it's never auto-grafted back in.
+// Everything else in TILE_IDS always has exactly one instance in the tree.
+export const REQUIRED_TILE_IDS = TILE_IDS.filter(id => id !== 'text' && id !== 'notes');
+
 // A detached page (dragged out of a text-pane's tab strip) lives in the tree
 // as a dynamically-created leaf of the form "pane-<id>" — these are allowed
 // anywhere in the tree but, unlike TILE_IDS, aren't required. The older
@@ -107,7 +113,7 @@ export function validateLayout(node) {
   }
   if (!check(node)) return false;
   const leaves = collectLeaves(node);
-  return TILE_IDS.every(id => leaves.has(id));
+  return REQUIRED_TILE_IDS.every(id => leaves.has(id));
 }
 
 /**
@@ -127,7 +133,7 @@ export function migrateLayout(node) {
     }
   }
 
-  for (const id of TILE_IDS) {
+  for (const id of REQUIRED_TILE_IDS) {
     const leaves = collectLeaves(tree);
     if (leaves.has(id)) continue;
     const place = NEW_TILE_PLACEMENT[id];
