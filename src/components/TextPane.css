@@ -1,6 +1,7 @@
-/* A normal, always-visible toolbar sits above the pane — no tab strip, no
-   hover-based show/hide — so the pane's own size never changes and its
-   content never resizes or slides as the mouse enters or exits. */
+/* No toolbar or tab strip live in the pane itself — formatting/page controls
+   are rendered by the app's own auto-hiding top toolbar, acting on whichever
+   pane last had focus (see App's activePaneId/textPaneActions). The pane
+   itself always fills its tile, so nothing here ever resizes its content. */
 .textpane-wrap {
   height: 100%;
   display: flex;
@@ -10,6 +11,7 @@
 .textpane {
   flex: 1;
   min-height: 0;
+  position: relative;
 }
 
 .textpane-body {
@@ -17,56 +19,56 @@
   position: relative;
 }
 
-/* ── Toolbar ── */
-.textpane-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 5px 6px;
-  border-bottom: 1px solid var(--border);
-}
-
-.textpane-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
-.textpane-btn-active {
-  background: var(--accent) !important;
-  color: #fff !important;
-  border-color: var(--accent) !important;
-}
-
-.textpane-clear-btn {
-  color: var(--danger) !important;
-}
-
-.textpane-sync-btn {
-  margin-left: auto;
-}
-
-/* ── Page navigation (replaces the tab strip) ── */
+/* ── Page navigation — a small floating pill, bottom-center, overlaying the
+   pane's own content rather than reserving space for it ── */
 .textpane-pagenav {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+.textpane-pagenav:hover {
+  opacity: 1;
+}
+
+.textpane-pagenav-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+}
+.textpane-pagenav-btn:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+.textpane-pagenav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .textpane-pagenav-count {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-dim);
-  min-width: 32px;
+  min-width: 26px;
   text-align: center;
-}
-
-.textpane-tab-sync-dot {
-  font-size: 0.7rem;
-  opacity: 0.75;
 }
 
 /* ── The pane's own content ── */

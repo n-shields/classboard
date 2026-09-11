@@ -50,6 +50,7 @@ export default function PeriodBar({
   wheelColors = [],
   otherPeriods = [], onDeleteClassList,
   periodLabel,
+  textPaneStatus, textPaneActions,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
   const [studentsOpen,  setStudentsOpen]  = useState(false);
@@ -190,6 +191,27 @@ export default function PeriodBar({
           onClick={() => onThemeChange(THEME_KEYS[(THEME_KEYS.indexOf(currentTheme) + 1) % THEME_KEYS.length])}
           title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
         />
+
+        {/* Text controls — act on whichever pane last had focus */}
+        {textPaneActions && (
+          <>
+            <button className="btn btn-ghost btn-sm tb-btn" onMouseDown={e => { e.preventDefault(); textPaneActions.sizeUp(); }} title={textPaneStatus?.hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
+            <button className="btn btn-ghost btn-sm tb-btn" onMouseDown={e => { e.preventDefault(); textPaneActions.sizeDown(); }} title={textPaneStatus?.hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
+            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.bold(); }} title="Bold"><strong>B</strong></button>
+            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.italic(); }} title="Italic"><em>I</em></button>
+            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.bulletList(); }} title="Bullet list">•—</button>
+            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isNumbered ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.numberedList(); }} title="Numbered list">1.</button>
+            <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
+            <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.addPage} title="Add a page">+</button>
+            <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.closePage} title="Close this page">🗑</button>
+            <button
+              className={`btn btn-sm tb-btn ${textPaneStatus?.isSynced ? "btn-primary" : "btn-ghost"}`}
+              onClick={textPaneActions.openSync}
+              title={textPaneStatus?.isSynced ? `This tab is synced with ${textPaneStatus.syncMates.join(", ")}` : "Sync this tab with another period"}
+            >∞</button>
+            <div className="tb-divider" />
+          </>
+        )}
 
         {/* Student list */}
         {onNamesChange && (

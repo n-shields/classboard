@@ -151,6 +151,27 @@ export default function App() {
     setActivePageIdByPane(prev => (prev[paneId] === pageId ? prev : { ...prev, [paneId]: pageId }));
   }, []);
 
+  // Text panes render no toolbar of their own — the top toolbar's text
+  // controls act on whichever pane last had focus, reached via an
+  // imperative handle and kept in sync via a lightweight status report.
+  const textPaneRefs = useRef({});
+  const [activePaneId, setActivePaneId] = useState(null);
+  const [activePaneStatus, setActivePaneStatus] = useState(null);
+  const textPaneActions = activePaneId ? {
+    sizeUp: () => textPaneRefs.current[activePaneId]?.adjustFontSize(4),
+    sizeDown: () => textPaneRefs.current[activePaneId]?.adjustFontSize(-4),
+    bold: () => textPaneRefs.current[activePaneId]?.execFormat("bold"),
+    italic: () => textPaneRefs.current[activePaneId]?.execFormat("italic"),
+    bulletList: () => textPaneRefs.current[activePaneId]?.execFormat("insertUnorderedList"),
+    numberedList: () => textPaneRefs.current[activePaneId]?.execFormat("insertOrderedList"),
+    clear: () => textPaneRefs.current[activePaneId]?.clear(),
+    addPage: () => textPaneRefs.current[activePaneId]?.addPage(),
+    closePage: () => textPaneRefs.current[activePaneId]?.closePage(),
+    prevPage: () => textPaneRefs.current[activePaneId]?.goToPage(-1),
+    nextPage: () => textPaneRefs.current[activePaneId]?.goToPage(1),
+    openSync: () => textPaneRefs.current[activePaneId]?.openSync(),
+  } : null;
+
   // Theme
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [gemsLabel, setGemsLabel] = useState(loadGemsLabel);
@@ -195,6 +216,17 @@ export default function App() {
 
   // Detached pages (dragged out of a text pane's tab strip into their own tile)
   const dynamicPaneIds = [...collectLeaves(layout)].filter(isDynamicPaneId);
+
+  // If the active pane (holding the top toolbar) was a detached pane that
+  // just closed or merged away, drop the stale reference instead of leaving
+  // the toolbar pointed at a tile that no longer exists.
+  const dynamicPaneIdsKey = dynamicPaneIds.join(",");
+  useEffect(() => {
+    if (activePaneId && isDynamicPaneId(activePaneId) && !dynamicPaneIdsKey.split(",").includes(activePaneId)) {
+      setActivePaneId(null);
+      setActivePaneStatus(null);
+    }
+  }, [activePaneId, dynamicPaneIdsKey]);
 
   // A pane with more than one page has no tab strip of its own — dragging
   // its tile's corner grip instead moves just the active page (to merge
@@ -551,7 +583,7 @@ export default function App() {
     text: (
       <TextPane
         key={`text-${periodKey}`}
-        paneId="text"
+        ref={el => { textPaneRefs.current.text = el; }}
         kind="Announcement"
         defaultFontSize={48}
         pages={pagesForPane(currentPages, currentPanes, "text")}
@@ -561,6 +593,8 @@ export default function App() {
         pageSyncMates={pageId => pageSyncMates("text", pageId)}
         onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange("text", pageId, mateLabels)}
         onActivePageChange={pageId => handleActivePageChange("text", pageId)}
+        onActivate={() => setActivePaneId("text")}
+        onStatusChange={status => setActivePaneStatus(prev => (activePaneId === "text" ? status : prev))}
       />
     ),
     camera: (
@@ -573,7 +607,7 @@ export default function App() {
     notes: (
       <TextPane
         key={`notes-${periodKey}`}
-        paneId="notes"
+        ref={el => { textPaneRefs.current.notes = el; }}
         kind="Notes"
         defaultFontSize={20}
         pages={pagesForPane(currentPages, currentPanes, "notes")}
@@ -583,20 +617,24 @@ export default function App() {
         pageSyncMates={pageId => pageSyncMates("notes", pageId)}
         onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange("notes", pageId, mateLabels)}
         onActivePageChange={pageId => handleActivePageChange("notes", pageId)}
+        onActivate={() => setActivePaneId("notes")}
+        onStatusChange={status => setActivePaneStatus(prev => (activePaneId === "notes" ? status : prev))}
       />
     ),
     ...Object.fromEntries(dynamicPaneIds.map(paneId => [
       paneId,
       <TextPane
         key={`pane-${periodKey}-${paneId}`}
-        paneId={paneId}
+        ref={el => { textPaneRefs.current[paneId] = el; }}
         pages={pagesForPane(currentPages, currentPanes, paneId)}
         onPagesChange={pages => handlePagesChange(paneId, pages)}
         periodLabel={displayPeriod?.label}
         allPeriodLabels={periodNames.map(n => n.label)}
-        pageSyncMates={pageId => pageSyncMates(paneId, pageId)}
-        onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange(paneId, pageId, mateLabels)}
-        onActivePageChange={pageId => handleActivePageChange(paneId, pageId)}
+        pageSyncMates={pageId2 => pageSyncMates(paneId, pageId2)}
+        onTabSyncChange={(pageId2, mateLabels) => handleTabSyncChange(paneId, pageId2, mateLabels)}
+        onActivePageChange={pageId2 => handleActivePageChange(paneId, pageId2)}
+        onActivate={() => setActivePaneId(paneId)}
+        onStatusChange={status => setActivePaneStatus(prev => (activePaneId === paneId ? status : prev))}
       />,
     ])),
     wheel: (
@@ -657,6 +695,8 @@ export default function App() {
         otherPeriods={otherPeriodOptions}
         onDeleteClassList={handleDeleteClassList}
         periodLabel={displayPeriod?.label}
+        textPaneStatus={activePaneId ? activePaneStatus : null}
+        textPaneActions={textPaneActions}
       />
       <TileLayout
         layout={layout}

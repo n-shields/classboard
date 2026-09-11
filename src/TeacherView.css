@@ -32,6 +32,14 @@
   font-weight: 600;
 }
 
+.teacher-view-textbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .teacher-view-body {
   flex: 1;
   min-height: 0;

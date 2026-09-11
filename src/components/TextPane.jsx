@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import useIdleCaret from "../hooks/useIdleCaret";
 import NoteSyncModal from "./NoteSyncModal";
 import { makePage } from "../data/pages";
@@ -9,17 +9,21 @@ import "./TextPane.css";
 // them, so any tab can dock into any pane. `kind`/`defaultFontSize` only
 // flavor the placeholder text and the font size a brand-new page starts at.
 //
-// There's no tab strip — with more than one page, the toolbar shows a
-// ‹ n/total › counter to step between them instead. Dragging a pane with
-// multiple pages by its tile's own corner grip (see TileLayout) moves just
-// the active page (to merge into another pane, or detach to a new tile);
-// the toolbar itself is a normal, always-visible bar so the pane's content
-// never resizes as the mouse enters or exits.
-export default function TextPane({
+// This pane renders no toolbar of its own — formatting/page controls live in
+// the app's own auto-hiding top toolbar, which acts on whichever pane last
+// had focus. It reaches in via an imperative handle (execFormat, addPage,
+// etc.) and is kept in sync via `onStatusChange` (bold/italic/page-count/
+// sync state) and `onActivate` (fires on focus, to claim the toolbar). Only
+// small ‹ › page-nav arrows, shown when there's more than one page, live on
+// the pane itself, pinned to the bottom so they don't take up layout space.
+// Dragging a multi-page pane by its tile's own corner grip (see TileLayout)
+// moves just the active page, not the whole tab set.
+const TextPane = forwardRef(function TextPane({
   pages, onPagesChange, periodLabel,
   kind = "Page", defaultFontSize = 24,
   allPeriodLabels = [], pageSyncMates, onTabSyncChange, onActivePageChange,
-}) {
+  onStatusChange, onActivate,
+}, ref) {
   const [activePageId, setActivePageId] = useState(pages[0]?.id ?? null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [isBold, setIsBold] = useState(false);
@@ -67,6 +71,17 @@ export default function TextPane({
     return () => document.removeEventListener("selectionchange", update);
   }, []);
 
+  // Report status for the external toolbar to render (active/disabled states)
+  const syncMatesKey = activeSyncMates.join(",");
+  useEffect(() => {
+    onStatusChange?.({
+      isBold, isItalic, isBullet, isNumbered, hasSelection,
+      pageIndex: activeIndex, pageCount: pages.length,
+      isSynced: activeSyncMates.length > 0, syncMates: activeSyncMates,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBold, isItalic, isBullet, isNumbered, hasSelection, activeIndex, pages.length, syncMatesKey]);
+
   const saveContent = () => {
     if (!editorRef.current || !activePage) return;
     const html = editorRef.current.innerHTML;
@@ -104,7 +119,7 @@ export default function TextPane({
     saveContent();
   };
 
-  const handleSizeBtn = (delta) => {
+  const adjustFontSize = (delta) => {
     if (hasSelection) {
       changeSizeForSelection(delta);
     } else if (activePage) {
@@ -113,7 +128,7 @@ export default function TextPane({
     }
   };
 
-  const handleClear = () => {
+  const clear = () => {
     if (!activePage) return;
     if (editorRef.current) editorRef.current.innerHTML = "";
     onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: "" } : p)));
@@ -125,7 +140,9 @@ export default function TextPane({
     setActivePageId(page.id);
   };
 
-  const closePage = (id) => onPagesChange(pages.filter(p => p.id !== id));
+  const closePage = () => {
+    if (activePageId) onPagesChange(pages.filter(p => p.id !== activePageId));
+  };
 
   const goToPage = (delta) => {
     if (activeIndex === -1) return;
@@ -133,42 +150,13 @@ export default function TextPane({
     if (next) setActivePageId(next.id);
   };
 
+  useImperativeHandle(ref, () => ({
+    execFormat, adjustFontSize, clear, addPage, closePage, goToPage,
+    openSync: () => setSyncModalOpen(true),
+  }));
+
   return (
-    <div className="textpane-wrap" tabIndex={-1}>
-      <div className="textpane-toolbar">
-        <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(4); }} title={hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
-        <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); handleSizeBtn(-4); }} title={hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
-        <div className="textpane-divider" />
-        <button className={`btn btn-ghost btn-sm${isBold ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("bold"); }} title="Bold"><strong>B</strong></button>
-        <button className={`btn btn-ghost btn-sm${isItalic ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
-        <div className="textpane-divider" />
-        <button className={`btn btn-ghost btn-sm${isBullet ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
-        <button className={`btn btn-ghost btn-sm${isNumbered ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
-        <div className="textpane-divider" />
-        <button className="btn btn-ghost btn-sm textpane-clear-btn" onClick={handleClear} title="Clear this page">✕</button>
-        <div className="textpane-divider" />
-
-        {pages.length > 1 && (
-          <div className="textpane-pagenav">
-            <button className="btn btn-ghost btn-sm" onClick={() => goToPage(-1)} disabled={activeIndex <= 0} title="Previous page">‹</button>
-            <span className="textpane-pagenav-count">{activeIndex + 1}/{pages.length}</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => goToPage(1)} disabled={activeIndex === -1 || activeIndex >= pages.length - 1} title="Next page">›</button>
-          </div>
-        )}
-        <button className="btn btn-ghost btn-sm" onClick={addPage} title="Add a page">+</button>
-        {activePage && (
-          <button className="btn btn-ghost btn-sm" onClick={() => closePage(activePageId)} title="Close this page">🗑</button>
-        )}
-
-        {onTabSyncChange && activePage && (
-          <button
-            className={`btn btn-ghost btn-sm textpane-sync-btn${activeSyncMates.length > 0 ? " textpane-btn-active" : ""}`}
-            onClick={() => setSyncModalOpen(true)}
-            title={activeSyncMates.length > 0 ? `This tab is synced with ${activeSyncMates.join(", ")}` : "Sync this tab with another period"}
-          >∞</button>
-        )}
-      </div>
-
+    <div className="textpane-wrap" tabIndex={-1} onFocusCapture={() => onActivate?.()}>
       <div className="card textpane">
         <div className="card-body textpane-body">
           {activePage ? (
@@ -195,6 +183,14 @@ export default function TextPane({
             </div>
           )}
         </div>
+
+        {pages.length > 1 && (
+          <div className="textpane-pagenav">
+            <button className="textpane-pagenav-btn" onClick={() => goToPage(-1)} disabled={activeIndex <= 0} title="Previous page">‹</button>
+            <span className="textpane-pagenav-count">{activeIndex + 1}/{pages.length}</span>
+            <button className="textpane-pagenav-btn" onClick={() => goToPage(1)} disabled={activeIndex === -1 || activeIndex >= pages.length - 1} title="Next page">›</button>
+          </div>
+        )}
       </div>
 
       {syncModalOpen && activePage && (
@@ -208,4 +204,6 @@ export default function TextPane({
       )}
     </div>
   );
-}
+});
+
+export default TextPane;
