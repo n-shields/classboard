@@ -4,7 +4,7 @@ import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
-import { loadSchedules, detectNextPeriod, loadActivePeriod, resolveActivePeriodIndex } from "./data/schedules";
+import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriodIndex } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, loadGemsLabel, saveGemsLabel } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
@@ -74,6 +74,20 @@ export default function TeacherView() {
   }, []);
 
   const periods = schedules[scheduleType] || [];
+
+  // The Timer tile always tracks the real, live period/countdown — same as
+  // the main board's own clock, which never follows a manually-pinned
+  // period (a pinned period isn't necessarily happening right now, so its
+  // start/end times would produce a meaningless countdown against the
+  // actual wall clock).
+  const clockIndex = useMemo(() => detectCurrentPeriod(periods), [periods, now]); // eslint-disable-line
+  const clockNextIndex = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
+  const clockPeriod = clockIndex >= 0 ? periods[clockIndex] : null;
+  const clockNextPeriod = clockNextIndex >= 0 ? periods[clockNextIndex] : null;
+
+  // Everything else (roster, reminders, notes) follows whichever period is
+  // active on the main board — auto-detected in Auto mode, or the
+  // manually-pinned period otherwise.
   const currentIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
   const nextIndex = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
   const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
@@ -142,15 +156,15 @@ export default function TeacherView() {
   const tiles = {
     clock: (
       <ClockWidget
-        currentPeriod={currentPeriod}
-        nextPeriod={nextPeriod}
+        currentPeriod={clockPeriod}
+        nextPeriod={clockNextPeriod}
         collapsed={collapsed.clock}
         onToggle={() => toggleCollapsed("clock")}
       />
     ),
     reminders: (
       <RemindersWidget
-        currentPeriod={currentPeriod}
+        currentPeriod={clockPeriod}
         reminders={currentReminders}
         onRemindersChange={handleRemindersChange}
         collapsed={collapsed.reminders}
