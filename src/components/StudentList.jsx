@@ -22,14 +22,8 @@ export default function StudentList({
   simple = false,
 }) {
   const [draft, setDraft] = useState("");
-  const [importFrom, setImportFrom] = useState(otherPeriods[0]?.label ?? "");
+  const [importOpen, setImportOpen] = useState(false);
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
-
-  useEffect(() => {
-    if (!otherPeriods.some(p => p.label === importFrom)) {
-      setImportFrom(otherPeriods[0]?.label ?? "");
-    }
-  }, [otherPeriods]); // eslint-disable-line
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -159,11 +153,12 @@ export default function StudentList({
     }
   };
 
-  const importFromPeriod = () => {
-    const src = otherPeriods.find(p => p.label === importFrom);
+  const importFromPeriod = (label) => {
+    const src = otherPeriods.find(p => p.label === label);
     if (!src) return;
     const existing = new Set(names.map(n => n.trim()));
     const toAdd = src.names.filter(n => !existing.has(n));
+    setImportOpen(false);
     if (!toAdd.length) return;
     onNamesChange([...names, ...toAdd]);
     const srcBirthdays = src.birthdays || {};
@@ -180,14 +175,14 @@ export default function StudentList({
     if (Object.keys(gAdditions).length) onGemsChange?.({ ...gems, ...gAdditions });
   };
 
-  const deleteClassList = () => {
-    const src = otherPeriods.find(p => p.label === importFrom);
+  const deleteClassList = (label) => {
+    const src = otherPeriods.find(p => p.label === label);
     if (!src) return;
     const n = src.names.length;
     const ok = window.confirm(
-      `Delete the saved class list for "${importFrom}" (${n} student${n === 1 ? "" : "s"})? This can't be undone.`
+      `Delete the saved class list for "${label}" (${n} student${n === 1 ? "" : "s"})? This can't be undone.`
     );
-    if (ok) onDeleteClassList?.(importFrom);
+    if (ok) onDeleteClassList?.(label);
   };
 
   const addFromDraft = () => {
@@ -229,28 +224,6 @@ export default function StudentList({
             <span className="student-count">{activeCount} / {names.length} in wheel</span>
           )}
         </div>
-
-        {otherPeriods.length > 0 && (
-          <div className="student-import-row">
-            <select
-              className="tb-select student-import-select"
-              value={importFrom}
-              onChange={e => setImportFrom(e.target.value)}
-            >
-              {otherPeriods.map(p => (
-                <option key={p.label} value={p.label}>{p.label} ({p.names.length})</option>
-              ))}
-            </select>
-            <button className="btn btn-ghost btn-sm" onClick={importFromPeriod}>
-              Import list
-            </button>
-            <button
-              className="btn btn-danger btn-sm student-delete-list-btn"
-              onClick={deleteClassList}
-              title="Delete this period's saved class list"
-            >🗑</button>
-          </div>
-        )}
 
         {names.length > 0 && (
           <>
@@ -335,6 +308,35 @@ export default function StudentList({
           onBlur={addFromDraft}
           placeholder="Add a student — type a name, or paste a list"
         />
+
+        {otherPeriods.length > 0 && (
+          <div className="student-import">
+            <button
+              className="btn btn-ghost btn-sm student-import-toggle"
+              onClick={() => setImportOpen(o => !o)}
+            >
+              Import from another period {importOpen ? "▴" : "▾"}
+            </button>
+            {importOpen && (
+              <div className="student-import-list">
+                {otherPeriods.map(p => (
+                  <div key={p.label} className="student-import-list-row">
+                    <button
+                      className="student-import-list-btn"
+                      onClick={() => importFromPeriod(p.label)}
+                      title={`Add ${p.label}'s roster to this list`}
+                    >{p.label} ({p.names.length})</button>
+                    <button
+                      className="btn btn-danger btn-sm student-delete-list-btn"
+                      onClick={() => deleteClassList(p.label)}
+                      title={`Delete the saved class list for "${p.label}"`}
+                    >🗑</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="student-modal-footer">
           <button className="btn btn-primary" onClick={onClose}>Done</button>

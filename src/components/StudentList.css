@@ -25,15 +25,43 @@
   font-size: 0.78rem;
 }
 
-.student-import-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
+.student-import {
+  margin-top: 8px;
 }
 
-.student-import-select {
+.student-import-toggle {
+  width: 100%;
+}
+
+.student-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.student-import-list-row {
+  display: flex;
+  gap: 6px;
+}
+
+.student-import-list-btn {
   flex: 1;
-  min-width: 0;
+  text-align: left;
+  padding: 5px 8px;
+  font-size: 0.85rem;
+  background: var(--surface2);
+  color: var(--text);
+  border-radius: 5px;
+}
+.student-import-list-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 .student-delete-list-btn {
