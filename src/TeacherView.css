@@ -40,6 +40,21 @@
   flex-shrink: 0;
 }
 
+.tb-scrolling-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.tb-scrolling-toggle input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .teacher-view-body {
   flex: 1;
   min-height: 0;

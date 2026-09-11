@@ -108,3 +108,16 @@
   padding-left: 1.4em;
   margin: 0.15em 0;
 }
+
+/* ── Scrolling message mode — a ticker-style crawl, paused while editing ── */
+.textpane-textarea--scrolling {
+  white-space: nowrap;
+  overflow: hidden;
+}
+.textpane-textarea--scrolling:not(:focus) {
+  animation: textpane-marquee 14s linear infinite;
+}
+@keyframes textpane-marquee {
+  from { text-indent: 100%; }
+  to   { text-indent: -100%; }
+}

@@ -73,14 +73,16 @@ const TextPane = forwardRef(function TextPane({
 
   // Report status for the external toolbar to render (active/disabled states)
   const syncMatesKey = activeSyncMates.join(",");
+  const isScrolling = !!activePage?.scrolling;
   useEffect(() => {
     onStatusChange?.({
       isBold, isItalic, isBullet, isNumbered, hasSelection,
       pageIndex: activeIndex, pageCount: pages.length,
       isSynced: activeSyncMates.length > 0, syncMates: activeSyncMates,
+      isScrolling,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBold, isItalic, isBullet, isNumbered, hasSelection, activeIndex, pages.length, syncMatesKey]);
+  }, [isBold, isItalic, isBullet, isNumbered, hasSelection, activeIndex, pages.length, syncMatesKey, isScrolling]);
 
   const saveContent = () => {
     if (!editorRef.current || !activePage) return;
@@ -150,8 +152,13 @@ const TextPane = forwardRef(function TextPane({
     if (next) setActivePageId(next.id);
   };
 
+  const toggleScrolling = () => {
+    if (!activePage) return;
+    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, scrolling: !p.scrolling } : p)));
+  };
+
   useImperativeHandle(ref, () => ({
-    execFormat, adjustFontSize, clear, addPage, closePage, goToPage,
+    execFormat, adjustFontSize, clear, addPage, closePage, goToPage, toggleScrolling,
     openSync: () => setSyncModalOpen(true),
   }));
 
@@ -162,7 +169,7 @@ const TextPane = forwardRef(function TextPane({
           {activePage ? (
             <div
               ref={editorRef}
-              className="textpane-textarea"
+              className={`textpane-textarea${isScrolling ? " textpane-textarea--scrolling" : ""}`}
               contentEditable
               suppressContentEditableWarning
               onInput={saveContent}

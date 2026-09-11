@@ -214,6 +214,14 @@ export default function TeacherView() {
         <button className="btn btn-ghost btn-sm" onClick={() => notesPaneRef.current?.clear()} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
         <button className="btn btn-ghost btn-sm" onClick={() => notesPaneRef.current?.addPage()} title="Add a page" style={{ marginLeft: "auto" }}>+</button>
         <button className="btn btn-ghost btn-sm" onClick={() => notesPaneRef.current?.closePage()} title="Close this page">🗑</button>
+        <label className="tb-scrolling-toggle" title="Scroll this page's text across the pane like a ticker">
+          <input
+            type="checkbox"
+            checked={!!notesStatus?.isScrolling}
+            onChange={() => notesPaneRef.current?.toggleScrolling()}
+          />
+          Scrolling
+        </label>
       </div>
       <div className="teacher-view-body">
         <TileLayout

@@ -17,11 +17,6 @@
   z-index: 199;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 12px;
-  background: var(--surface2);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   transform: translateY(-110%);
   opacity: 0;
   transition: transform 0.2s ease, opacity 0.15s ease;
@@ -39,12 +34,19 @@
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
+  padding: 6px 12px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 .period-toolbar-row::-webkit-scrollbar { display: none; }
 
+/* The text-controls row is a light, mostly-transparent overlay rather than
+   a second solid bar, so it stays unobtrusive while it's up. */
 .period-toolbar-textrow {
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface2) 30%, transparent);
+  box-shadow: none;
+  backdrop-filter: blur(3px);
 }
 
 /* ── Toolbar controls ── */
@@ -66,6 +68,21 @@
   background: var(--border);
   flex-shrink: 0;
   margin: 0 2px;
+}
+
+.tb-scrolling-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.tb-scrolling-toggle input {
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 /* Theme dot button */

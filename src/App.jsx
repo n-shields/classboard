@@ -10,7 +10,7 @@ import DateWidget from "./components/DateWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, loadGemsLabel, saveGemsLabel } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
@@ -127,6 +127,21 @@ export default function App() {
   });
   const [periodData, setPeriodData]         = useState(() => migrateWarmUpRename(migrateTextNotesPages(migrateGlobalReminders(loadPeriodData()))));
   const [pageSyncGroups, setPageSyncGroups] = useState(loadPageSyncGroups);
+
+  // Pick up changes made in Teacher View (a separate window) — e.g. a
+  // student shown/hidden from the wheel, or a birthday/color/gems edit —
+  // so this window doesn't need a manual reload to see them. The native
+  // "storage" event only fires in OTHER same-origin windows, never the one
+  // that made the change, so this can't loop back on our own writes.
+  useEffect(() => {
+    const reload = () => {
+      setPeriodData(migrateWarmUpRename(migrateTextNotesPages(migrateGlobalReminders(loadPeriodData()))));
+      setPageSyncGroups(loadPageSyncGroups());
+    };
+    window.addEventListener("storage", reload);
+    return () => window.removeEventListener("storage", reload);
+  }, []);
+
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
@@ -169,6 +184,7 @@ export default function App() {
     closePage: () => textPaneRefs.current[activePaneId]?.closePage(),
     prevPage: () => textPaneRefs.current[activePaneId]?.goToPage(-1),
     nextPage: () => textPaneRefs.current[activePaneId]?.goToPage(1),
+    toggleScrolling: () => textPaneRefs.current[activePaneId]?.toggleScrolling(),
     openSync: () => textPaneRefs.current[activePaneId]?.openSync(),
   } : null;
 
@@ -228,13 +244,16 @@ export default function App() {
     }
   }, [activePaneId, dynamicPaneIdsKey]);
 
-  // A pane with more than one page has no tab strip of its own — dragging
-  // its tile's corner grip instead moves just the active page (to merge
-  // into another pane, or detach to a new tile), leaving the rest behind.
+  // A pane has no tab strip of its own — dragging its tile's corner grip
+  // instead moves its active page (to merge into another pane, or detach to
+  // a new tile). This applies even to a single-page pane, so dropping onto
+  // another pane always stacks consistently regardless of page count; see
+  // handlePageDrop for how a single-page fixed tile still gets treated as a
+  // whole-tile reposition when dropped somewhere else instead.
   const getTileDragPayload = (tileId) => {
     if (!isPaneTile(tileId)) return null;
     const pagesHere = pagesForPane(currentPages, currentPanes, tileId);
-    if (pagesHere.length <= 1) return null;
+    if (pagesHere.length === 0) return null;
     const activeId = pagesHere.some(p => p.id === activePageIdByPane[tileId])
       ? activePageIdByPane[tileId] : pagesHere[0].id;
     return { pageId: activeId, sourcePaneId: tileId };
@@ -454,20 +473,31 @@ export default function App() {
   );
 
   // Detach a page tab into a brand-new tile, dropped next to `targetTileId`.
+  // If that was the source pane's only page and it's a detached pane (not
+  // the fixed text/notes tiles, which are never closed), close it too,
+  // instead of leaving an empty stray tile behind.
   const handleDetachPage = (info, targetTileId, side) => {
     if (!periodKey) return;
     const { pageId, sourcePaneId } = info;
     const newPaneId = makePaneId();
+    const panesNow = periodData[periodKey]?.panes || {};
+    const remaining = (panesNow[sourcePaneId] || []).filter(id => id !== pageId);
+    const willClose = remaining.length === 0 && isDynamicPaneId(sourcePaneId);
+
     setPeriodData(d => {
       const period = d[periodKey] || {};
       const panes = { ...(period.panes || {}) };
-      panes[sourcePaneId] = (panes[sourcePaneId] || []).filter(id => id !== pageId);
+      panes[sourcePaneId] = remaining;
       panes[newPaneId] = [pageId];
+      if (willClose) delete panes[sourcePaneId];
       const next = { ...d, [periodKey]: { ...period, panes } };
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });
-    handleLayoutChange(prev => insertLeaf(prev, targetTileId, newPaneId, side));
+    handleLayoutChange(prev => {
+      const next = insertLeaf(prev, targetTileId, newPaneId, side);
+      return willClose ? (removeLeaf(next, sourcePaneId) ?? next) : next;
+    });
   };
 
   // Merge a dragged-in page tab into an existing pane; if that empties a
@@ -494,10 +524,22 @@ export default function App() {
   };
 
   // A page tab was dropped on tile `targetTileId`: merge into it if it already
-  // hosts a text pane, otherwise pop the page out into a brand-new tile next to it.
+  // hosts a text pane, otherwise pop the page out into a brand-new tile next
+  // to it — unless it's the only page in a fixed tile (text/notes), which
+  // can't be closed; reposition that tile as a whole instead of orphaning an
+  // empty one behind, so the drag reads as "move this pane" like it would if
+  // it had no pages to speak of.
   const handlePageDrop = (info, targetTileId, side) => {
-    if (isPaneTile(targetTileId)) handleMergePage(info, targetTileId);
-    else handleDetachPage(info, targetTileId, side);
+    if (isPaneTile(targetTileId)) {
+      handleMergePage(info, targetTileId);
+      return;
+    }
+    const sourcePages = pagesForPane(currentPages, currentPanes, info.sourcePaneId);
+    if (sourcePages.length <= 1 && !isDynamicPaneId(info.sourcePaneId)) {
+      handleLayoutChange(prev => moveTile(prev, info.sourcePaneId, targetTileId, side));
+      return;
+    }
+    handleDetachPage(info, targetTileId, side);
   };
 
   const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);

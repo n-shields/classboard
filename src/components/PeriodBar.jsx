@@ -243,6 +243,15 @@ export default function PeriodBar({
               onClick={textPaneActions.openSync}
               title={textPaneStatus?.isSynced ? `This tab is synced with ${textPaneStatus.syncMates.join(", ")}` : "Sync this tab with another period"}
             >∞</button>
+            <div className="tb-divider" />
+            <label className="tb-scrolling-toggle" title="Scroll this page's text across the pane like a ticker">
+              <input
+                type="checkbox"
+                checked={!!textPaneStatus?.isScrolling}
+                onChange={textPaneActions.toggleScrolling}
+              />
+              Scrolling message
+            </label>
           </div>
         )}
       </div>
