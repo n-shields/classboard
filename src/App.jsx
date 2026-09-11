@@ -597,7 +597,7 @@ export default function App() {
         onLayoutChange={handleLayoutChange}
         tiles={tiles}
         isCollapsed={id => collapsed[id] || false}
-        onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
+        onToggle={toggleCollapsed}
         tileNames={TILE_NAMES}
         swapMap={SWAP_MAP}
         onPageDrop={handlePageDrop}
