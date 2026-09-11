@@ -206,9 +206,3 @@
   box-sizing: border-box;
   font-size: 0.9rem;
 }
-
-.student-modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 14px;
-}

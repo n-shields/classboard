@@ -337,10 +337,6 @@ export default function StudentList({
             )}
           </div>
         )}
-
-        <div className="student-modal-footer">
-          <button className="btn btn-primary" onClick={onClose}>Done</button>
-        </div>
       </div>
     </div>
   );
