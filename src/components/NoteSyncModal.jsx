@@ -23,9 +23,9 @@ export default function NoteSyncModal({ currentLabel, allLabels, initialSelected
       onClick={e => { if (e.target === e.currentTarget && overlayMouseDown.current) onClose(); }}
     >
       <div className="modal note-sync-modal">
-        <h2>Sync Notes — {currentLabel}</h2>
+        <h2>Sync Tab — {currentLabel}</h2>
         <p className="note-sync-hint">
-          Synced periods share the same notes. Editing this pane in one will update the other automatically.
+          Synced periods share this exact tab. Editing it in one will update the others automatically.
         </p>
 
         {otherLabels.length === 0 ? (

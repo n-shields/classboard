@@ -1,15 +1,15 @@
-/* Tab strip and toolbar live OUTSIDE the pane's bordered box — above and
-   below it — and collapse to nothing until hovered/focused, so the pane
-   itself grows to fill the tile when they're hidden. */
+/* The tab strip and formatting toolbar float ABOVE the pane's own content as
+   overlays — they never take up layout space, so the pane itself is always
+   exactly the size of its tile and never resizes/slides as the mouse enters
+   or exits. They fade in only while hovered/focused. */
 .textpane-wrap {
+  position: relative;
   height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .textpane {
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
 }
 
 .textpane-body {
@@ -17,28 +17,57 @@
   position: relative;
 }
 
-/* ── Tab strip ── */
-.textpane-tabstrip {
+/* ── Floating chrome (tab strip / toolbar): shared overlay behavior ── */
+.textpane-tabstrip,
+.textpane-toolbar {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 0 6px;
-  margin-bottom: 5px;
-  flex-shrink: 0;
+  padding: 5px 6px;
+  border-radius: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.textpane-wrap:hover .textpane-tabstrip,
+.textpane-wrap:hover .textpane-toolbar,
+.textpane-wrap:focus-within .textpane-tabstrip,
+.textpane-wrap:focus-within .textpane-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.textpane-tabstrip {
+  top: 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  max-height: 34px;
-  transition: max-height 0.18s ease, padding 0.18s ease, margin 0.18s ease, opacity 0.18s ease;
+  transform: translateY(-4px);
 }
 .textpane-tabstrip::-webkit-scrollbar { display: none; }
 
-.textpane-wrap:not(:hover):not(:focus-within) .textpane-tabstrip {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  margin-bottom: 0;
-  opacity: 0;
+.textpane-wrap:hover .textpane-tabstrip,
+.textpane-wrap:focus-within .textpane-tabstrip {
+  transform: translateY(0);
+}
+
+.textpane-toolbar {
+  bottom: 6px;
+  flex-wrap: wrap;
+  transform: translateY(4px);
+}
+
+.textpane-wrap:hover .textpane-toolbar,
+.textpane-wrap:focus-within .textpane-toolbar {
+  transform: translateY(0);
 }
 
 .textpane-tab {
@@ -47,8 +76,8 @@
   gap: 5px;
   max-width: 140px;
   padding: 5px 8px;
-  border-radius: 6px 6px 0 0;
-  background: var(--surface2);
+  border-radius: 5px;
+  background: var(--surface);
   color: var(--text-dim);
   font-size: 0.75rem;
   cursor: grab;
@@ -60,8 +89,8 @@
   color: var(--text);
 }
 .textpane-tab--active {
-  background: var(--surface);
-  color: var(--text);
+  background: var(--accent);
+  color: #fff;
   font-weight: 600;
 }
 
@@ -69,6 +98,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.textpane-tab-sync-dot {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  opacity: 0.75;
 }
 
 .textpane-tab-close {
@@ -106,7 +141,7 @@
   color: var(--text-dim);
 }
 .textpane-tab-add:hover {
-  background: var(--surface2);
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -147,27 +182,6 @@
 .textpane-textarea ol {
   padding-left: 1.4em;
   margin: 0.15em 0;
-}
-
-/* ── Formatting toolbar ── */
-.textpane-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  padding: 0 6px;
-  margin-top: 5px;
-  max-height: 34px;
-  overflow: hidden;
-  transition: max-height 0.18s ease, padding 0.18s ease, margin 0.18s ease, opacity 0.18s ease;
-}
-
-.textpane-wrap:not(:hover):not(:focus-within) .textpane-toolbar {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  margin-top: 0;
-  opacity: 0;
 }
 
 .textpane-divider {

@@ -5,11 +5,12 @@ import { makePage } from "../data/pages";
 import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./TextPane.css";
 
-// Short tab label derived from a page's content, browser-tab style.
-function pageLabel(page, idx) {
-  const text = (page.html || "").replace(/<[^>]+>/g, "").trim();
-  if (text) return text.length > 14 ? text.slice(0, 14) + "…" : text;
-  return `Page ${idx + 1}`;
+// Tabs are labeled positionally (A, B, C…) rather than from their content,
+// so a tab's name doesn't change — and doesn't require reading the content —
+// as it's edited.
+function pageLabel(idx) {
+  if (idx < 26) return String.fromCharCode(65 + idx);
+  return `Tab ${idx + 1}`;
 }
 
 // One kind of rich-text pane, used for both the Board and Notes tiles (and
@@ -17,13 +18,13 @@ function pageLabel(page, idx) {
 // them, so any tab can dock into any pane. `kind`/`defaultFontSize` only
 // flavor the placeholder text and the font size a brand-new page starts at.
 //
-// The tab strip and formatting toolbar live outside the pane's own bordered
-// box — above and below it — and collapse away to nothing when not hovered
-// or focused, so the pane itself fills the tile when they're hidden.
+// The tab strip and formatting toolbar float above the pane's own content as
+// overlays, fading in only while hovered/focused — the pane itself always
+// fills the tile, so it never resizes/slides as they appear or disappear.
 export default function TextPane({
   pages, onPagesChange, paneId, periodLabel,
   kind = "Page", defaultFontSize = 24,
-  allPeriodLabels = [], syncedWith = [], onSyncChange,
+  allPeriodLabels = [], pageSyncMates, onTabSyncChange,
 }) {
   const [activePageId, setActivePageId] = useState(pages[0]?.id ?? null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
@@ -42,6 +43,7 @@ export default function TextPane({
   }, [pages, activePageId]);
 
   const activePage = pages.find(p => p.id === activePageId) ?? null;
+  const activeSyncMates = (activePageId && pageSyncMates?.(activePageId)) || [];
 
   // Sync content on tab change; period changes remount this component via key in App
   useEffect(() => {
@@ -165,26 +167,30 @@ export default function TextPane({
   return (
     <div className="textpane-wrap" tabIndex={-1}>
       <div className="textpane-tabstrip">
-        {pages.map((p, i) => (
-          <div
-            key={p.id}
-            className={`textpane-tab ${p.id === activePageId ? "textpane-tab--active" : ""}`}
-            draggable
-            onDragStart={e => onTabDragStart(e, p)}
-            onDragEnd={onTabDragEnd}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => onTabDrop(e, i)}
-            onClick={() => setActivePageId(p.id)}
-            title="Drag to reorder, merge into another pane, or drop on a tile edge to pop out"
-          >
-            <span className="textpane-tab-label">{pageLabel(p, i)}</span>
-            <button
-              className="textpane-tab-close"
-              onClick={e => { e.stopPropagation(); closePage(p.id); }}
-              title="Close page"
-            >×</button>
-          </div>
-        ))}
+        {pages.map((p, i) => {
+          const mates = pageSyncMates?.(p.id) || [];
+          return (
+            <div
+              key={p.id}
+              className={`textpane-tab ${p.id === activePageId ? "textpane-tab--active" : ""}`}
+              draggable
+              onDragStart={e => onTabDragStart(e, p)}
+              onDragEnd={onTabDragEnd}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => onTabDrop(e, i)}
+              onClick={() => setActivePageId(p.id)}
+              title={mates.length > 0 ? `Drag to reorder · synced with ${mates.join(", ")}` : "Drag to reorder, merge into another pane, or drop on a tile edge to pop out"}
+            >
+              {mates.length > 0 && <span className="textpane-tab-sync-dot">∞</span>}
+              <span className="textpane-tab-label">{pageLabel(i)}</span>
+              <button
+                className="textpane-tab-close"
+                onClick={e => { e.stopPropagation(); closePage(p.id); }}
+                title="Close page"
+              >×</button>
+            </div>
+          );
+        })}
         <button className="textpane-tab-add" onClick={addPage} title="Add a page">+</button>
       </div>
 
@@ -227,22 +233,22 @@ export default function TextPane({
         <button className={`btn btn-ghost btn-sm${isNumbered ? " textpane-btn-active" : ""}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
         <div className="textpane-divider" />
         <button className="btn btn-ghost btn-sm textpane-clear-btn" onClick={handleClear} title="Clear this page">✕</button>
-        {onSyncChange && (
+        {onTabSyncChange && activePage && (
           <button
-            className={`btn btn-ghost btn-sm textpane-sync-btn${syncedWith.length > 0 ? " textpane-btn-active" : ""}`}
+            className={`btn btn-ghost btn-sm textpane-sync-btn${activeSyncMates.length > 0 ? " textpane-btn-active" : ""}`}
             onClick={() => setSyncModalOpen(true)}
             onMouseDown={e => e.preventDefault()}
-            title={syncedWith.length > 0 ? `Synced with ${syncedWith.join(", ")}` : "Sync with another period"}
+            title={activeSyncMates.length > 0 ? `This tab is synced with ${activeSyncMates.join(", ")}` : "Sync this tab with another period"}
           >∞</button>
         )}
       </div>
 
-      {syncModalOpen && (
+      {syncModalOpen && activePage && (
         <NoteSyncModal
           currentLabel={periodLabel}
           allLabels={allPeriodLabels}
-          initialSelected={syncedWith}
-          onSave={labels => { onSyncChange(labels); setSyncModalOpen(false); }}
+          initialSelected={activeSyncMates}
+          onSave={labels => { onTabSyncChange(activePageId, labels); setSyncModalOpen(false); }}
           onClose={() => setSyncModalOpen(false)}
         />
       )}

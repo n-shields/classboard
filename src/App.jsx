@@ -11,7 +11,7 @@ import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
 import { THEMES, applyTheme } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId } from "./data/layout";
-import { loadNoteSyncGroups, saveNoteSyncGroups, getSyncMates, setSyncGroup } from "./data/noteSync";
+import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, loadGemsLabel, saveGemsLabel } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import "./App.css";
@@ -126,7 +126,7 @@ export default function App() {
     return (candidate && candidate in loaded) ? candidate : (Object.keys(loaded)[0] ?? "Regular");
   });
   const [periodData, setPeriodData]         = useState(() => migrateWarmUpRename(migrateTextNotesPages(migrateGlobalReminders(loadPeriodData()))));
-  const [noteSyncGroups, setNoteSyncGroups] = useState(loadNoteSyncGroups);
+  const [pageSyncGroups, setPageSyncGroups] = useState(loadPageSyncGroups);
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
@@ -307,62 +307,99 @@ export default function App() {
   // and reordering pages. New/edited pages are merged into the pool; pages no
   // longer referenced by any pane (this period's) are dropped from it. If a
   // detached pane's last page is closed this way, its tile closes too (the
-  // main text/notes tile never does). The main "notes" pane also mirrors to
-  // synced periods.
+  // main text/notes tile never does). Any tab synced with other periods (see
+  // handleTabSyncChange) mirrors its edited content there too; a tab closed
+  // here just drops out of the sync group rather than disappearing elsewhere.
   const handlePagesChange = (paneId, newPagesForPane) => {
     if (!periodKey) return;
     const willClose = newPagesForPane.length === 0 && isDynamicPaneId(paneId);
-    const mates = paneId === "notes" ? getSyncMates(noteSyncGroups, periodKey) : [];
-    const labels = mates.length > 0 ? [periodKey, ...mates] : [periodKey];
+    const priorIds = new Set(periodData[periodKey]?.panes?.[paneId] || []);
+    const newIds = new Set(newPagesForPane.map(p => p.id));
+    const removedIds = [...priorIds].filter(id => !newIds.has(id));
 
     setPeriodData(d => {
       const next = { ...d };
-      for (const label of labels) {
-        const period = next[label] || {};
-        const pool = Array.isArray(period.pages) ? period.pages : [];
-        const poolById = new Map(pool.map(p => [p.id, p]));
-        for (const p of newPagesForPane) poolById.set(p.id, p);
-        const nextPanes = { ...(period.panes || {}), [paneId]: newPagesForPane.map(p => p.id) };
-        if (willClose) delete nextPanes[paneId];
-        const referenced = new Set(Object.values(nextPanes).flat());
-        next[label] = { ...period, pages: [...poolById.values()].filter(p => referenced.has(p.id)), panes: nextPanes };
+      const period = next[periodKey] || {};
+      const pool = Array.isArray(period.pages) ? period.pages : [];
+      const poolById = new Map(pool.map(p => [p.id, p]));
+      for (const p of newPagesForPane) poolById.set(p.id, p);
+      const nextPanes = { ...(period.panes || {}), [paneId]: newPagesForPane.map(p => p.id) };
+      if (willClose) delete nextPanes[paneId];
+      const referenced = new Set(Object.values(nextPanes).flat());
+      next[periodKey] = { ...period, pages: [...poolById.values()].filter(p => referenced.has(p.id)), panes: nextPanes };
+
+      // Mirror each tab's content to whichever other periods it's synced with.
+      for (const p of newPagesForPane) {
+        const mates = getPageSyncMates(pageSyncGroups, periodKey, paneId, p.id);
+        for (const mate of mates) {
+          const mp = next[mate.period] || {};
+          const mPool = Array.isArray(mp.pages) ? mp.pages : [];
+          const mPoolById = new Map(mPool.map(pp => [pp.id, pp]));
+          mPoolById.set(p.id, p);
+          const mPanes = { ...(mp.panes || {}) };
+          if (!(mPanes[mate.paneId] || []).includes(p.id)) {
+            mPanes[mate.paneId] = [...(mPanes[mate.paneId] || []), p.id];
+          }
+          const mReferenced = new Set(Object.values(mPanes).flat());
+          next[mate.period] = { ...mp, pages: [...mPoolById.values()].filter(pp => mReferenced.has(pp.id)), panes: mPanes };
+        }
       }
+
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });
+
+    if (removedIds.length > 0) {
+      setPageSyncGroups(g => {
+        let next = g;
+        for (const id of removedIds) next = removePageSyncLocation(next, periodKey, paneId, id);
+        savePageSyncGroups(next);
+        return next;
+      });
+    }
     if (willClose) handleLayoutChange(prev => removeLeaf(prev, paneId) ?? prev);
   };
 
-  // Link `periodKey`'s notes with `mateLabels`; newly-linked periods immediately
-  // inherit this period's current main-pane notes so there's nothing left to copy-paste.
-  const handleNoteSyncChange = useCallback((mateLabels) => {
+  // Sync one tab with `mateLabels` (other periods, same paneId). Newly-linked
+  // periods immediately inherit this tab's current content so there's
+  // nothing left to copy-paste; periods dropped from the list just keep
+  // their own now-independent copy rather than losing the tab.
+  const handleTabSyncChange = useCallback((paneId, pageId, mateLabels) => {
     if (!periodKey) return;
-    const prevMates = getSyncMates(noteSyncGroups, periodKey);
+    const prevMates = getPageSyncMates(pageSyncGroups, periodKey, paneId, pageId).map(m => m.period);
     const newlyAdded = mateLabels.filter(l => !prevMates.includes(l));
 
-    const nextGroups = setSyncGroup(noteSyncGroups, periodKey, mateLabels);
-    setNoteSyncGroups(nextGroups);
-    saveNoteSyncGroups(nextGroups);
+    const nextGroups = setPageSyncGroup(pageSyncGroups, periodKey, paneId, pageId, mateLabels);
+    setPageSyncGroups(nextGroups);
+    savePageSyncGroups(nextGroups);
 
     if (newlyAdded.length > 0) {
       setPeriodData(d => {
-        const sourceNoteIds = d[periodKey]?.panes?.notes ?? [];
-        const sourcePages = (d[periodKey]?.pages ?? []).filter(p => sourceNoteIds.includes(p.id));
+        const sourcePage = (d[periodKey]?.pages || []).find(p => p.id === pageId);
+        if (!sourcePage) return d;
         const next = { ...d };
         for (const label of newlyAdded) {
           const period = next[label] || {};
           const pool = Array.isArray(period.pages) ? period.pages : [];
           const poolById = new Map(pool.map(p => [p.id, p]));
-          for (const p of sourcePages) poolById.set(p.id, p);
-          const nextPanes = { ...(period.panes || {}), notes: sourceNoteIds };
-          const referenced = new Set(Object.values(nextPanes).flat());
-          next[label] = { ...period, pages: [...poolById.values()].filter(p => referenced.has(p.id)), panes: nextPanes };
+          poolById.set(pageId, sourcePage);
+          const panes = { ...(period.panes || {}) };
+          if (!(panes[paneId] || []).includes(pageId)) {
+            panes[paneId] = [...(panes[paneId] || []), pageId];
+          }
+          const referenced = new Set(Object.values(panes).flat());
+          next[label] = { ...period, pages: [...poolById.values()].filter(p => referenced.has(p.id)), panes };
         }
         localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
         return next;
       });
     }
-  }, [periodKey, noteSyncGroups]);
+  }, [periodKey, pageSyncGroups]);
+
+  const pageSyncMates = useCallback(
+    (paneId, pageId) => (periodKey ? getPageSyncMates(pageSyncGroups, periodKey, paneId, pageId).map(m => m.period) : []),
+    [periodKey, pageSyncGroups],
+  );
 
   // Detach a page tab into a brand-new tile, dropped next to `targetTileId`.
   const handleDetachPage = (info, targetTileId, side) => {
@@ -500,6 +537,9 @@ export default function App() {
         pages={pagesForPane(currentPages, currentPanes, "text")}
         onPagesChange={pages => handlePagesChange("text", pages)}
         periodLabel={displayPeriod?.label}
+        allPeriodLabels={periodNames.map(n => n.label)}
+        pageSyncMates={pageId => pageSyncMates("text", pageId)}
+        onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange("text", pageId, mateLabels)}
       />
     ),
     camera: (
@@ -519,8 +559,8 @@ export default function App() {
         onPagesChange={pages => handlePagesChange("notes", pages)}
         periodLabel={displayPeriod?.label}
         allPeriodLabels={periodNames.map(n => n.label)}
-        syncedWith={periodKey ? getSyncMates(noteSyncGroups, periodKey) : []}
-        onSyncChange={handleNoteSyncChange}
+        pageSyncMates={pageId => pageSyncMates("notes", pageId)}
+        onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange("notes", pageId, mateLabels)}
       />
     ),
     ...Object.fromEntries(dynamicPaneIds.map(paneId => [
@@ -531,6 +571,9 @@ export default function App() {
         pages={pagesForPane(currentPages, currentPanes, paneId)}
         onPagesChange={pages => handlePagesChange(paneId, pages)}
         periodLabel={displayPeriod?.label}
+        allPeriodLabels={periodNames.map(n => n.label)}
+        pageSyncMates={pageId => pageSyncMates(paneId, pageId)}
+        onTabSyncChange={(pageId, mateLabels) => handleTabSyncChange(paneId, pageId, mateLabels)}
       />,
     ])),
     wheel: (
