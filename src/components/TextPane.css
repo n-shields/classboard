@@ -116,7 +116,7 @@
   overflow: hidden;
 }
 .textpane-textarea--scrolling:not(:focus) {
-  animation: textpane-marquee 14s linear infinite;
+  animation: textpane-marquee 28s linear infinite;
 }
 @keyframes textpane-marquee {
   from { text-indent: 100%; }
