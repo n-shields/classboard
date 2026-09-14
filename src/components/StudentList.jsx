@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { playClick, playDing } from "../data/sounds";
 import "./StudentList.css";
 
@@ -30,6 +30,9 @@ export default function StudentList({
   const [sortMode, setSortMode] = useState("default");
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  // Simple mode has no visible color swatch — double-clicking the name
+  // opens a hidden color input's native picker instead.
+  const colorInputRefs = useRef({});
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -358,16 +361,30 @@ export default function StudentList({
                       onBlur={cleanup}
                       onKeyDown={e => {
                         if (e.key === "Enter") { e.currentTarget.blur(); return; }
-                        // With this name field focused, up/down adjust just this
+                        // With this name field focused, arrow keys adjust just this
                         // student — the global shortcut (all students) is blocked
                         // while any field has focus, so this doesn't double up.
-                        if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                          e.preventDefault();
-                          adjustGems(name, e.key === "ArrowUp" ? 1 : -1);
+                        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+                          const delta = e.key === "ArrowUp" ? 10 : e.key === "ArrowDown" ? -10
+                            : e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                          if (delta) { e.preventDefault(); adjustGems(name, delta); }
                         }
                       }}
+                      onDoubleClick={simple ? () => colorInputRefs.current[idx]?.click() : undefined}
+                      title={simple ? "Double-click to change color" : undefined}
                       style={simple ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}
                     />
+                    {simple && (
+                      <input
+                        type="color"
+                        ref={el => { colorInputRefs.current[idx] = el; }}
+                        value={colors[name] || defaultColorFor(name)}
+                        onChange={e => setColor(name, e.target.value)}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        style={{ position: "absolute", width: 0, height: 0, padding: 0, border: "none", opacity: 0, pointerEvents: "none" }}
+                      />
+                    )}
                     {!simple && (
                       <input
                         type="date"

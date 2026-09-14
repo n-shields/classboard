@@ -162,8 +162,8 @@ export default function PeriodBar({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Gems keyboard shortcuts: PageUp/PageDown ±10, ↑/↓ ±1, for every student.
-  // Applying a delta opens the (real, central) student list and keeps it
+  // Gems keyboard shortcuts: ←/→ ±1, ↑/↓ ±10, for every student. Applying a
+  // delta opens the (real, central) student list and keeps it
   // open until GEMS_LIST_HOLD_MS after the last shortcut key — held keys
   // repeat at a fixed rate via our own timer rather than relying on the
   // browser's OS-driven key-repeat, which varies and starts after a delay.
@@ -176,10 +176,10 @@ export default function PeriodBar({
 
   useEffect(() => {
     const deltaForKey = (key) => {
-      if (key === "PageUp") return 10;
-      if (key === "PageDown") return -10;
-      if (key === "ArrowUp") return 1;
-      if (key === "ArrowDown") return -1;
+      if (key === "ArrowRight") return 1;
+      if (key === "ArrowLeft") return -1;
+      if (key === "ArrowUp") return 10;
+      if (key === "ArrowDown") return -10;
       return 0;
     };
     const applyDelta = (delta) => {
