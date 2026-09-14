@@ -138,10 +138,6 @@ export default function TextPane({
     setActivePageId(page.id);
   };
 
-  const closePage = () => {
-    if (activePageId) onPagesChange(pages.filter(p => p.id !== activePageId));
-  };
-
   const goToPage = (delta) => {
     if (activeIndex === -1) return;
     const next = pages[activeIndex + delta];
@@ -268,7 +264,6 @@ export default function TextPane({
           <div className="textpane-toolbar-divider" />
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={addPage} title="Add a page">+</button>
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={closePage} title="Close this page">🗑</button>
           <button
             className={`btn btn-sm textpane-toolbar-btn ${activeSyncMates.length > 0 ? "btn-primary" : "btn-ghost"}`}
             onClick={() => setSyncModalOpen(true)}
