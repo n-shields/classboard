@@ -180,6 +180,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+.student-job-input {
+  flex: 1 1 90px;
+  min-width: 70px;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+}
+
+.student-row--excluded .student-job-input {
+  opacity: 0.45;
+}
+
 .student-remove {
   flex-shrink: 0;
   width: 24px;

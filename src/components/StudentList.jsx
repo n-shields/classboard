@@ -15,6 +15,8 @@ export default function StudentList({
   onGemsChange,
   gemsLabel = "Gems",
   onGemsLabelChange,
+  jobs = {},
+  onJobsChange,
   otherPeriods = [],
   onDeleteClassList,
   periodLabel,
@@ -70,6 +72,12 @@ export default function StudentList({
       next[value] = gems[old];
       onGemsChange?.(next);
     }
+    if (old !== value && jobs[old] !== undefined) {
+      const next = { ...jobs };
+      delete next[old];
+      next[value] = jobs[old];
+      onJobsChange?.(next);
+    }
   };
 
   const setBirthday = (name, value) => {
@@ -88,6 +96,12 @@ export default function StudentList({
     const current = gems[name] || 0;
     const next = Math.max(0, current + delta);
     onGemsChange?.({ ...gems, [name]: next });
+  };
+
+  const setJob = (name, value) => {
+    const next = { ...jobs };
+    if (value) next[name] = value; else delete next[name];
+    onJobsChange?.(next);
   };
 
   const removeAt = (idx) => {
@@ -110,6 +124,11 @@ export default function StudentList({
       const next = { ...gems };
       delete next[removed];
       onGemsChange?.(next);
+    }
+    if (jobs[removed] !== undefined) {
+      const next = { ...jobs };
+      delete next[removed];
+      onJobsChange?.(next);
     }
   };
 
@@ -151,6 +170,12 @@ export default function StudentList({
       for (const n of staleGKeys) delete next[n];
       onGemsChange?.(next);
     }
+    const staleJKeys = Object.keys(jobs).filter(n => !seen.has(n));
+    if (staleJKeys.length) {
+      const next = { ...jobs };
+      for (const n of staleJKeys) delete next[n];
+      onJobsChange?.(next);
+    }
   };
 
   const importFromPeriod = (label) => {
@@ -173,6 +198,10 @@ export default function StudentList({
     const gAdditions = {};
     for (const n of toAdd) if (srcGems[n]) gAdditions[n] = srcGems[n];
     if (Object.keys(gAdditions).length) onGemsChange?.({ ...gems, ...gAdditions });
+    const srcJobs = src.jobs || {};
+    const jAdditions = {};
+    for (const n of toAdd) if (srcJobs[n]) jAdditions[n] = srcJobs[n];
+    if (Object.keys(jAdditions).length) onJobsChange?.({ ...jobs, ...jAdditions });
   };
 
   const deleteClassList = (label) => {
@@ -293,11 +322,22 @@ export default function StudentList({
                         >+100</button>
                       )}
                     </div>
-                    <button
-                      className="student-remove"
-                      onClick={() => removeAt(idx)}
-                      title="Remove student"
-                    >×</button>
+                    <input
+                      className="student-job-input"
+                      value={jobs[name] || ""}
+                      onChange={e => setJob(name, e.target.value)}
+                      onBlur={cleanup}
+                      onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      placeholder="Job"
+                      title="Job"
+                    />
+                    {!simple && (
+                      <button
+                        className="student-remove"
+                        onClick={() => removeAt(idx)}
+                        title="Remove student"
+                      >×</button>
+                    )}
                   </div>
                 );
               })}
@@ -305,16 +345,18 @@ export default function StudentList({
           </>
         )}
 
-        <input
-          className="student-add-input"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addFromDraft(); } }}
-          onBlur={addFromDraft}
-          placeholder="Add a student — type a name, or paste a list"
-        />
+        {!simple && (
+          <input
+            className="student-add-input"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addFromDraft(); } }}
+            onBlur={addFromDraft}
+            placeholder="Add a student — type a name, or paste a list"
+          />
+        )}
 
-        {otherPeriods.length > 0 && (
+        {!simple && otherPeriods.length > 0 && (
           <div className="student-import">
             <button
               className="btn btn-ghost btn-sm student-import-toggle"

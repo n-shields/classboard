@@ -220,6 +220,7 @@ export default function App() {
   const currentBirthdays     = periodKey ? (periodData[periodKey]?.birthdays     ?? {})          : {};
   const currentColors        = periodKey ? (periodData[periodKey]?.colors        ?? {})          : {};
   const currentGems          = periodKey ? (periodData[periodKey]?.gems          ?? {})          : {};
+  const currentJobs          = periodKey ? (periodData[periodKey]?.jobs          ?? {})          : {};
 
   // Other periods with a saved roster, for the "import student list" picker
   const otherPeriodOptions = useMemo(() => (
@@ -582,10 +583,32 @@ export default function App() {
   };
 
   const handleNamesChange         = useCallback((names)         => savePeriod(periodKey, { names }),          [periodKey, savePeriod]);
-  const handleExcludedChange      = useCallback((excludedNames) => savePeriod(periodKey, { excludedNames }), [periodKey, savePeriod]);
-  const handleBirthdaysChange     = useCallback((birthdays)     => savePeriod(periodKey, { birthdays }),     [periodKey, savePeriod]);
-  const handleColorsChange        = useCallback((colors)        => savePeriod(periodKey, { colors }),        [periodKey, savePeriod]);
-  const handleGemsChange          = useCallback((gems)          => savePeriod(periodKey, { gems }),          [periodKey, savePeriod]);
+  // A period's roster only becomes real, persisted data once its names are
+  // explicitly saved — until then `currentNames` is just the DEFAULT_NAMES
+  // fallback, invisible to Teacher View (which has no such fallback). Now
+  // that the main modal can't add/remove students itself, setting some
+  // other attribute (gems, a job, a color...) might be the first save this
+  // period ever gets, so seed the names alongside it when that's the case.
+  const handleExcludedChange = useCallback((excludedNames) => {
+    const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
+    savePeriod(periodKey, { excludedNames, ...seed });
+  }, [periodKey, savePeriod, periodData, currentNames]);
+  const handleBirthdaysChange = useCallback((birthdays) => {
+    const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
+    savePeriod(periodKey, { birthdays, ...seed });
+  }, [periodKey, savePeriod, periodData, currentNames]);
+  const handleColorsChange = useCallback((colors) => {
+    const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
+    savePeriod(periodKey, { colors, ...seed });
+  }, [periodKey, savePeriod, periodData, currentNames]);
+  const handleGemsChange = useCallback((gems) => {
+    const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
+    savePeriod(periodKey, { gems, ...seed });
+  }, [periodKey, savePeriod, periodData, currentNames]);
+  const handleJobsChange = useCallback((jobs) => {
+    const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
+    savePeriod(periodKey, { jobs, ...seed });
+  }, [periodKey, savePeriod, periodData, currentNames]);
   const handleProgressChange      = useCallback((progress)      => savePeriod(periodKey, { progress }),      [periodKey, savePeriod]);
   const handleRemindersChange     = useCallback((reminders)     => savePeriod(periodKey, { reminders }),     [periodKey, savePeriod]);
 
@@ -772,6 +795,7 @@ export default function App() {
         colors={currentColors}          onColorsChange={handleColorsChange}
         gems={currentGems}              onGemsChange={handleGemsChange}
         gemsLabel={gemsLabel}           onGemsLabelChange={handleGemsLabelChange}
+        jobs={currentJobs}              onJobsChange={handleJobsChange}
         wheelColors={wheelTheme.wheelColors}
         otherPeriods={otherPeriodOptions}
         onDeleteClassList={handleDeleteClassList}

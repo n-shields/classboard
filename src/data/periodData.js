@@ -19,6 +19,7 @@ export function loadPeriodData() {
       if (p.birthdays && (typeof p.birthdays !== "object" || Array.isArray(p.birthdays))) delete p.birthdays;
       if (p.colors && (typeof p.colors !== "object" || Array.isArray(p.colors))) delete p.colors;
       if (p.gems && (typeof p.gems !== "object" || Array.isArray(p.gems))) delete p.gems;
+      if (p.jobs && (typeof p.jobs !== "object" || Array.isArray(p.jobs))) delete p.jobs;
       if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
       if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
       if (p.reminders && !Array.isArray(p.reminders))         delete p.reminders;
@@ -54,15 +55,16 @@ export function otherPeriodsWithRosters(periodData, excludeKey) {
       birthdays: periodData[k].birthdays || {},
       colors: periodData[k].colors || {},
       gems: periodData[k].gems || {},
+      jobs: periodData[k].jobs || {},
     }));
 }
 
-const CLASS_LIST_KEYS = ["names", "excludedNames", "birthdays", "colors", "gems"];
+const CLASS_LIST_KEYS = ["names", "excludedNames", "birthdays", "colors", "gems", "jobs"];
 
 // Delete a (possibly stale/renamed) period's saved class list — its roster,
-// exclusions, birthdays, colors, and gems — leaving its other data (notes,
-// etc.) alone. If nothing else is left for that period, drop the entry
-// entirely. Returns the full, updated period-data object.
+// exclusions, birthdays, colors, gems, and jobs — leaving its other data
+// (notes, etc.) alone. If nothing else is left for that period, drop the
+// entry entirely. Returns the full, updated period-data object.
 export function deleteClassList(periodData, label) {
   if (!label || !periodData[label]) return periodData;
   const period = periodData[label];

@@ -43,6 +43,7 @@ export default function PeriodBar({
   colors = {}, onColorsChange,
   gems = {}, onGemsChange,
   gemsLabel = "Gems", onGemsLabelChange,
+  jobs = {}, onJobsChange,
   wheelColors = [],
   otherPeriods = [], onDeleteClassList,
   periodLabel,
@@ -263,6 +264,8 @@ export default function PeriodBar({
           onGemsChange={onGemsChange}
           gemsLabel={gemsLabel}
           onGemsLabelChange={onGemsLabelChange}
+          jobs={jobs}
+          onJobsChange={onJobsChange}
           wheelColors={wheelColors}
           otherPeriods={otherPeriods}
           onDeleteClassList={onDeleteClassList}

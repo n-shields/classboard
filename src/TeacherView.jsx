@@ -97,6 +97,7 @@ export default function TeacherView() {
   const currentBirthdays = periodKey ? (periodData[periodKey]?.birthdays    ?? {}) : {};
   const currentColors    = periodKey ? (periodData[periodKey]?.colors       ?? {}) : {};
   const currentGems      = periodKey ? (periodData[periodKey]?.gems         ?? {}) : {};
+  const currentJobs      = periodKey ? (periodData[periodKey]?.jobs         ?? {}) : {};
   const otherPeriodOptions = useMemo(
     () => otherPeriodsWithRosters(periodData, periodKey),
     [periodData, periodKey],
@@ -132,6 +133,7 @@ export default function TeacherView() {
   const handleBirthdaysChange = (birthdays)     => { const next = savePeriodPatch(periodKey, { birthdays });      if (next) setPeriodData(next); };
   const handleColorsChange    = (colors)        => { const next = savePeriodPatch(periodKey, { colors });        if (next) setPeriodData(next); };
   const handleGemsChange      = (gems)          => { const next = savePeriodPatch(periodKey, { gems });          if (next) setPeriodData(next); };
+  const handleJobsChange      = (jobs)          => { const next = savePeriodPatch(periodKey, { jobs });          if (next) setPeriodData(next); };
   const handleGemsLabelChange = (label) => { saveGemsLabel(label); setGemsLabel(label); };
 
   const handleDeleteClassList = (label) => {
@@ -249,6 +251,8 @@ export default function TeacherView() {
           onGemsChange={handleGemsChange}
           gemsLabel={gemsLabel}
           onGemsLabelChange={handleGemsLabelChange}
+          jobs={currentJobs}
+          onJobsChange={handleJobsChange}
           otherPeriods={otherPeriodOptions}
           onDeleteClassList={handleDeleteClassList}
           periodLabel={currentPeriod?.label}
