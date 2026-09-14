@@ -102,17 +102,8 @@ export default function WheelOfNames({
     const onKeyDown = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target;
-      const tag = target.tagName;
-      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
-      const isSpace = e.key === " " || e.code === "Space";
-      if (isSpace && tag === "BUTTON") return; // let Space still activate a focused button
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (document.querySelector(".modal-overlay")) return;
-
-      if (isSpace) {
-        e.preventDefault();
-        showGemsPreview();
-        return;
-      }
 
       const delta = deltaForKey(e.key);
       if (!delta || !onGemsChangeRef.current) return;
@@ -132,7 +123,7 @@ export default function WheelOfNames({
       window.removeEventListener("blur", stopRepeat);
       stopRepeat();
     };
-  }, [showGemsPreview]);
+  }, []);
 
   useEffect(() => () => clearTimeout(previewTimerRef.current), []);
 
@@ -334,14 +325,14 @@ export default function WheelOfNames({
             </div>
 
             <p className="wheel-settings-hint">
-              Manage students from the “👥 Students” button in the top bar.
+              Manage students from the “👥 Students” button in the top bar, or press
+              {" "}<strong>Space</strong> to show/hide the list.
             </p>
             <p className="wheel-settings-hint">
               With no text field focused: <strong>Page Up</strong>/<strong>Page Down</strong> give
               or take 10 {gemsLabel} from every student; <strong>↑</strong>/<strong>↓</strong> give
-              or take 1. Hold a key to repeat it 4 times a second. <strong>Space</strong> just
-              flashes the list without changing anything. Each press briefly shows the student
-              list here on the wheel.
+              or take 1. Hold a key to repeat it 4 times a second. Each press briefly shows the
+              student list here on the wheel.
             </p>
 
             {/* Timing settings */}

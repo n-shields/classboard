@@ -123,6 +123,23 @@ export default function TeacherView() {
     return () => { clearInterval(id); window.removeEventListener("beforeunload", save); };
   }, []);
 
+  // "S" toggles the student list, as long as no other modal is up and the
+  // user isn't typing (S is too common a letter to hijack from text fields).
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "s" && e.key !== "S") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName)) return;
+      const overlay = document.querySelector(".modal-overlay");
+      if (overlay && !overlay.querySelector(".student-modal")) return;
+      e.preventDefault();
+      setStudentsOpen(o => !o);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const handleRemindersChange = (reminders) => {
     const next = savePeriodPatch(periodKey, { teacherReminders: reminders });
     if (next) setPeriodData(next);

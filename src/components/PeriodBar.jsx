@@ -64,6 +64,23 @@ export default function PeriodBar({
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
+  // Space toggles the student list, as long as no other modal is up and the
+  // user isn't typing in a field or focused on a button.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== " " && e.code !== "Space") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName)) return;
+      const overlay = document.querySelector(".modal-overlay");
+      if (overlay && !overlay.querySelector(".student-modal")) return;
+      e.preventDefault();
+      setStudentsOpen(o => !o);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen?.();
