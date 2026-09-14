@@ -198,6 +198,7 @@ export default function App() {
   const currentGems          = periodKey ? (periodData[periodKey]?.gems          ?? {})          : {};
   const currentJobs          = periodKey ? (periodData[periodKey]?.jobs          ?? {})          : {};
   const currentGemsLabel     = periodKey ? (periodData[periodKey]?.gemsLabel     ?? "Gems")       : "Gems";
+  const currentSortMode      = periodKey ? (periodData[periodKey]?.sortMode      ?? "default")    : "default";
 
   // Other periods with a saved roster, for the "import student list" picker
   const otherPeriodOptions = useMemo(() => (
@@ -579,6 +580,10 @@ export default function App() {
     const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
     savePeriod(periodKey, { gemsLabel, ...seed });
   }, [periodKey, savePeriod, periodData, currentNames]);
+  const handleSortModeChange = useCallback((sortMode) => {
+    const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
+    savePeriod(periodKey, { sortMode, ...seed });
+  }, [periodKey, savePeriod, periodData, currentNames]);
   const handleProgressChange      = useCallback((progress)      => savePeriod(periodKey, { progress }),      [periodKey, savePeriod]);
   const handleRemindersChange     = useCallback((reminders)     => savePeriod(periodKey, { reminders }),     [periodKey, savePeriod]);
 
@@ -758,6 +763,7 @@ export default function App() {
         gems={currentGems}              onGemsChange={handleGemsChange}
         gemsLabel={currentGemsLabel}           onGemsLabelChange={handleGemsLabelChange}
         jobs={currentJobs}              onJobsChange={handleJobsChange}
+        sortMode={currentSortMode}      onSortModeChange={handleSortModeChange}
         wheelColors={wheelTheme.wheelColors}
         otherPeriods={otherPeriodOptions}
         onDeleteClassList={handleDeleteClassList}

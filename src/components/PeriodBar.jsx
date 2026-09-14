@@ -11,13 +11,10 @@ import {
 } from "../data/autosave";
 import "./PeriodBar.css";
 
-// How fast a held Page Up/Down/arrow key repeats a gems adjustment — the
-// browser's own OS-driven key-repeat rate varies and starts after a delay,
-// so this drives its own interval instead of relying on repeat keydowns.
+// How fast a held arrow key repeats a gems adjustment — the browser's own
+// OS-driven key-repeat rate varies and starts after a delay, so this
+// drives its own interval instead of relying on repeat keydowns.
 const GEMS_REPEAT_MS = 250; // 4 per second
-// How long the student list stays open after the last gems-shortcut key,
-// before it auto-closes again.
-const GEMS_LIST_HOLD_MS = 2000;
 
 function collectData() {
   const data = {};
@@ -57,6 +54,7 @@ export default function PeriodBar({
   gems = {}, onGemsChange,
   gemsLabel = "Gems", onGemsLabelChange,
   jobs = {}, onJobsChange,
+  sortMode = "default", onSortModeChange,
   wheelColors = [],
   otherPeriods = [], onDeleteClassList,
   periodLabel,
@@ -77,7 +75,6 @@ export default function PeriodBar({
   const autosaveHandleRef = useRef(null);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
-  const gemsCloseTimerRef = useRef(null);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -155,7 +152,6 @@ export default function PeriodBar({
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;
       e.preventDefault();
-      clearTimeout(gemsCloseTimerRef.current); // a manual toggle overrides any pending auto-close
       setStudentsOpen(o => !o);
     };
     window.addEventListener("keydown", onKeyDown);
@@ -163,10 +159,11 @@ export default function PeriodBar({
   }, []);
 
   // Gems keyboard shortcuts: ←/→ ±1, ↑/↓ ±10, for every student. Applying a
-  // delta opens the (real, central) student list and keeps it
-  // open until GEMS_LIST_HOLD_MS after the last shortcut key — held keys
-  // repeat at a fixed rate via our own timer rather than relying on the
-  // browser's OS-driven key-repeat, which varies and starts after a delay.
+  // delta opens the (real, central) student list, which then just stays
+  // open until the teacher closes it (Space, Escape, or clicking off) —
+  // held keys repeat at a fixed rate via our own timer rather than relying
+  // on the browser's OS-driven key-repeat, which varies and starts after a
+  // delay.
   const namesRef = useRef(names);
   const gemsRef = useRef(gems);
   const onGemsChangeRef = useRef(onGemsChange);
@@ -190,8 +187,6 @@ export default function PeriodBar({
       handler(next);
       if (delta > 0) playDing(); else playClick();
       setStudentsOpen(true);
-      clearTimeout(gemsCloseTimerRef.current);
-      gemsCloseTimerRef.current = setTimeout(() => setStudentsOpen(false), GEMS_LIST_HOLD_MS);
     };
     // Tracks each held key's own repeat interval independently (not just the
     // most recent key) — pressing a second shortcut key before releasing the
@@ -226,7 +221,6 @@ export default function PeriodBar({
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", stopAll);
       stopAll();
-      clearTimeout(gemsCloseTimerRef.current);
     };
   }, []);
 
@@ -419,6 +413,8 @@ export default function PeriodBar({
           onGemsLabelChange={onGemsLabelChange}
           jobs={jobs}
           onJobsChange={onJobsChange}
+          sortMode={sortMode}
+          onSortModeChange={onSortModeChange}
           wheelColors={wheelColors}
           otherPeriods={otherPeriods}
           onDeleteClassList={onDeleteClassList}

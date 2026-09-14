@@ -21,6 +21,7 @@ export function loadPeriodData() {
       if (p.gems && (typeof p.gems !== "object" || Array.isArray(p.gems))) delete p.gems;
       if (p.jobs && (typeof p.jobs !== "object" || Array.isArray(p.jobs))) delete p.jobs;
       if (p.gemsLabel && typeof p.gemsLabel !== "string") delete p.gemsLabel;
+      if (p.sortMode && !["default", "az", "za", "birthday", "points"].includes(p.sortMode)) delete p.sortMode;
       if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
       if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
       if (p.reminders && !Array.isArray(p.reminders))         delete p.reminders;
@@ -60,7 +61,7 @@ export function otherPeriodsWithRosters(periodData, excludeKey) {
     }));
 }
 
-const CLASS_LIST_KEYS = ["names", "excludedNames", "birthdays", "colors", "gems", "jobs", "gemsLabel"];
+const CLASS_LIST_KEYS = ["names", "excludedNames", "birthdays", "colors", "gems", "jobs", "gemsLabel", "sortMode"];
 
 // Delete a (possibly stale/renamed) period's saved class list — its roster,
 // exclusions, birthdays, colors, gems, and jobs — leaving its other data

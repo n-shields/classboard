@@ -23,11 +23,12 @@ export default function StudentList({
   periodLabel,
   onClose,
   simple = false,
+  sortMode = "default",
+  onSortModeChange,
 }) {
   const [draft, setDraft] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
-  const [sortMode, setSortMode] = useState("default");
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   // Simple mode has no visible color swatch — double-clicking the name
@@ -310,7 +311,7 @@ export default function StudentList({
               <select
                 className="student-sort-select"
                 value={sortMode}
-                onChange={e => setSortMode(e.target.value)}
+                onChange={e => onSortModeChange?.(e.target.value)}
                 title="Sort students"
               >
                 <option value="default">Default order (drag to reorder)</option>

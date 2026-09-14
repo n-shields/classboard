@@ -10,10 +10,10 @@ import "./TextPane.css";
 // them, so any tab can dock into any pane.
 //
 // The pane owns its formatting/page controls directly: hovering (or
-// focusing) it slides a small toolbar out of whichever edge has room —
-// below the pane if it sits flush against the top of the layout (nothing
-// above it to slide into), above it otherwise — so the toolbar never covers
-// the pane's own content. It's portaled to <body> and positioned from the
+// focusing) it slides a small toolbar out below the pane by default, or
+// above it if the pane sits flush against the bottom of the layout
+// (nothing below it to slide into) — so the toolbar never covers the
+// pane's own content. It's portaled to <body> and positioned from the
 // pane's live bounding rect, since the tile grid clips anything that
 // overflows a tile's own box. Only small ‹ › page-nav arrows, shown when
 // there's more than one page, live inside the pane itself, pinned to the
@@ -35,7 +35,7 @@ export default function TextPane({
   const [isNumbered, setIsNumbered] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(false);
-  const [toolbarPlacement, setToolbarPlacement] = useState("above"); // "above" | "below"
+  const [toolbarPlacement, setToolbarPlacement] = useState("below"); // "above" | "below"
   const [anchorRect, setAnchorRect] = useState(null);
   const editorRef = useRef(null);
   const wrapRef = useRef(null);
@@ -157,9 +157,9 @@ export default function TextPane({
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const root = el.closest(".tl-root");
-    const rootTop = root ? root.getBoundingClientRect().top : 0;
-    const touchesTop = rect.top - rootTop <= 4;
-    setToolbarPlacement(touchesTop ? "below" : "above");
+    const rootBottom = root ? root.getBoundingClientRect().bottom : window.innerHeight;
+    const touchesBottom = rootBottom - rect.bottom <= 4;
+    setToolbarPlacement(touchesBottom ? "above" : "below");
     setAnchorRect({ left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width });
   };
 
