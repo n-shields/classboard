@@ -237,9 +237,12 @@ export default function PeriodBar({
 
   const openTeacherView = () => {
     const bounds = loadTeacherViewBounds();
-    const width  = bounds?.width  || 380;
-    // Floored (not just defaulted) so a short size saved from before the
-    // student list needed more room doesn't keep reopening too short.
+    // Floored (not just defaulted) so a size saved from before the student
+    // list needed more room doesn't keep reopening too small. Width matters
+    // because the full student-list row (checkbox, name, birthday, color,
+    // gems, job, remove) needs real room — too narrow and the row wraps,
+    // stranding just the remove button alone on a second line.
+    const width  = Math.max(bounds?.width  || 720, 720);
     const height = Math.max(bounds?.height || 900, 900);
     const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + window.outerWidth;
     const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY;
