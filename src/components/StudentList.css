@@ -96,6 +96,12 @@
   margin-bottom: 6px;
 }
 
+.student-sort-select {
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 3px 6px;
+}
+
 .student-list {
   display: flex;
   flex-direction: column;
@@ -123,6 +129,24 @@
   row-gap: 4px;
   padding: 4px 2px;
   border-radius: 4px;
+}
+
+.student-row--drag-over {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: 1px dashed var(--accent);
+}
+
+.student-drag-handle {
+  flex-shrink: 0;
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 2px;
+  user-select: none;
+}
+.student-drag-handle:active {
+  cursor: grabbing;
 }
 
 .student-list--columns .student-row {

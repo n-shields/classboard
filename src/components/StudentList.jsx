@@ -27,6 +27,9 @@ export default function StudentList({
   const [draft, setDraft] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
+  const [sortMode, setSortMode] = useState("default");
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -40,6 +43,34 @@ export default function StudentList({
   );
   const activeCount = activeNames.length;
   const useColumns = simple && names.length > 12;
+
+  // Default order is the raw (draggable) `names` array; the other modes
+  // derive a display order but leave `names` itself untouched, so every
+  // handler below can keep addressing students by their real index.
+  const sortedEntries = useMemo(() => {
+    const entries = names.map((name, idx) => ({ name, idx }));
+    if (sortMode === "az") return entries.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortMode === "za") return entries.sort((a, b) => b.name.localeCompare(a.name));
+    if (sortMode === "birthday") {
+      const monthDay = (n) => (birthdays[n] ? birthdays[n].slice(5) : null); // "MM-DD"
+      return entries.sort((a, b) => {
+        const ma = monthDay(a.name), mb = monthDay(b.name);
+        if (ma === null && mb === null) return a.idx - b.idx;
+        if (ma === null) return 1;
+        if (mb === null) return -1;
+        return ma.localeCompare(mb);
+      });
+    }
+    return entries;
+  }, [names, sortMode, birthdays]);
+
+  const reorderNames = (fromIdx, toIdx) => {
+    if (fromIdx === toIdx) return;
+    const reordered = names.slice();
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    onNamesChange(reordered);
+  };
 
   // A student's color swatch defaults to whatever color they'd currently get
   // on the wheel (same index-based cycling WheelOfNames uses), until the
@@ -259,21 +290,55 @@ export default function StudentList({
 
         {names.length > 0 && (
           <>
-            {!simple && (
-              <div className="student-list-actions">
-                <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.([])}>
-                  All in wheel
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.(names.slice())}>
-                  None
-                </button>
-              </div>
-            )}
+            <div className="student-list-actions">
+              {!simple && (
+                <>
+                  <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.([])}>
+                    All in wheel
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => onExcludedNamesChange?.(names.slice())}>
+                    None
+                  </button>
+                </>
+              )}
+              <select
+                className="student-sort-select"
+                value={sortMode}
+                onChange={e => setSortMode(e.target.value)}
+                title="Sort students"
+              >
+                <option value="default">Default order (drag to reorder)</option>
+                <option value="az">A → Z</option>
+                <option value="za">Z → A</option>
+                <option value="birthday">Birthday</option>
+              </select>
+            </div>
             <div className={`student-list ${useColumns ? "student-list--columns" : ""}`}>
-              {names.map((name, idx) => {
+              {sortedEntries.map(({ name, idx }) => {
                 const excluded = excludedNames.includes(name);
+                const draggableRow = sortMode === "default";
                 return (
-                  <div key={idx} className={`student-row ${excluded && !simple ? "student-row--excluded" : ""}`}>
+                  <div
+                    key={idx}
+                    className={`student-row ${excluded && !simple ? "student-row--excluded" : ""} ${dragOverIndex === idx ? "student-row--drag-over" : ""}`}
+                    onDragOver={draggableRow ? (e) => { e.preventDefault(); setDragOverIndex(idx); } : undefined}
+                    onDragLeave={draggableRow ? () => setDragOverIndex(i => (i === idx ? null : i)) : undefined}
+                    onDrop={draggableRow ? (e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null) reorderNames(dragIndex, idx);
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                    } : undefined}
+                  >
+                    {draggableRow && (
+                      <span
+                        className="student-drag-handle"
+                        draggable
+                        onDragStart={() => setDragIndex(idx)}
+                        onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                        title="Drag to reorder"
+                      >⋮⋮</span>
+                    )}
                     {!simple && (
                       <input
                         type="checkbox"
