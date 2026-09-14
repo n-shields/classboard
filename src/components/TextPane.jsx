@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import useIdleCaret from "../hooks/useIdleCaret";
 import NoteSyncModal from "./NoteSyncModal";
 import { makePage } from "../data/pages";
@@ -6,24 +7,26 @@ import "./TextPane.css";
 
 // One kind of rich-text pane, used for both the Board and Notes tiles (and
 // any pane detached from either) — there's no functional difference between
-// them, so any tab can dock into any pane. `kind`/`defaultFontSize` only
-// flavor the placeholder text and the font size a brand-new page starts at.
+// them, so any tab can dock into any pane.
 //
-// This pane renders no toolbar of its own — formatting/page controls live in
-// the app's own auto-hiding top toolbar, which acts on whichever pane last
-// had focus. It reaches in via an imperative handle (execFormat, addPage,
-// etc.) and is kept in sync via `onStatusChange` (bold/italic/page-count/
-// sync state) and `onActivate` (fires on focus, to claim the toolbar). Only
-// small ‹ › page-nav arrows, shown when there's more than one page, live on
-// the pane itself, pinned to the bottom so they don't take up layout space.
-// Dragging a multi-page pane by its tile's own corner grip (see TileLayout)
-// moves just the active page, not the whole tab set.
-const TextPane = forwardRef(function TextPane({
+// The pane owns its formatting/page controls directly: hovering (or
+// focusing) it slides a small toolbar out of whichever edge has room —
+// below the pane if it sits flush against the top of the layout (nothing
+// above it to slide into), above it otherwise — so the toolbar never covers
+// the pane's own content. It's portaled to <body> and positioned from the
+// pane's live bounding rect, since the tile grid clips anything that
+// overflows a tile's own box. Only small ‹ › page-nav arrows, shown when
+// there's more than one page, live inside the pane itself, pinned to the
+// bottom so they don't take up layout space. Dragging a multi-page pane by
+// its tile's own corner grip (see TileLayout) moves just the active page,
+// not the whole tab set.
+const HOVER_HIDE_DELAY_MS = 250;
+
+export default function TextPane({
   pages, onPagesChange, periodLabel,
   kind = "Page", defaultFontSize = 24,
   allPeriodLabels = [], pageSyncMates, onTabSyncChange, onActivePageChange,
-  onStatusChange, onActivate,
-}, ref) {
+}) {
   const [activePageId, setActivePageId] = useState(pages[0]?.id ?? null);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [isBold, setIsBold] = useState(false);
@@ -31,7 +34,12 @@ const TextPane = forwardRef(function TextPane({
   const [isBullet, setIsBullet] = useState(false);
   const [isNumbered, setIsNumbered] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
+  const [toolbarVisible, setToolbarVisible] = useState(false);
+  const [toolbarPlacement, setToolbarPlacement] = useState("above"); // "above" | "below"
+  const [anchorRect, setAnchorRect] = useState(null);
   const editorRef = useRef(null);
+  const wrapRef = useRef(null);
+  const hideTimerRef = useRef(null);
   useIdleCaret(editorRef);
 
   // Keep the active tab pointed at a page that still exists (closed/merged away)
@@ -48,6 +56,7 @@ const TextPane = forwardRef(function TextPane({
   const activeIndex = pages.findIndex(p => p.id === activePageId);
   const activePage = activeIndex !== -1 ? pages[activeIndex] : null;
   const activeSyncMates = (activePageId && pageSyncMates?.(activePageId)) || [];
+  const isScrolling = !!activePage?.scrolling;
 
   // Sync content on tab change; period changes remount this component via key in App
   useEffect(() => {
@@ -70,19 +79,6 @@ const TextPane = forwardRef(function TextPane({
     document.addEventListener("selectionchange", update);
     return () => document.removeEventListener("selectionchange", update);
   }, []);
-
-  // Report status for the external toolbar to render (active/disabled states)
-  const syncMatesKey = activeSyncMates.join(",");
-  const isScrolling = !!activePage?.scrolling;
-  useEffect(() => {
-    onStatusChange?.({
-      isBold, isItalic, isBullet, isNumbered, hasSelection,
-      pageIndex: activeIndex, pageCount: pages.length,
-      isSynced: activeSyncMates.length > 0, syncMates: activeSyncMates,
-      isScrolling,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBold, isItalic, isBullet, isNumbered, hasSelection, activeIndex, pages.length, syncMatesKey, isScrolling]);
 
   const saveContent = () => {
     if (!editorRef.current || !activePage) return;
@@ -157,13 +153,53 @@ const TextPane = forwardRef(function TextPane({
     onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, scrolling: !p.scrolling } : p)));
   };
 
-  useImperativeHandle(ref, () => ({
-    execFormat, adjustFontSize, clear, addPage, closePage, goToPage, toggleScrolling,
-    openSync: () => setSyncModalOpen(true),
-  }));
+  // ── Floating toolbar: shows on hover/focus, slides out of whichever edge
+  // has room. Portaled to <body> since the tile grid clips any child that
+  // overflows its own tile — position is computed from the pane's live rect.
+  const updateAnchor = () => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const root = el.closest(".tl-root");
+    const rootTop = root ? root.getBoundingClientRect().top : 0;
+    const touchesTop = rect.top - rootTop <= 4;
+    setToolbarPlacement(touchesTop ? "below" : "above");
+    setAnchorRect({ left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width });
+  };
+
+  const showToolbar = () => {
+    clearTimeout(hideTimerRef.current);
+    updateAnchor();
+    setToolbarVisible(true);
+  };
+  const scheduleHideToolbar = () => {
+    clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setToolbarVisible(false), HOVER_HIDE_DELAY_MS);
+  };
+
+  // Keep the floating toolbar aligned while visible — the pane can resize
+  // (split-handle drag) or the window can resize while it's up.
+  useEffect(() => {
+    if (!toolbarVisible) return;
+    updateAnchor();
+    window.addEventListener("resize", updateAnchor);
+    const ro = new ResizeObserver(updateAnchor);
+    if (wrapRef.current) ro.observe(wrapRef.current);
+    return () => { window.removeEventListener("resize", updateAnchor); ro.disconnect(); };
+  }, [toolbarVisible]);
+
+  useEffect(() => () => clearTimeout(hideTimerRef.current), []);
 
   return (
-    <div className="textpane-wrap" tabIndex={-1} onFocusCapture={() => onActivate?.()}>
+    <div
+      className="textpane-wrap"
+      tabIndex={-1}
+      ref={wrapRef}
+      onMouseEnter={showToolbar}
+      onMouseLeave={scheduleHideToolbar}
+      onFocusCapture={showToolbar}
+      onBlurCapture={scheduleHideToolbar}
+    >
       <div className="card textpane">
         <div className="card-body textpane-body">
           {activePage ? (
@@ -209,8 +245,43 @@ const TextPane = forwardRef(function TextPane({
           onClose={() => setSyncModalOpen(false)}
         />
       )}
+
+      {toolbarVisible && activePage && anchorRect && createPortal(
+        <div
+          className={`textpane-toolbar textpane-toolbar--${toolbarPlacement} textpane-toolbar--visible`}
+          style={{
+            left: anchorRect.left,
+            width: anchorRect.width,
+            ...(toolbarPlacement === "below"
+              ? { top: anchorRect.bottom }
+              : { bottom: window.innerHeight - anchorRect.top }),
+          }}
+          onMouseEnter={showToolbar}
+          onMouseLeave={scheduleHideToolbar}
+        >
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(4); }} title={hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(-4); }} title={hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
+          <button className={`btn btn-sm textpane-toolbar-btn ${isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("bold"); }} title="Bold"><strong>B</strong></button>
+          <button className={`btn btn-sm textpane-toolbar-btn ${isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
+          <button className={`btn btn-sm textpane-toolbar-btn ${isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
+          <button className={`btn btn-sm textpane-toolbar-btn ${isNumbered ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
+          <div className="textpane-toolbar-divider" />
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={addPage} title="Add a page">+</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={closePage} title="Close this page">🗑</button>
+          <button
+            className={`btn btn-sm textpane-toolbar-btn ${activeSyncMates.length > 0 ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => setSyncModalOpen(true)}
+            title={activeSyncMates.length > 0 ? `This tab is synced with ${activeSyncMates.join(", ")}` : "Sync this tab with another period"}
+          >∞</button>
+          <div className="textpane-toolbar-divider" />
+          <label className="textpane-toolbar-scrolling-toggle" title="Scroll this page's text across the pane like a ticker">
+            <input type="checkbox" checked={isScrolling} onChange={toggleScrolling} />
+            Scrolling message
+          </label>
+        </div>,
+        document.body,
+      )}
     </div>
   );
-});
-
-export default TextPane;
+}

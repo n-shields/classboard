@@ -56,7 +56,6 @@ export default function PeriodBar({
   wheelColors = [],
   otherPeriods = [], onDeleteClassList,
   periodLabel,
-  textPaneStatus, textPaneActions,
   layout, onLayoutChange,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
@@ -123,12 +122,17 @@ export default function PeriodBar({
       clearTimeout(gemsCloseTimerRef.current);
       gemsCloseTimerRef.current = setTimeout(() => setStudentsOpen(false), GEMS_LIST_HOLD_MS);
     };
-    const heldKeyRef = { current: null };
-    const repeatTimerRef = { current: null };
-    const stopRepeat = () => {
-      if (repeatTimerRef.current) { clearInterval(repeatTimerRef.current); repeatTimerRef.current = null; }
-      heldKeyRef.current = null;
+    // Tracks each held key's own repeat interval independently (not just the
+    // most recent key) — pressing a second shortcut key before releasing the
+    // first used to silently overwrite a single shared "held key" slot,
+    // orphaning the first key's interval so it kept firing forever, since
+    // its keyup could no longer match anything to stop.
+    const heldTimers = new Map(); // key -> intervalId
+    const stopKey = (key) => {
+      const id = heldTimers.get(key);
+      if (id) { clearInterval(id); heldTimers.delete(key); }
     };
+    const stopAll = () => { heldTimers.forEach(id => clearInterval(id)); heldTimers.clear(); };
     const onKeyDown = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target;
@@ -138,20 +142,19 @@ export default function PeriodBar({
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;
       e.preventDefault();
-      if (e.repeat || heldKeyRef.current === e.key) return; // we drive our own repeat, not the browser's
+      if (e.repeat || heldTimers.has(e.key)) return; // we drive our own repeat, not the browser's
       applyDelta(delta);
-      heldKeyRef.current = e.key;
-      repeatTimerRef.current = setInterval(() => applyDelta(delta), GEMS_REPEAT_MS);
+      heldTimers.set(e.key, setInterval(() => applyDelta(delta), GEMS_REPEAT_MS));
     };
-    const onKeyUp = (e) => { if (e.key === heldKeyRef.current) stopRepeat(); };
+    const onKeyUp = (e) => stopKey(e.key);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", stopRepeat);
+    window.addEventListener("blur", stopAll);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", stopRepeat);
-      stopRepeat();
+      window.removeEventListener("blur", stopAll);
+      stopAll();
       clearTimeout(gemsCloseTimerRef.current);
     };
   }, []);
@@ -170,7 +173,9 @@ export default function PeriodBar({
   const openTeacherView = () => {
     const bounds = loadTeacherViewBounds();
     const width  = bounds?.width  || 380;
-    const height = bounds?.height || 640;
+    // Floored (not just defaulted) so a short size saved from before the
+    // student list needed more room doesn't keep reopening too short.
+    const height = Math.max(bounds?.height || 900, 900);
     const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + window.outerWidth;
     const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY;
     const url = new URL(window.location.href);
@@ -296,36 +301,6 @@ export default function PeriodBar({
           >⛶</button>
           <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
         </div>
-
-        {/* Text controls — a second row, acting on whichever pane last had focus */}
-        {textPaneActions && (
-          <div className="period-toolbar-row period-toolbar-textrow">
-            <button className="btn btn-ghost btn-sm tb-btn" onMouseDown={e => { e.preventDefault(); textPaneActions.sizeUp(); }} title={textPaneStatus?.hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
-            <button className="btn btn-ghost btn-sm tb-btn" onMouseDown={e => { e.preventDefault(); textPaneActions.sizeDown(); }} title={textPaneStatus?.hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
-            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.bold(); }} title="Bold"><strong>B</strong></button>
-            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.italic(); }} title="Italic"><em>I</em></button>
-            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.bulletList(); }} title="Bullet list">•—</button>
-            <button className={`btn btn-sm tb-btn ${textPaneStatus?.isNumbered ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); textPaneActions.numberedList(); }} title="Numbered list">1.</button>
-            <div className="tb-divider" />
-            <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
-            <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.addPage} title="Add a page">+</button>
-            <button className="btn btn-ghost btn-sm tb-btn" onClick={textPaneActions.closePage} title="Close this page">🗑</button>
-            <button
-              className={`btn btn-sm tb-btn ${textPaneStatus?.isSynced ? "btn-primary" : "btn-ghost"}`}
-              onClick={textPaneActions.openSync}
-              title={textPaneStatus?.isSynced ? `This tab is synced with ${textPaneStatus.syncMates.join(", ")}` : "Sync this tab with another period"}
-            >∞</button>
-            <div className="tb-divider" />
-            <label className="tb-scrolling-toggle" title="Scroll this page's text across the pane like a ticker">
-              <input
-                type="checkbox"
-                checked={!!textPaneStatus?.isScrolling}
-                onChange={textPaneActions.toggleScrolling}
-              />
-              Scrolling message
-            </label>
-          </div>
-        )}
       </div>
 
       {editorOpen && (

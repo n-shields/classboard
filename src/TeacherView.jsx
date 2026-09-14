@@ -5,7 +5,7 @@ import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
 import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriodIndex } from "./data/schedules";
-import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, loadGemsLabel, saveGemsLabel } from "./data/periodData";
+import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
 import { saveTeacherViewBounds } from "./data/teacherView";
@@ -40,7 +40,6 @@ export default function TeacherView() {
   const [scheduleType, setScheduleType] = useState(loadScheduleType);
   const [periodData, setPeriodData]   = useState(loadPeriodData);
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
-  const [gemsLabel, setGemsLabel]     = useState(loadGemsLabel);
   const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
   const [now, setNow] = useState(() => new Date());
   const [studentsOpen, setStudentsOpen] = useState(false);
@@ -65,7 +64,6 @@ export default function TeacherView() {
       setScheduleType(loadScheduleType());
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
-      setGemsLabel(loadGemsLabel());
       setActivePeriod(loadActivePeriod());
     };
     const id = setInterval(() => { setNow(new Date()); reload(); }, 15_000);
@@ -98,6 +96,7 @@ export default function TeacherView() {
   const currentColors    = periodKey ? (periodData[periodKey]?.colors       ?? {}) : {};
   const currentGems      = periodKey ? (periodData[periodKey]?.gems         ?? {}) : {};
   const currentJobs      = periodKey ? (periodData[periodKey]?.jobs         ?? {}) : {};
+  const currentGemsLabel = periodKey ? (periodData[periodKey]?.gemsLabel    ?? "Gems") : "Gems";
   const otherPeriodOptions = useMemo(
     () => otherPeriodsWithRosters(periodData, periodKey),
     [periodData, periodKey],
@@ -151,7 +150,7 @@ export default function TeacherView() {
   const handleColorsChange    = (colors)        => { const next = savePeriodPatch(periodKey, { colors });        if (next) setPeriodData(next); };
   const handleGemsChange      = (gems)          => { const next = savePeriodPatch(periodKey, { gems });          if (next) setPeriodData(next); };
   const handleJobsChange      = (jobs)          => { const next = savePeriodPatch(periodKey, { jobs });          if (next) setPeriodData(next); };
-  const handleGemsLabelChange = (label) => { saveGemsLabel(label); setGemsLabel(label); };
+  const handleGemsLabelChange = (gemsLabel)     => { const next = savePeriodPatch(periodKey, { gemsLabel });     if (next) setPeriodData(next); };
 
   const handleDeleteClassList = (label) => {
     setPeriodData(deleteClassList(periodData, label));
@@ -266,7 +265,7 @@ export default function TeacherView() {
           wheelColors={wheelColors}
           gems={currentGems}
           onGemsChange={handleGemsChange}
-          gemsLabel={gemsLabel}
+          gemsLabel={currentGemsLabel}
           onGemsLabelChange={handleGemsLabelChange}
           jobs={currentJobs}
           onJobsChange={handleJobsChange}

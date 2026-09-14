@@ -352,7 +352,16 @@ export default function StudentList({
                       value={name}
                       onChange={e => setName(idx, e.target.value)}
                       onBlur={cleanup}
-                      onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.currentTarget.blur(); return; }
+                        // With this name field focused, up/down adjust just this
+                        // student — the global shortcut (all students) is blocked
+                        // while any field has focus, so this doesn't double up.
+                        if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                          e.preventDefault();
+                          adjustGems(name, e.key === "ArrowUp" ? 1 : -1);
+                        }
+                      }}
                       style={simple ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}
                     />
                     {!simple && (

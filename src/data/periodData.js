@@ -20,6 +20,7 @@ export function loadPeriodData() {
       if (p.colors && (typeof p.colors !== "object" || Array.isArray(p.colors))) delete p.colors;
       if (p.gems && (typeof p.gems !== "object" || Array.isArray(p.gems))) delete p.gems;
       if (p.jobs && (typeof p.jobs !== "object" || Array.isArray(p.jobs))) delete p.jobs;
+      if (p.gemsLabel && typeof p.gemsLabel !== "string") delete p.gemsLabel;
       if (p.textFontSizes && !Array.isArray(p.textFontSizes)) delete p.textFontSizes;
       if (p.noteFontSizes && !Array.isArray(p.noteFontSizes)) delete p.noteFontSizes;
       if (p.reminders && !Array.isArray(p.reminders))         delete p.reminders;
@@ -59,7 +60,7 @@ export function otherPeriodsWithRosters(periodData, excludeKey) {
     }));
 }
 
-const CLASS_LIST_KEYS = ["names", "excludedNames", "birthdays", "colors", "gems", "jobs"];
+const CLASS_LIST_KEYS = ["names", "excludedNames", "birthdays", "colors", "gems", "jobs", "gemsLabel"];
 
 // Delete a (possibly stale/renamed) period's saved class list — its roster,
 // exclusions, birthdays, colors, gems, and jobs — leaving its other data
@@ -74,16 +75,4 @@ export function deleteClassList(periodData, label) {
   else next[label] = rest;
   localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
   return next;
-}
-
-// The Gems currency's display name — global (not per-period), shared and
-// renamable from either the main board or Teacher View's Students modal.
-const GEMS_LABEL_KEY = "classboard_gems_label";
-
-export function loadGemsLabel() {
-  return localStorage.getItem(GEMS_LABEL_KEY) || "Gems";
-}
-
-export function saveGemsLabel(label) {
-  localStorage.setItem(GEMS_LABEL_KEY, label);
 }

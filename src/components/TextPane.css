@@ -1,7 +1,8 @@
-/* No toolbar or tab strip live in the pane itself — formatting/page controls
-   are rendered by the app's own auto-hiding top toolbar, acting on whichever
-   pane last had focus (see App's activePaneId/textPaneActions). The pane
-   itself always fills its tile, so nothing here ever resizes its content. */
+/* The pane's own hover/focus toolbar is portaled to <body> (see
+   .textpane-toolbar below) rather than nested here, so the tile grid's
+   overflow:hidden ancestors don't clip it when it slides out past this
+   pane's own box. The pane itself always fills its tile, so nothing here
+   ever resizes its content. */
 .textpane-wrap {
   height: 100%;
   display: flex;
@@ -120,4 +121,66 @@
 @keyframes textpane-marquee {
   from { text-indent: 100%; }
   to   { text-indent: -100%; }
+}
+
+/* ── Floating format toolbar — slides out of whichever edge of the pane has
+   room (see TextPane's updateAnchor). Positioned via inline left/width/
+   top-or-bottom from the pane's live rect; opacity/pointer-events (not
+   display) drive show/hide so the transform transition can run both ways. */
+.textpane-toolbar {
+  position: fixed;
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--surface2) 92%, transparent);
+  backdrop-filter: blur(3px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.18s ease, opacity 0.15s ease;
+}
+.textpane-toolbar::-webkit-scrollbar { display: none; }
+
+.textpane-toolbar--below { transform: translateY(-10px); }
+.textpane-toolbar--above { transform: translateY(10px); }
+
+.textpane-toolbar--visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.textpane-toolbar-btn {
+  flex-shrink: 0;
+}
+
+.textpane-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.textpane-toolbar-scrolling-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.textpane-toolbar-scrolling-toggle input {
+  accent-color: var(--accent);
+  cursor: pointer;
 }

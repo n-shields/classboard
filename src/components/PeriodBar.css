@@ -41,14 +41,6 @@
 }
 .period-toolbar-row::-webkit-scrollbar { display: none; }
 
-/* The text-controls row is a light, mostly-transparent overlay rather than
-   a second solid bar, so it stays unobtrusive while it's up. */
-.period-toolbar-textrow {
-  background: color-mix(in srgb, var(--surface2) 30%, transparent);
-  box-shadow: none;
-  backdrop-filter: blur(3px);
-}
-
 /* ── Toolbar controls ── */
 .tb-btn {
   flex-shrink: 0;
@@ -68,21 +60,6 @@
   background: var(--border);
   flex-shrink: 0;
   margin: 0 2px;
-}
-
-.tb-scrolling-toggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  cursor: pointer;
-  user-select: none;
-}
-.tb-scrolling-toggle input {
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 /* Theme dot button */
