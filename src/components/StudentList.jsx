@@ -38,6 +38,7 @@ export default function StudentList({
     [names, excludedNames],
   );
   const activeCount = activeNames.length;
+  const useColumns = simple && names.length > 12;
 
   // A student's color swatch defaults to whatever color they'd currently get
   // on the wheel (same index-based cycling WheelOfNames uses), until the
@@ -228,7 +229,7 @@ export default function StudentList({
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose?.()}>
-      <div className="modal student-modal student-modal--full">
+      <div className={`modal student-modal student-modal--full ${useColumns ? "student-modal--wide" : ""}`}>
         <div className="student-modal-header">
           <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
           {editingGemsLabel ? (
@@ -266,7 +267,7 @@ export default function StudentList({
                 </button>
               </div>
             )}
-            <div className="student-list">
+            <div className={`student-list ${useColumns ? "student-list--columns" : ""}`}>
               {names.map((name, idx) => {
                 const excluded = excludedNames.includes(name);
                 return (

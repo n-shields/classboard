@@ -30,7 +30,7 @@ export default function WheelOfNames({
   names, excludedNames = [], colors = {},
   periodLabel, collapsed, onToggle,
   wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
-  gems = {}, onGemsChange, gemsLabel = "Gems",
+  gems = {}, onGemsChange, gemsLabel = "Gems", jobs = {},
 }) {
   const canvasRef = useRef(null);
   const animRef   = useRef(null);
@@ -98,12 +98,22 @@ export default function WheelOfNames({
       heldKeyRef.current = null;
     };
     const onKeyDown = (e) => {
-      const delta = deltaForKey(e.key);
-      if (!delta || !onGemsChangeRef.current) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target;
-      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      const tag = target.tagName;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+      const isSpace = e.key === " " || e.code === "Space";
+      if (isSpace && tag === "BUTTON") return; // let Space still activate a focused button
       if (document.querySelector(".modal-overlay")) return;
+
+      if (isSpace) {
+        e.preventDefault();
+        showGemsPreview();
+        return;
+      }
+
+      const delta = deltaForKey(e.key);
+      if (!delta || !onGemsChangeRef.current) return;
       e.preventDefault();
       if (e.repeat || heldKeyRef.current === e.key) return; // we drive our own repeat, not the browser's
       applyGemsDeltaRef.current(delta);
@@ -120,14 +130,18 @@ export default function WheelOfNames({
       window.removeEventListener("blur", stopRepeat);
       stopRepeat();
     };
-  }, []);
+  }, [showGemsPreview]);
 
   useEffect(() => () => clearTimeout(previewTimerRef.current), []);
 
-  const leaderboard = useMemo(
-    () => [...names].sort((a, b) => (gems[b] || 0) - (gems[a] || 0)),
-    [names, gems],
-  );
+  // Color a name to match its wheel segment, falling back to gray for
+  // students currently excluded from the wheel — same rule StudentList uses.
+  const colorFor = useCallback((name) => {
+    if (colors[name]) return colors[name];
+    const idx = activeNames.indexOf(name);
+    if (idx === -1 || wheelColors.length === 0) return "#888888";
+    return wheelColors[idx % wheelColors.length];
+  }, [colors, activeNames, wheelColors]);
 
   const drawWheel = useCallback((rotation) => {
     const canvas = canvasRef.current;
@@ -289,12 +303,13 @@ export default function WheelOfNames({
           )}
           {gemsPreview && (
             <div className="wheel-gems-preview">
-              <div className="wheel-gems-preview-title">{gemsLabel}</div>
+              <div className="wheel-gems-preview-title">{periodLabel || "Students"}</div>
               <div className="wheel-gems-preview-list">
-                {leaderboard.map(name => (
+                {names.map(name => (
                   <div key={name} className="wheel-gems-preview-row">
-                    <span className="wheel-gems-preview-name">{name}</span>
-                    <span className="wheel-gems-preview-value">{gems[name] || 0}</span>
+                    <span className="wheel-gems-preview-name" style={{ backgroundColor: colorFor(name) }}>{name}</span>
+                    {jobs[name] && <span className="wheel-gems-preview-job">{jobs[name]}</span>}
+                    <span className="wheel-gems-preview-value" title={gemsLabel}>{gems[name] || 0}</span>
                   </div>
                 ))}
               </div>
@@ -322,8 +337,9 @@ export default function WheelOfNames({
             <p className="wheel-settings-hint">
               With no text field focused: <strong>Page Up</strong>/<strong>Page Down</strong> give
               or take 10 {gemsLabel} from every student; <strong>↑</strong>/<strong>↓</strong> give
-              or take 1. Hold a key to repeat it 4 times a second. Each press briefly shows the
-              {" "}{gemsLabel.toLowerCase()} leaderboard here on the wheel.
+              or take 1. Hold a key to repeat it 4 times a second. <strong>Space</strong> just
+              flashes the list without changing anything. Each press briefly shows the student
+              list here on the wheel.
             </p>
 
             {/* Timing settings */}

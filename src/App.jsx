@@ -754,6 +754,7 @@ export default function App() {
         gems={currentGems}
         onGemsChange={handleGemsChange}
         gemsLabel={gemsLabel}
+        jobs={currentJobs}
       />
     ),
     prize: (
