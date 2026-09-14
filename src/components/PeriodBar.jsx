@@ -5,6 +5,10 @@ import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
 import { playClick, playDing } from "../data/sounds";
+import {
+  isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
+  hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
+} from "../data/autosave";
 import "./PeriodBar.css";
 
 // How fast a held Page Up/Down/arrow key repeats a gems adjustment — the
@@ -63,6 +67,14 @@ export default function PeriodBar({
   const [layoutToolOpen, setLayoutToolOpen] = useState(false);
   const [visible,       setVisible]       = useState(false);
   const [isFullscreen,  setIsFullscreen]  = useState(false);
+  // "off": no folder chosen. "on": chosen and writable. "needs-permission":
+  // a folder was chosen in an earlier session but the browser hasn't
+  // (re-)granted write access yet this session — needs one click to redo,
+  // not a fresh folder pick.
+  const [autosaveStatus, setAutosaveStatus] = useState("off");
+  const [autosaveFolderName, setAutosaveFolderName] = useState(null);
+  const [lastAutosaveAt, setLastAutosaveAt] = useState(null);
+  const autosaveHandleRef = useRef(null);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
   const gemsCloseTimerRef = useRef(null);
@@ -72,6 +84,65 @@ export default function PeriodBar({
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  // Reload a folder picked in an earlier session. Only `queryPermission` is
+  // called here (never `requestPermission`, which can prompt and needs a
+  // fresh user gesture) so this never surprises the teacher on load.
+  useEffect(() => {
+    if (!isFileSystemAccessSupported()) return;
+    (async () => {
+      const handle = await loadAutosaveHandle().catch(() => null);
+      if (!handle) return;
+      autosaveHandleRef.current = handle;
+      setAutosaveFolderName(handle.name);
+      setAutosaveStatus((await hasReadWritePermission(handle).catch(() => false)) ? "on" : "needs-permission");
+    })();
+  }, []);
+
+  const toggleAutosave = async () => {
+    if (autosaveStatus === "on") {
+      await clearAutosaveHandle().catch(() => {});
+      autosaveHandleRef.current = null;
+      setAutosaveFolderName(null);
+      setLastAutosaveAt(null);
+      setAutosaveStatus("off");
+      return;
+    }
+    if (autosaveStatus === "needs-permission" && autosaveHandleRef.current) {
+      const granted = await requestReadWritePermission(autosaveHandleRef.current).catch(() => false);
+      if (granted) setAutosaveStatus("on");
+      return;
+    }
+    try {
+      const handle = await pickAutosaveFolder();
+      autosaveHandleRef.current = handle;
+      setAutosaveFolderName(handle.name);
+      setAutosaveStatus("on");
+    } catch (_) {
+      // User canceled the folder picker — leave autosave off.
+    }
+  };
+
+  // Snapshot the period being left, whenever the active period changes —
+  // whether from its scheduled end time passing or a manual switch, both of
+  // which show up here identically as `periodLabel` changing.
+  const prevPeriodLabelRef = useRef(periodLabel);
+  useEffect(() => {
+    const prev = prevPeriodLabelRef.current;
+    prevPeriodLabelRef.current = periodLabel;
+    if (!prev || prev === periodLabel) return;
+    if (autosaveStatus !== "on" || !autosaveHandleRef.current) return;
+    (async () => {
+      try {
+        await writeSnapshot(autosaveHandleRef.current, timestampedFilename(prev), collectData());
+        setLastAutosaveAt(new Date());
+      } catch (_) {
+        // Quiet by design — most likely permission was revoked outside the
+        // app; stop trying silently until the teacher re-enables it.
+        setAutosaveStatus("needs-permission");
+      }
+    })();
+  }, [periodLabel, autosaveStatus]);
 
   // Space toggles the student list, as long as no other modal is up and the
   // user isn't typing in a field or focused on a button.
@@ -293,6 +364,21 @@ export default function PeriodBar({
           {/* Import / export — pinned right */}
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
+          {isFileSystemAccessSupported() && (
+            <button
+              className={`btn btn-sm tb-btn ei-btn ${autosaveStatus === "on" ? "btn-primary" : "btn-ghost"}`}
+              onClick={toggleAutosave}
+              title={
+                autosaveStatus === "on"
+                  ? `Auto-saving a dated snapshot to "${autosaveFolderName}" after each period${lastAutosaveAt ? ` — last saved ${lastAutosaveAt.toLocaleTimeString()}` : ""}. Click to turn off.`
+                  : autosaveStatus === "needs-permission"
+                  ? `Click to resume auto-saving to "${autosaveFolderName}"`
+                  : "Pick a folder to quietly save a dated snapshot after each period"
+              }
+            >
+              💾 Auto-save{autosaveStatus === "on" ? " ✓" : autosaveStatus === "needs-permission" ? " ⚠" : ""}
+            </button>
+          )}
           <button
             className={`btn btn-sm tb-btn ${isFullscreen ? "btn-primary" : "btn-ghost"}`}
             onClick={toggleFullscreen}
