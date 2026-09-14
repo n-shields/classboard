@@ -197,6 +197,8 @@ export default function TeacherView() {
         collapsed={collapsed.reminders}
         defaultReminders={TEACHER_DEFAULT_REMINDERS}
         scope="teacher"
+        names={currentNames}
+        birthdays={currentBirthdays}
       />
     ),
     notes: (

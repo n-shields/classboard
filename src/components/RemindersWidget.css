@@ -141,6 +141,7 @@
 }
 
 .reminders-edit-row--off .reminders-edit-text,
+.reminders-edit-row--off .reminders-edit-auto-text,
 .reminders-edit-row--off select,
 .reminders-edit-row--off .reminders-edit-mins,
 .reminders-edit-row--off .reminders-edit-time,
@@ -151,6 +152,17 @@
 .reminders-edit-text {
   flex: 1;
   min-width: 0;
+}
+
+.reminders-edit-auto-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reminders-edit-mins {

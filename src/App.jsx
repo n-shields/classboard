@@ -735,6 +735,8 @@ export default function App() {
         reminders={currentReminders}
         onRemindersChange={handleRemindersChange}
         collapsed={collapsed.reminders}
+        names={currentNames}
+        birthdays={currentBirthdays}
       />
     ),
   };

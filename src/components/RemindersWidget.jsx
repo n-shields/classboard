@@ -8,8 +8,32 @@ const DEFAULT_REMINDERS = [
   { id: 2, text: "Clean-up", edge: "end",   minutes: 10, enabled: true },
 ];
 
-const EDGES = ["start", "end", "untilClosed", "time"];
+const EDGES = ["start", "end", "untilClosed", "time", "birthdayToday", "birthdayWeekend"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// "YYYY-MM-DD" -> "MM-DD", for comparing a stored birthday against a date
+// regardless of birth year.
+function monthDay(dateStr) {
+  return dateStr ? dateStr.slice(5) : null;
+}
+function monthDayOf(date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+function namesBornOn(names, birthdays, targetMonthDay) {
+  return names.filter(n => monthDay(birthdays[n]) === targetMonthDay);
+}
+function joinNames(list) {
+  if (list.length <= 1) return list[0] || "";
+  if (list.length === 2) return `${list[0]} & ${list[1]}`;
+  return `${list.slice(0, -1).join(", ")} & ${list[list.length - 1]}`;
+}
+// The upcoming (or current, if today's one of them) Saturday/Sunday.
+function upcomingWeekend(now) {
+  const daysUntilSat = (6 - now.getDay() + 7) % 7;
+  const sat = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilSat);
+  const sun = new Date(sat.getFullYear(), sat.getMonth(), sat.getDate() + 1);
+  return [sat, sun];
+}
 
 // Coerce a stored/imported list into clean reminder objects with unique ids.
 function normalizeReminders(list, defaults = DEFAULT_REMINDERS) {
@@ -69,6 +93,7 @@ function saveDismissed(rec, scope) {
 export default function RemindersWidget({
   currentPeriod, reminders: remindersProp, onRemindersChange, collapsed,
   defaultReminders = DEFAULT_REMINDERS, scope = "main",
+  names = [], birthdays = {},
 }) {
   const reminders = useMemo(() => normalizeReminders(remindersProp, defaultReminders), [remindersProp, defaultReminders]);
   const [now, setNow] = useState(() => new Date());
@@ -105,6 +130,22 @@ export default function RemindersWidget({
       else if (r.edge === "time") {
         const sinceTime = (now - timeToday(r.time, now)) / 60000;
         if (sinceTime >= 0 && sinceTime < r.minutes) active.push(r);
+      } else if (r.edge === "birthdayToday") {
+        const sinceTime = (now - timeToday(r.time, now)) / 60000;
+        if (sinceTime >= 0 && sinceTime < r.minutes) {
+          const today = namesBornOn(names, birthdays, monthDayOf(now));
+          if (today.length) active.push({ ...r, text: `🎂 Happy Birthday, ${joinNames(today)}!` });
+        }
+      } else if (r.edge === "birthdayWeekend") {
+        const sinceTime = (now - timeToday(r.time, now)) / 60000;
+        if (sinceTime >= 0 && sinceTime < r.minutes) {
+          const [sat, sun] = upcomingWeekend(now);
+          const parts = [
+            ...namesBornOn(names, birthdays, monthDayOf(sat)).map(n => `${n} (Sat)`),
+            ...namesBornOn(names, birthdays, monthDayOf(sun)).map(n => `${n} (Sun)`),
+          ];
+          if (parts.length) active.push({ ...r, text: `🎂 Birthdays this weekend: ${parts.join(", ")}` });
+        }
       }
     }
   }
@@ -169,7 +210,9 @@ export default function RemindersWidget({
             <p className="reminders-edit-hint">
               Show a message during the first or last few minutes of the class that's
               currently in session, starting at a specific time, or the whole
-              time until you dismiss it.
+              time until you dismiss it. The two birthday kinds show themselves
+              automatically, at a time you pick, only on days there's actually a
+              match — no message otherwise.
             </p>
             <div className="reminders-edit-list">
               {draft.map((r, i) => (
@@ -181,19 +224,39 @@ export default function RemindersWidget({
                     onChange={e => updateDraft(i, "enabled", e.target.checked)}
                     title={r.enabled === false ? "Turn this reminder on" : "Turn this reminder off"}
                   />
-                  <input
-                    className="reminders-edit-text"
-                    value={r.text}
-                    onChange={e => updateDraft(i, "text", e.target.value)}
-                    placeholder="Message"
-                  />
-                  <select value={r.edge} onChange={e => updateDraft(i, "edge", e.target.value)}>
+                  {r.edge === "birthdayToday" || r.edge === "birthdayWeekend" ? (
+                    <span className="reminders-edit-auto-text">
+                      {r.edge === "birthdayToday" ? "🎂 Auto: today's birthdays" : "🎂 Auto: this weekend's birthdays"}
+                    </span>
+                  ) : (
+                    <input
+                      className="reminders-edit-text"
+                      value={r.text}
+                      onChange={e => updateDraft(i, "text", e.target.value)}
+                      placeholder="Message"
+                    />
+                  )}
+                  <select
+                    value={r.edge}
+                    onChange={e => {
+                      const edge = e.target.value;
+                      updateDraft(i, "edge", edge);
+                      // These two auto-generate their message at display time, but
+                      // still need *some* stored text or saving would drop them
+                      // (empty-text reminders are treated as deleted).
+                      if (!r.text && (edge === "birthdayToday" || edge === "birthdayWeekend")) {
+                        updateDraft(i, "text", edge === "birthdayToday" ? "Birthday today" : "Birthdays this weekend");
+                      }
+                    }}
+                  >
                     <option value="start">First</option>
                     <option value="end">Last</option>
                     <option value="time">At time</option>
                     <option value="untilClosed">Until closed</option>
+                    <option value="birthdayToday">Birthday today</option>
+                    <option value="birthdayWeekend">Birthdays this weekend</option>
                   </select>
-                  {r.edge === "time" && (
+                  {(r.edge === "time" || r.edge === "birthdayToday" || r.edge === "birthdayWeekend") && (
                     <input
                       className="reminders-edit-time"
                       type="time"
