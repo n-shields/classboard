@@ -31,9 +31,25 @@ export default function StudentList({
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  // Simple mode: highlights a student's whole row in their own color while
+  // their name has focus, or right after clicking their points value (which
+  // isn't itself focusable).
+  const [activeIdx, setActiveIdx] = useState(null);
   // Simple mode has no visible color swatch — double-clicking the name
   // opens a hidden color input's native picker instead.
   const colorInputRefs = useRef({});
+
+  // Points aren't a real focusable element, so a click there needs its own
+  // "clear" path too — anything outside the two activation spots drops it.
+  useEffect(() => {
+    if (!simple) return;
+    const onMouseDown = (e) => {
+      if (e.target.closest(".student-name-input") || e.target.closest(".student-gems-value")) return;
+      setActiveIdx(null);
+    };
+    window.addEventListener("mousedown", onMouseDown);
+    return () => window.removeEventListener("mousedown", onMouseDown);
+  }, [simple]);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -329,6 +345,7 @@ export default function StudentList({
                   <div
                     key={idx}
                     className={`student-row ${excluded && !simple ? "student-row--excluded" : ""} ${dragOverIndex === idx ? "student-row--drag-over" : ""}`}
+                    style={simple && activeIdx === idx ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}
                     onDragOver={draggableRow ? (e) => { e.preventDefault(); setDragOverIndex(idx); } : undefined}
                     onDragLeave={draggableRow ? () => setDragOverIndex(i => (i === idx ? null : i)) : undefined}
                     onDrop={draggableRow ? (e) => {
@@ -359,7 +376,8 @@ export default function StudentList({
                       className="student-name-input"
                       value={name}
                       onChange={e => setName(idx, e.target.value)}
-                      onBlur={cleanup}
+                      onFocus={simple ? () => setActiveIdx(idx) : undefined}
+                      onBlur={e => { cleanup(e); if (simple) setActiveIdx(null); }}
                       onKeyDown={e => {
                         if (e.key === "Enter") { e.currentTarget.blur(); return; }
                         // With this name field focused, arrow keys adjust just this
@@ -405,21 +423,10 @@ export default function StudentList({
                       />
                     )}
                     <div className="student-gems" title={gemsLabel}>
-                      {!simple && (
-                        <button
-                          className="btn btn-ghost btn-sm student-gems-btn"
-                          onClick={() => adjustGems(name, -100)}
-                          title={`-100 ${gemsLabel}`}
-                        >−100</button>
-                      )}
-                      <span className="student-gems-value">{gems[name] || 0}</span>
-                      {!simple && (
-                        <button
-                          className="btn btn-ghost btn-sm student-gems-btn"
-                          onClick={() => adjustGems(name, 100)}
-                          title={`+100 ${gemsLabel}`}
-                        >+100</button>
-                      )}
+                      <span
+                        className="student-gems-value"
+                        onClick={simple ? () => setActiveIdx(idx) : undefined}
+                      >{gems[name] || 0}</span>
                     </div>
                     <input
                       className="student-job-input"

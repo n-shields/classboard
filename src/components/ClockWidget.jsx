@@ -181,11 +181,35 @@ export default function ClockWidget({
     });
   }, []);
 
+  const startTimer = () => {
+    lastDurationRef.current = timerSecs;
+    setTimerRunning(true);
+    setTimerDone(false);
+  };
+
+  const restartTimer = () => {
+    const secs = lastDurationRef.current;
+    setTimerSecs(secs);
+    setTimerInput(formatSeconds(secs));
+    setTimerDone(false);
+    setTimerRunning(true);
+  };
+
+  const resetTimer = () => {
+    setTimerRunning(false);
+    setTimerDone(false);
+    const parts = timerInput.split(":").map(Number);
+    const secs = parts.length === 3 ? parts[0]*3600+parts[1]*60+parts[2]
+                 : parts.length === 2 ? parts[0]*60+parts[1] : parts[0]*60;
+    setTimerSecs(secs);
+  };
+
   // Global shortcuts, active as long as focus isn't in a text field (notes
   // pane, board, inputs, etc.) and no modal is open:
   //   1-9    start a timer of that many minutes
   //   +/-    add/subtract time on the timer (10s under a minute, else 1min)
   //   space  pause the timer if running, start it if paused
+  //   r      reset the timer back to its last-entered duration
   //   p/t    jump to Period / Timer mode
   //   c      collapse or expand the clock pane
   useEffect(() => {
@@ -222,13 +246,14 @@ export default function ClockWidget({
       switch (e.key.toLowerCase()) {
         case "p": setMode("Period"); break;
         case "t": setMode("Timer"); break;
+        case "r": setMode("Timer"); resetTimer(); break;
         case "c": onToggle?.(); break;
         default: break;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setPreset, adjustTimer, onToggle, timerDone, timerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setPreset, adjustTimer, onToggle, timerDone, timerRunning, timerInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTimerInputBlur = () => {
     const parts = timerInput.split(":").map(Number);
@@ -242,33 +267,10 @@ export default function ClockWidget({
     setTimerDone(false);
   };
 
-  const startTimer = () => {
-    lastDurationRef.current = timerSecs;
-    setTimerRunning(true);
-    setTimerDone(false);
-  };
-
-  const restartTimer = () => {
-    const secs = lastDurationRef.current;
-    setTimerSecs(secs);
-    setTimerInput(formatSeconds(secs));
-    setTimerDone(false);
-    setTimerRunning(true);
-  };
-
   const toggleTimer = () => {
     if (timerDone) { restartTimer(); }
     else if (timerRunning) { setTimerRunning(false); }
     else { startTimer(); }
-  };
-
-  const resetTimer = () => {
-    setTimerRunning(false);
-    setTimerDone(false);
-    const parts = timerInput.split(":").map(Number);
-    const secs = parts.length === 3 ? parts[0]*3600+parts[1]*60+parts[2]
-                 : parts.length === 2 ? parts[0]*60+parts[1] : parts[0]*60;
-    setTimerSecs(secs);
   };
 
   useEffect(() => {

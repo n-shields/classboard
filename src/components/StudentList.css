@@ -130,6 +130,7 @@
   row-gap: 4px;
   padding: 4px 2px;
   border-radius: 4px;
+  transition: background-color 0.15s ease;
 }
 
 .student-row--drag-over {
@@ -207,11 +208,6 @@
 
 .student-row--excluded .student-gems {
   opacity: 0.45;
-}
-
-.student-gems-btn {
-  padding: 2px 6px;
-  font-size: 0.75rem;
 }
 
 .student-gems-value {
