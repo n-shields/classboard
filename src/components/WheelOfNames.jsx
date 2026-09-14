@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { playClick, playDing } from "../data/sounds";
 import "./WheelOfNames.css";
 
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
@@ -74,6 +75,7 @@ export default function WheelOfNames({
     for (const name of currentNames) next[name] = Math.max(0, (next[name] || 0) + delta);
     handler(next);
     showGemsPreview();
+    if (delta > 0) playDing(); else if (delta < 0) playClick();
   }, [showGemsPreview]);
 
   // `onGemsChange` (and thus this callback) gets a new identity on every

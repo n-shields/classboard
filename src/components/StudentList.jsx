@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { playClick, playDing } from "../data/sounds";
 import "./StudentList.css";
 
 export default function StudentList({
@@ -97,6 +98,7 @@ export default function StudentList({
     const current = gems[name] || 0;
     const next = Math.max(0, current + delta);
     onGemsChange?.({ ...gems, [name]: next });
+    if (delta > 0) playDing(); else if (delta < 0) playClick();
   };
 
   const setJob = (name, value) => {
