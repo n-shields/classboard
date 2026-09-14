@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { playClick, playDing } from "../data/sounds";
 import "./WheelOfNames.css";
 
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
@@ -21,17 +20,11 @@ function easeOut(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-// How fast a held Page Up/Down/arrow key repeats a gems adjustment — the
-// browser's own OS-driven key-repeat rate varies and starts after a delay,
-// so this drives its own interval instead of relying on repeat keydowns.
-const GEMS_REPEAT_MS = 250; // 4 per second
-const GEMS_PREVIEW_MS = 2000;
-
 export default function WheelOfNames({
   names, excludedNames = [], colors = {},
   periodLabel, collapsed, onToggle,
   wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
-  gems = {}, onGemsChange, gemsLabel = "Gems", jobs = {},
+  gemsLabel = "Gems",
 }) {
   const canvasRef = useRef(null);
   const animRef   = useRef(null);
@@ -40,7 +33,6 @@ export default function WheelOfNames({
   const [winner,        setWinner]        = useState(null);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
   const [wheelSettings, setWheelSettings] = useState(loadWheelSettings);
-  const [gemsPreview,   setGemsPreview]   = useState(false);
 
   const activeNames = useMemo(
     () => names.filter(n => !excludedNames.includes(n)),
@@ -48,93 +40,6 @@ export default function WheelOfNames({
   );
 
   useEffect(() => { setWinner(null); }, [names]);
-
-  // ── Keyboard gems shortcuts: PageUp/PageDown ±10, ↑/↓ ±1, for every
-  // student — held keys repeat at a fixed rate via our own timer, and each
-  // adjustment (re-)shows a brief leaderboard preview over the wheel. ──
-  const namesRef = useRef(names);
-  const gemsRef = useRef(gems);
-  const onGemsChangeRef = useRef(onGemsChange);
-  useEffect(() => { namesRef.current = names; }, [names]);
-  useEffect(() => { gemsRef.current = gems; }, [gems]);
-  useEffect(() => { onGemsChangeRef.current = onGemsChange; }, [onGemsChange]);
-
-  const previewTimerRef = useRef(null);
-  const showGemsPreview = useCallback(() => {
-    setGemsPreview(true);
-    clearTimeout(previewTimerRef.current);
-    previewTimerRef.current = setTimeout(() => setGemsPreview(false), GEMS_PREVIEW_MS);
-  }, []);
-
-  const applyGemsDelta = useCallback((delta) => {
-    const handler = onGemsChangeRef.current;
-    if (!handler) return;
-    const currentNames = namesRef.current;
-    const currentGems = gemsRef.current;
-    const next = { ...currentGems };
-    for (const name of currentNames) next[name] = Math.max(0, (next[name] || 0) + delta);
-    handler(next);
-    showGemsPreview();
-    if (delta > 0) playDing(); else if (delta < 0) playClick();
-  }, [showGemsPreview]);
-
-  // `onGemsChange` (and thus this callback) gets a new identity on every
-  // gems update, since it closes over the whole periodData state — reached
-  // via a ref instead of a dependency, so a held key's repeat interval
-  // isn't torn down and silently dropped mid-hold by that churn.
-  const applyGemsDeltaRef = useRef(applyGemsDelta);
-  useEffect(() => { applyGemsDeltaRef.current = applyGemsDelta; }, [applyGemsDelta]);
-
-  useEffect(() => {
-    const deltaForKey = (key) => {
-      if (key === "PageUp") return 10;
-      if (key === "PageDown") return -10;
-      if (key === "ArrowUp") return 1;
-      if (key === "ArrowDown") return -1;
-      return 0;
-    };
-    const heldKeyRef = { current: null };
-    const repeatTimerRef = { current: null };
-    const stopRepeat = () => {
-      if (repeatTimerRef.current) { clearInterval(repeatTimerRef.current); repeatTimerRef.current = null; }
-      heldKeyRef.current = null;
-    };
-    const onKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const target = e.target;
-      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
-      if (document.querySelector(".modal-overlay")) return;
-
-      const delta = deltaForKey(e.key);
-      if (!delta || !onGemsChangeRef.current) return;
-      e.preventDefault();
-      if (e.repeat || heldKeyRef.current === e.key) return; // we drive our own repeat, not the browser's
-      applyGemsDeltaRef.current(delta);
-      heldKeyRef.current = e.key;
-      repeatTimerRef.current = setInterval(() => applyGemsDeltaRef.current(delta), GEMS_REPEAT_MS);
-    };
-    const onKeyUp = (e) => { if (e.key === heldKeyRef.current) stopRepeat(); };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", stopRepeat);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", stopRepeat);
-      stopRepeat();
-    };
-  }, []);
-
-  useEffect(() => () => clearTimeout(previewTimerRef.current), []);
-
-  // Color a name to match its wheel segment, falling back to gray for
-  // students currently excluded from the wheel — same rule StudentList uses.
-  const colorFor = useCallback((name) => {
-    if (colors[name]) return colors[name];
-    const idx = activeNames.indexOf(name);
-    if (idx === -1 || wheelColors.length === 0) return "#888888";
-    return wheelColors[idx % wheelColors.length];
-  }, [colors, activeNames, wheelColors]);
 
   const drawWheel = useCallback((rotation) => {
     const canvas = canvasRef.current;
@@ -294,20 +199,6 @@ export default function WheelOfNames({
               {winner}
             </div>
           )}
-          {gemsPreview && (
-            <div className="wheel-gems-preview">
-              <div className="wheel-gems-preview-title">{periodLabel || "Students"}</div>
-              <div className="wheel-gems-preview-list">
-                {names.map(name => (
-                  <div key={name} className="wheel-gems-preview-row">
-                    <span className="wheel-gems-preview-name" style={{ backgroundColor: colorFor(name) }}>{name}</span>
-                    {jobs[name] && <span className="wheel-gems-preview-job">{jobs[name]}</span>}
-                    <span className="wheel-gems-preview-value" title={gemsLabel}>{gems[name] || 0}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <button className="wheel-settings-btn" onClick={() => setSettingsOpen(true)} title="Wheel settings">⚙</button>
       </div>
@@ -331,8 +222,8 @@ export default function WheelOfNames({
             <p className="wheel-settings-hint">
               With no text field focused: <strong>Page Up</strong>/<strong>Page Down</strong> give
               or take 10 {gemsLabel} from every student; <strong>↑</strong>/<strong>↓</strong> give
-              or take 1. Hold a key to repeat it 4 times a second. Each press briefly shows the
-              student list here on the wheel.
+              or take 1. Hold a key to repeat it 4 times a second — this opens the student list
+              and closes it again 2 seconds after you stop.
             </p>
 
             {/* Timing settings */}

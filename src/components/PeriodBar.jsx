@@ -4,7 +4,16 @@ import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
+import { playClick, playDing } from "../data/sounds";
 import "./PeriodBar.css";
+
+// How fast a held Page Up/Down/arrow key repeats a gems adjustment — the
+// browser's own OS-driven key-repeat rate varies and starts after a delay,
+// so this drives its own interval instead of relying on repeat keydowns.
+const GEMS_REPEAT_MS = 250; // 4 per second
+// How long the student list stays open after the last gems-shortcut key,
+// before it auto-closes again.
+const GEMS_LIST_HOLD_MS = 2000;
 
 function collectData() {
   const data = {};
@@ -57,6 +66,7 @@ export default function PeriodBar({
   const [isFullscreen,  setIsFullscreen]  = useState(false);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
+  const gemsCloseTimerRef = useRef(null);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -75,10 +85,75 @@ export default function PeriodBar({
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;
       e.preventDefault();
+      clearTimeout(gemsCloseTimerRef.current); // a manual toggle overrides any pending auto-close
       setStudentsOpen(o => !o);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Gems keyboard shortcuts: PageUp/PageDown ±10, ↑/↓ ±1, for every student.
+  // Applying a delta opens the (real, central) student list and keeps it
+  // open until GEMS_LIST_HOLD_MS after the last shortcut key — held keys
+  // repeat at a fixed rate via our own timer rather than relying on the
+  // browser's OS-driven key-repeat, which varies and starts after a delay.
+  const namesRef = useRef(names);
+  const gemsRef = useRef(gems);
+  const onGemsChangeRef = useRef(onGemsChange);
+  useEffect(() => { namesRef.current = names; }, [names]);
+  useEffect(() => { gemsRef.current = gems; }, [gems]);
+  useEffect(() => { onGemsChangeRef.current = onGemsChange; }, [onGemsChange]);
+
+  useEffect(() => {
+    const deltaForKey = (key) => {
+      if (key === "PageUp") return 10;
+      if (key === "PageDown") return -10;
+      if (key === "ArrowUp") return 1;
+      if (key === "ArrowDown") return -1;
+      return 0;
+    };
+    const applyDelta = (delta) => {
+      const handler = onGemsChangeRef.current;
+      if (!handler) return;
+      const next = { ...gemsRef.current };
+      for (const name of namesRef.current) next[name] = Math.max(0, (next[name] || 0) + delta);
+      handler(next);
+      if (delta > 0) playDing(); else playClick();
+      setStudentsOpen(true);
+      clearTimeout(gemsCloseTimerRef.current);
+      gemsCloseTimerRef.current = setTimeout(() => setStudentsOpen(false), GEMS_LIST_HOLD_MS);
+    };
+    const heldKeyRef = { current: null };
+    const repeatTimerRef = { current: null };
+    const stopRepeat = () => {
+      if (repeatTimerRef.current) { clearInterval(repeatTimerRef.current); repeatTimerRef.current = null; }
+      heldKeyRef.current = null;
+    };
+    const onKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      const delta = deltaForKey(e.key);
+      if (!delta) return;
+      const overlay = document.querySelector(".modal-overlay");
+      if (overlay && !overlay.querySelector(".student-modal")) return;
+      e.preventDefault();
+      if (e.repeat || heldKeyRef.current === e.key) return; // we drive our own repeat, not the browser's
+      applyDelta(delta);
+      heldKeyRef.current = e.key;
+      repeatTimerRef.current = setInterval(() => applyDelta(delta), GEMS_REPEAT_MS);
+    };
+    const onKeyUp = (e) => { if (e.key === heldKeyRef.current) stopRepeat(); };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", stopRepeat);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", stopRepeat);
+      stopRepeat();
+      clearTimeout(gemsCloseTimerRef.current);
+    };
   }, []);
 
   const toggleFullscreen = () => {
