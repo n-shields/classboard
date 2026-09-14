@@ -61,8 +61,11 @@ export default function StudentList({
         return ma.localeCompare(mb);
       });
     }
+    if (sortMode === "points") {
+      return entries.sort((a, b) => (gems[b.name] || 0) - (gems[a.name] || 0) || a.idx - b.idx);
+    }
     return entries;
-  }, [names, sortMode, birthdays]);
+  }, [names, sortMode, birthdays, gems]);
 
   const reorderNames = (fromIdx, toIdx) => {
     if (fromIdx === toIdx) return;
@@ -311,6 +314,7 @@ export default function StudentList({
                 <option value="az">A → Z</option>
                 <option value="za">Z → A</option>
                 <option value="birthday">Birthday</option>
+                <option value="points">{gemsLabel} (high to low)</option>
               </select>
             </div>
             <div className={`student-list ${useColumns ? "student-list--columns" : ""}`}>
