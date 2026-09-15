@@ -8,7 +8,7 @@ import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod,
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
-import { saveTeacherViewBounds } from "./data/teacherView";
+import { saveTeacherViewBounds, loadSeatingViewBounds } from "./data/teacherView";
 import { loadTeacherLayout, saveTeacherLayout } from "./data/teacherLayout";
 import "./TeacherView.css";
 
@@ -215,6 +215,19 @@ export default function TeacherView() {
     ),
   };
 
+  const openSeatingView = () => {
+    const bounds = loadSeatingViewBounds();
+    const width  = bounds?.width  || 1000;
+    const height = bounds?.height || 700;
+    const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + 40;
+    const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + 40;
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "seating");
+    url.searchParams.delete("s");
+    const popup = window.open(url.toString(), "classboard-seating-view", `width=${width},height=${height},left=${left},top=${top}`);
+    popup?.focus();
+  };
+
   return (
     <div className="teacher-view">
       <div className="teacher-view-header">
@@ -225,6 +238,11 @@ export default function TeacherView() {
           onClick={() => setStudentsOpen(true)}
           title="Edit the student list"
         >👥 Students</button>
+        <button
+          className="btn btn-ghost btn-sm teacher-view-seats-btn"
+          onClick={openSeatingView}
+          title="Open the seating chart in its own window"
+        >⊞ Seats</button>
       </div>
       <div className="teacher-view-textbar">
         <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.adjustFontSize(4); }} title={notesStatus?.hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
