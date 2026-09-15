@@ -159,13 +159,17 @@ export default function PeriodBar({
   // open until the teacher closes it (Space, Escape, or clicking off) —
   // held keys repeat at a fixed rate via our own timer rather than relying
   // on the browser's OS-driven key-repeat, which varies and starts after a
-  // delay.
+  // delay. Also handles the "a" hotkey, which toggles auto-detect period.
   const namesRef = useRef(names);
   const gemsRef = useRef(gems);
   const onGemsChangeRef = useRef(onGemsChange);
+  const autoModeRef = useRef(autoMode);
+  const onAutoModeChangeRef = useRef(onAutoModeChange);
   useEffect(() => { namesRef.current = names; }, [names]);
   useEffect(() => { gemsRef.current = gems; }, [gems]);
   useEffect(() => { onGemsChangeRef.current = onGemsChange; }, [onGemsChange]);
+  useEffect(() => { autoModeRef.current = autoMode; }, [autoMode]);
+  useEffect(() => { onAutoModeChangeRef.current = onAutoModeChange; }, [onAutoModeChange]);
 
   useEffect(() => {
     const deltaForKey = (key) => {
@@ -199,6 +203,12 @@ export default function PeriodBar({
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target;
       if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (e.key.toLowerCase() === "a") {
+        if (e.repeat || document.querySelector(".modal-overlay")) return;
+        e.preventDefault();
+        onAutoModeChangeRef.current?.(!autoModeRef.current);
+        return;
+      }
       const delta = deltaForKey(e.key);
       if (!delta) return;
       const overlay = document.querySelector(".modal-overlay");
@@ -305,7 +315,7 @@ export default function PeriodBar({
           <button
             className={`btn btn-sm tb-btn ${autoMode ? "btn-primary" : "btn-ghost"}`}
             onClick={() => onAutoModeChange(!autoMode)}
-            title="Auto-detect period from time"
+            title="Auto-detect period from time (A)"
           >Auto</button>
 
           <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setEditorOpen(true)}>Edit</button>
