@@ -154,30 +154,53 @@ export default function PeriodBar({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Gems keyboard shortcuts: ←/→ ±1, ↑/↓ ±10, for every student. Applying a
-  // delta opens the (real, central) student list, which then just stays
-  // open until the teacher closes it (Space, Escape, or clicking off) —
-  // held keys repeat at a fixed rate via our own timer rather than relying
-  // on the browser's OS-driven key-repeat, which varies and starts after a
-  // delay. Also handles the "a" hotkey, which toggles auto-detect period.
+  // Keyboard shortcuts, active whenever no text field has focus:
+  //   ←/→ and ↑/↓  cycle the active period (wraps; disables auto-detect,
+  //                same as clicking a period button)
+  //   +/- (or =/-) give or take 1 gem from every student — held keys repeat
+  //                at a fixed rate via our own timer rather than relying on
+  //                the browser's OS-driven key-repeat, which varies and
+  //                starts after a delay. Applying a delta opens the (real,
+  //                central) student list, which then just stays open until
+  //                the teacher closes it (Space, Escape, or clicking off).
+  //   a            toggles auto-detect period
+  const periods = schedules[scheduleType] || [];
   const namesRef = useRef(names);
   const gemsRef = useRef(gems);
   const onGemsChangeRef = useRef(onGemsChange);
   const autoModeRef = useRef(autoMode);
   const onAutoModeChangeRef = useRef(onAutoModeChange);
+  const periodsRef = useRef(periods);
+  const currentPeriodIndexRef = useRef(currentPeriodIndex);
+  const onPeriodSelectRef = useRef(onPeriodSelect);
   useEffect(() => { namesRef.current = names; }, [names]);
   useEffect(() => { gemsRef.current = gems; }, [gems]);
   useEffect(() => { onGemsChangeRef.current = onGemsChange; }, [onGemsChange]);
   useEffect(() => { autoModeRef.current = autoMode; }, [autoMode]);
   useEffect(() => { onAutoModeChangeRef.current = onAutoModeChange; }, [onAutoModeChange]);
+  useEffect(() => { periodsRef.current = periods; }, [periods]);
+  useEffect(() => { currentPeriodIndexRef.current = currentPeriodIndex; }, [currentPeriodIndex]);
+  useEffect(() => { onPeriodSelectRef.current = onPeriodSelect; }, [onPeriodSelect]);
 
   useEffect(() => {
-    const deltaForKey = (key) => {
-      if (key === "ArrowRight") return 1;
-      if (key === "ArrowLeft") return -1;
-      if (key === "ArrowUp") return 10;
-      if (key === "ArrowDown") return -10;
+    const gemsDeltaForKey = (key) => {
+      if (key === "+" || key === "=") return 1;
+      if (key === "-") return -1;
       return 0;
+    };
+    const periodDeltaForKey = (key) => {
+      if (key === "ArrowRight" || key === "ArrowDown") return 1;
+      if (key === "ArrowLeft" || key === "ArrowUp") return -1;
+      return 0;
+    };
+    const cyclePeriod = (delta) => {
+      const periods = periodsRef.current;
+      if (!periods.length) return;
+      const current = currentPeriodIndexRef.current;
+      const next = current === -1
+        ? (delta > 0 ? 0 : periods.length - 1)
+        : ((current + delta) % periods.length + periods.length) % periods.length;
+      onPeriodSelectRef.current?.(next);
     };
     const applyDelta = (delta) => {
       const handler = onGemsChangeRef.current;
@@ -209,7 +232,14 @@ export default function PeriodBar({
         onAutoModeChangeRef.current?.(!autoModeRef.current);
         return;
       }
-      const delta = deltaForKey(e.key);
+      const periodDelta = periodDeltaForKey(e.key);
+      if (periodDelta) {
+        if (e.repeat || document.querySelector(".modal-overlay")) return;
+        e.preventDefault();
+        cyclePeriod(periodDelta);
+        return;
+      }
+      const delta = gemsDeltaForKey(e.key);
       if (!delta) return;
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;
@@ -235,7 +265,6 @@ export default function PeriodBar({
     else document.documentElement.requestFullscreen?.();
   };
 
-  const periods       = schedules[scheduleType] || [];
   const scheduleNames = Object.keys(schedules);
 
   const show = () => { clearTimeout(hideTimer.current); setVisible(true); };

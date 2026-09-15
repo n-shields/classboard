@@ -158,8 +158,8 @@ export default function StudentList({
     if (delta > 0) playDing(); else if (delta < 0) playClick();
   };
 
-  // Held-arrow-key repeat for a single student's name field: the browser's
-  // own OS-driven key-repeat is much faster than our target rate, so this
+  // Held +/- repeat for a single student's name field: the browser's own
+  // OS-driven key-repeat is much faster than our target rate, so this
   // drives its own interval instead (matching the global shortcut in
   // PeriodBar). Keyed by key name so multiple held keys repeat independently.
   const heldTimersRef = useRef(new Map());
@@ -398,12 +398,11 @@ export default function StudentList({
                       onBlur={e => { cleanup(e); if (simple) setActiveIdx(null); stopAllHeldKeys(); }}
                       onKeyDown={e => {
                         if (e.key === "Enter") { e.currentTarget.blur(); return; }
-                        // With this name field focused, arrow keys adjust just this
+                        // With this name field focused, +/- adjust just this
                         // student — the global shortcut (all students) is blocked
                         // while any field has focus, so this doesn't double up.
                         if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-                          const delta = e.key === "ArrowUp" ? 10 : e.key === "ArrowDown" ? -10
-                            : e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                          const delta = e.key === "+" || e.key === "=" ? 1 : e.key === "-" ? -1 : 0;
                           if (delta) {
                             e.preventDefault();
                             if (e.repeat || heldTimersRef.current.has(e.key)) return; // we drive our own repeat, not the browser's

@@ -220,11 +220,11 @@ export default function WheelOfNames({
               {" "}<strong>Space</strong> to show/hide the list.
             </p>
             <p className="wheel-settings-hint">
-              With no text field focused: <strong>↑</strong>/<strong>↓</strong> give or take 10
-              {" "}{gemsLabel} from every student; <strong>←</strong>/<strong>→</strong> give or
-              take 1. Hold a key to repeat it 4 times a second — this opens the student list and
-              closes it again 2 seconds after you stop. Focus a student's name first to affect
-              just them.
+              With no text field focused: <strong>←</strong>/<strong>→</strong> and
+              {" "}<strong>↑</strong>/<strong>↓</strong> switch periods; <strong>+</strong>/
+              <strong>−</strong> give or take 1 {gemsLabel} from every student. Hold +/− to
+              repeat it 4 times a second — this opens the student list and closes it again
+              2 seconds after you stop. Focus a student's name first to affect just them.
             </p>
 
             {/* Timing settings */}
