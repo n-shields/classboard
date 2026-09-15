@@ -22,6 +22,12 @@ import "./TextPane.css";
 // not the whole tab set.
 const HOVER_HIDE_DELAY_MS = 250;
 
+// CSS's own definition of a physical unit: 96px per inch, 2.54cm per inch —
+// the same ratio the browser itself uses for e.g. `width: 1cm`, regardless
+// of the screen's actual DPI (which JS can't reliably read anyway).
+const CSS_PX_PER_CM = 96 / 2.54;
+const SCROLL_SPEED_CM_PER_SEC = 1;
+
 export default function TextPane({
   pages, onPagesChange, periodLabel,
   kind = "Page", defaultFontSize = 24,
@@ -185,6 +191,27 @@ export default function TextPane({
   }, [toolbarVisible]);
 
   useEffect(() => () => clearTimeout(hideTimerRef.current), []);
+
+  // Calibrate the marquee to a constant real-world speed rather than a fixed
+  // duration — the CSS keyframes shift text-indent from 100% to -100%, a
+  // total travel of 2x the pane's width, so the duration needed for
+  // SCROLL_SPEED_CM_PER_SEC depends on how wide this particular pane is.
+  useEffect(() => {
+    if (!isScrolling) return;
+    const el = editorRef.current;
+    if (!el) return;
+    const applyDuration = () => {
+      const width = el.clientWidth;
+      if (!width) return;
+      const distancePx = width * 2;
+      const seconds = distancePx / (CSS_PX_PER_CM * SCROLL_SPEED_CM_PER_SEC);
+      el.style.animationDuration = `${seconds}s`;
+    };
+    applyDuration();
+    const ro = new ResizeObserver(applyDuration);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isScrolling, activePageId]);
 
   return (
     <div

@@ -110,7 +110,10 @@
   margin: 0.15em 0;
 }
 
-/* ── Scrolling message mode — a ticker-style crawl, paused while editing ── */
+/* ── Scrolling message mode — a ticker-style crawl, paused while editing ──
+   The 28s here is just a fallback before TextPane's own effect measures the
+   pane and overrides animation-duration inline, calibrated to a constant
+   1cm/sec regardless of pane width. */
 .textpane-textarea--scrolling {
   white-space: nowrap;
   overflow: hidden;
