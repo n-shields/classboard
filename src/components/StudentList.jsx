@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { playClick, playDing } from "../data/sounds";
+import { GEMS_REPEAT_MS } from "../data/gems";
 import "./StudentList.css";
 
 export default function StudentList({
@@ -154,6 +155,21 @@ export default function StudentList({
     onGemsChange?.({ ...gems, [name]: next });
     if (delta > 0) playDing(); else if (delta < 0) playClick();
   };
+
+  // Held-arrow-key repeat for a single student's name field: the browser's
+  // own OS-driven key-repeat is much faster than our target rate, so this
+  // drives its own interval instead (matching the global shortcut in
+  // PeriodBar). Keyed by key name so multiple held keys repeat independently.
+  const heldTimersRef = useRef(new Map());
+  const stopHeldKey = (key) => {
+    const id = heldTimersRef.current.get(key);
+    if (id) { clearInterval(id); heldTimersRef.current.delete(key); }
+  };
+  const stopAllHeldKeys = () => {
+    heldTimersRef.current.forEach(id => clearInterval(id));
+    heldTimersRef.current.clear();
+  };
+  useEffect(() => stopAllHeldKeys, []);
 
   const setJob = (name, value) => {
     const next = { ...jobs };
@@ -377,7 +393,7 @@ export default function StudentList({
                       value={name}
                       onChange={e => setName(idx, e.target.value)}
                       onFocus={simple ? () => setActiveIdx(idx) : undefined}
-                      onBlur={e => { cleanup(e); if (simple) setActiveIdx(null); }}
+                      onBlur={e => { cleanup(e); if (simple) setActiveIdx(null); stopAllHeldKeys(); }}
                       onKeyDown={e => {
                         if (e.key === "Enter") { e.currentTarget.blur(); return; }
                         // With this name field focused, arrow keys adjust just this
@@ -386,9 +402,15 @@ export default function StudentList({
                         if (!e.ctrlKey && !e.metaKey && !e.altKey) {
                           const delta = e.key === "ArrowUp" ? 10 : e.key === "ArrowDown" ? -10
                             : e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-                          if (delta) { e.preventDefault(); adjustGems(name, delta); }
+                          if (delta) {
+                            e.preventDefault();
+                            if (e.repeat || heldTimersRef.current.has(e.key)) return; // we drive our own repeat, not the browser's
+                            adjustGems(name, delta);
+                            heldTimersRef.current.set(e.key, setInterval(() => adjustGems(name, delta), GEMS_REPEAT_MS));
+                          }
                         }
                       }}
+                      onKeyUp={e => stopHeldKey(e.key)}
                       onDoubleClick={simple ? () => colorInputRefs.current[idx]?.click() : undefined}
                       title={simple ? "Double-click to change color" : undefined}
                       style={simple ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}

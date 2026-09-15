@@ -9,12 +9,8 @@ import {
   isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
 } from "../data/autosave";
+import { GEMS_REPEAT_MS } from "../data/gems";
 import "./PeriodBar.css";
-
-// How fast a held arrow key repeats a gems adjustment — the browser's own
-// OS-driven key-repeat rate varies and starts after a delay, so this
-// drives its own interval instead of relying on repeat keydowns.
-const GEMS_REPEAT_MS = 250; // 4 per second
 
 function collectData() {
   const data = {};
