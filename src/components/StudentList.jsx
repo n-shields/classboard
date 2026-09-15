@@ -63,7 +63,9 @@ export default function StudentList({
     [names, excludedNames],
   );
   const activeCount = activeNames.length;
-  const useColumns = simple && names.length > 12;
+  // Simple mode (the board-facing quick view) always lays out in 2 columns
+  // so a full class fits without scrolling as far.
+  const useColumns = simple;
 
   // Default order is the raw (draggable) `names` array; the other modes
   // derive a display order but leave `names` itself untouched, so every

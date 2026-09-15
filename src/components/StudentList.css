@@ -116,7 +116,12 @@
 
 .student-list--columns {
   display: block;
-  max-height: min(640px, 70vh);
+  /* No max-height/overflow here: CSS multi-column layout doesn't scroll a
+     capped height — overflow content spills into extra columns off the
+     right edge instead, silently hiding students. Let it grow to fit all
+     rows and rely on the surrounding .modal's own scroll. */
+  max-height: none;
+  overflow: visible;
   columns: 2;
   column-gap: 16px;
 }
