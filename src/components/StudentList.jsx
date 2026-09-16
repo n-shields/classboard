@@ -165,6 +165,11 @@ export default function StudentList({
     if (delta > 0) playDing(); else if (delta < 0) playClick();
   };
 
+  const setGems = (name, value) => {
+    const next = Math.max(0, Math.round(Number(value)) || 0);
+    onGemsChange?.({ ...gems, [name]: next });
+  };
+
   // Held +/- repeat for a single student's name field: the browser's own
   // OS-driven key-repeat is much faster than our target rate, so this
   // drives its own interval instead (matching the global shortcut in
@@ -462,10 +467,22 @@ export default function StudentList({
                       />
                     )}
                     <div className="student-gems" title={gemsLabel}>
-                      <span
-                        className="student-gems-value"
-                        onClick={simple ? () => nameInputRefs.current[idx]?.focus() : undefined}
-                      >{gems[name] || 0}</span>
+                      {simple ? (
+                        <span
+                          className="student-gems-value"
+                          onClick={() => nameInputRefs.current[idx]?.focus()}
+                        >{gems[name] || 0}</span>
+                      ) : (
+                        <input
+                          type="number"
+                          className="student-gems-input"
+                          min="0"
+                          value={gems[name] || 0}
+                          onChange={e => setGems(name, e.target.value)}
+                          onFocus={e => e.target.select()}
+                          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        />
+                      )}
                     </div>
                     <input
                       className="student-job-input"

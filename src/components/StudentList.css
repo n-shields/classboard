@@ -222,6 +222,25 @@
   font-variant-numeric: tabular-nums;
 }
 
+.student-gems-input {
+  width: 48px;
+  flex-shrink: 0;
+  padding: 4px 4px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Hide the native up/down spinner — the +/- shortcuts already cover
+   increment/decrement, so the arrows just eat width for no benefit. */
+.student-gems-input::-webkit-inner-spin-button,
+.student-gems-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.student-gems-input {
+  -moz-appearance: textfield;
+}
+
 .student-job-input {
   flex: 1 1 90px;
   min-width: 70px;
