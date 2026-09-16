@@ -9,7 +9,7 @@ import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
-import { THEMES, applyTheme } from "./data/themes";
+import { THEMES, applyTheme, hasDarkText, lightenForDarkText } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
@@ -628,12 +628,19 @@ export default function App() {
   const handleThemeChange = useCallback((theme) => {
     applyTheme(theme);
     if (periodKey) {
-      savePeriod(periodKey, { theme });
+      const patch = { theme };
+      // A pane background picked under a dark theme can go illegible once a
+      // light theme's dark text lands on top of it — brighten any that are
+      // now too dark, leaving already-light custom colors untouched.
+      if (hasDarkText(theme) && storedPages.some(p => p.bgColor)) {
+        patch.pages = storedPages.map(p => p.bgColor ? { ...p, bgColor: lightenForDarkText(p.bgColor) } : p);
+      }
+      savePeriod(periodKey, patch);
     } else {
       setGlobalTheme(theme);
       localStorage.setItem("classboard_global_theme", theme);
     }
-  }, [periodKey, savePeriod]);
+  }, [periodKey, savePeriod, storedPages]);
 
   const handleScheduleTypeChange = useCallback((type) => {
     if (type === scheduleType) return;

@@ -1,4 +1,4 @@
-function hexToHsl(hex) {
+export function hexToHsl(hex) {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -17,7 +17,7 @@ function hexToHsl(hex) {
   return [h * 360, s * 100, l * 100];
 }
 
-function hslToHex(h, s, l) {
+export function hslToHex(h, s, l) {
   s /= 100; l /= 100;
   const k = n => (n + h / 30) % 12;
   const a = s * Math.min(l, 1 - l);
@@ -200,6 +200,30 @@ export const THEMES = {
 };
 
 export const THEME_KEYS = Object.keys(THEMES);
+
+// Whether this theme's own body text renders dark-on-light (the light/
+// pastel themes) rather than the usual light-on-dark — used to decide
+// whether a manually picked pane background (chosen while some other theme
+// was active) still has enough contrast against this theme's text color.
+export function hasDarkText(key) {
+  const theme = THEMES[key] || THEMES.midnight;
+  const [, , l] = hexToHsl(theme["--text"]);
+  return l < 50;
+}
+
+// A custom pane background picked under a dark theme (where dark
+// backgrounds are the norm) can end up unreadable once a light theme's dark
+// text renders on top of it instead. Nudges it up to a pale version of the
+// same hue rather than leaving it as-is or overriding it outright.
+export function lightenForDarkText(hex, minLightness = 82) {
+  try {
+    const [h, s, l] = hexToHsl(hex);
+    if (l >= 50) return hex;
+    return hslToHex(h, s, minLightness);
+  } catch (_) {
+    return hex;
+  }
+}
 
 export function applyTheme(key) {
   const theme = THEMES[key] || THEMES.midnight;
