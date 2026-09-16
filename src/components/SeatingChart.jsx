@@ -9,6 +9,27 @@ const DESKS_KEY        = (p) => `classboard_seating_desks_${p ?? "default"}`;
 const CONSTRAINTS_KEY  = (p) => `classboard_seating_constraints_${p ?? "default"}`;
 const LAYOUT_TEMPLATE_KEY = "classboard_seating_layout_templates";
 const ROTATIONS  = [0, 90, 180, 270];
+// Which wall of the room is the "front" for Front/Back seating rules — a
+// separate, physical-room fact from where the Teacher card happens to sit
+// (a teacher might roam, or the front could be a whiteboard the teacher
+// isn't standing at when the chart is set up).
+const FRONT_DIRS   = ["top", "right", "bottom", "left"];
+const FRONT_ARROWS = { top: "⬆", right: "➡", bottom: "⬇", left: "⬅" };
+const FRONT_LABELS = {
+  top:    { text: "▲ FRONT", style: { top: 6, left: "50%", transform: "translateX(-50%)" } },
+  right:  { text: "FRONT ▶", style: { top: "50%", right: 6, transform: "translateY(-50%)" } },
+  bottom: { text: "▼ FRONT", style: { bottom: 6, left: "50%", transform: "translateX(-50%)" } },
+  left:   { text: "◀ FRONT", style: { top: "50%", left: 6, transform: "translateY(-50%)" } },
+};
+function seatComparator(frontDir) {
+  switch (frontDir) {
+    case "bottom": return (a, b) => (b.y - a.y) || (a.x - b.x);
+    case "left":   return (a, b) => (a.x - b.x) || (a.y - b.y);
+    case "right":  return (a, b) => (b.x - a.x) || (a.y - b.y);
+    case "top":
+    default:       return (a, b) => (a.y - b.y) || (a.x - b.x);
+  }
+}
 const CARD_SIZE  = 90;
 const CANVAS_W   = 1000;
 const CANVAS_H   = 700;
@@ -63,7 +84,8 @@ function findFreeSpot(occupied) {
 
 function loadPositions(p) { try { return JSON.parse(localStorage.getItem(STORAGE_KEY(p)) || "null"); } catch (_) { return null; } }
 function savePositions(p, v) { try { localStorage.setItem(STORAGE_KEY(p), JSON.stringify(v)); } catch (_) {} }
-function loadUI(p) { try { return { showDoor: true, showTeacher: true, rotation: 0, ...JSON.parse(localStorage.getItem(SEATING_UI_KEY(p)) || "{}") }; } catch (_) { return { showDoor: true, showTeacher: true, rotation: 0 }; } }
+const DEFAULT_UI = { showDoor: true, showTeacher: true, rotation: 0, frontDir: "top" };
+function loadUI(p) { try { return { ...DEFAULT_UI, ...JSON.parse(localStorage.getItem(SEATING_UI_KEY(p)) || "{}") }; } catch (_) { return { ...DEFAULT_UI }; } }
 function saveUI(p, v) { try { localStorage.setItem(SEATING_UI_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
@@ -85,6 +107,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
 
   const [positions,   setPositions]   = useState(() => initPositions(names, stored, initDesks));
   const [rotation,    setRotation]    = useState(initUI.rotation);
+  const [frontDir,    setFrontDir]    = useState(initUI.frontDir);
   const [zoom,        setZoom]        = useState(1);
   const [showDoor,    setShowDoor]    = useState(initUI.showDoor);
   const [showTeacher, setShowTeacher] = useState(initUI.showTeacher);
@@ -137,7 +160,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, []); // eslint-disable-line
 
   useEffect(() => { savePositions(periodKey, positions); }, [positions, periodKey]);
-  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation }); }, [showDoor, showTeacher, rotation, periodKey]);
+  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation, frontDir }); }, [showDoor, showTeacher, rotation, frontDir, periodKey]);
   useEffect(() => { saveRects(periodKey, rects); }, [rects, periodKey]);
   useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
   useEffect(() => { saveConstraints(periodKey, constraints); }, [constraints, periodKey]);
@@ -211,6 +234,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, [showRulesMenu]);
 
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
+  const cycleFrontDir = () => setFrontDir(d => FRONT_DIRS[(FRONT_DIRS.indexOf(d) + 1) % FRONT_DIRS.length]);
   const resetPositions = () => { setPositions(initPositions(names, null)); setDesks([]); setZoom(1); setPan({ x: 0, y: 0 }); };
 
   // Empty desks — for unassigned seats — are stored as plain card-shaped
@@ -258,6 +282,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         showDoor, showTeacher,
         doorPos:    positions.__door__,
         teacherPos: positions.__teacher__,
+        frontDir,
       },
     };
     saveLayoutTemplates(next);
@@ -314,6 +339,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     setRects((tpl.rects || []).map((r, i) => ({ ...r, id: Date.now() + i })));
     setShowDoor(tpl.showDoor);
     setShowTeacher(tpl.showTeacher);
+    if (tpl.frontDir) setFrontDir(tpl.frontDir);
     setShowLayoutMenu(false);
   };
 
@@ -386,17 +412,18 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
       const pinnedSet = new Set(constraints.pinned);
       const keys = names.filter(n => prev[n] && !pinnedSet.has(n));
       if (keys.length < 2) return prev;
-      // Seats in reading order (front row / left-to-right first) so "front"/
-      // "back" map to the actual first/last seats, and "together" groups can
-      // be laid down as a contiguous run of neighboring seats. Seats
-      // currently held by a pinned student are removed from the pool so
-      // nobody else can be shuffled into them.
+      // Seats ordered from the room's actual front (frontDir) to its back —
+      // not necessarily top-to-bottom — so "front"/"back" map to the real
+      // first/last seats, and "together" groups can be laid down as a
+      // contiguous run of neighboring seats. Seats currently held by a
+      // pinned student are removed from the pool so nobody else can be
+      // shuffled into them.
       const pinnedSeats = new Set(names.filter(n => pinnedSet.has(n) && prev[n]).map(n => `${prev[n].x},${prev[n].y}`));
       const seatCoords = names
         .filter(n => prev[n])
         .map(n => prev[n])
         .filter(p => !pinnedSeats.has(`${p.x},${p.y}`))
-        .sort((a, b) => a.y - b.y || a.x - b.x);
+        .sort(seatComparator(frontDir));
       const N = seatCoords.length;
 
       const together = constraints.together.map(g => g.filter(n => keys.includes(n))).filter(g => g.length > 1);
@@ -875,6 +902,14 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
               style={{ left: preview.x, top: preview.y, width: preview.w, height: preview.h }} />
           )}
 
+          {/* Front-of-room indicator — a fact about the physical room, not
+              draggable like Door/Teacher, and independent of them. */}
+          <div className="seating-front-label" style={FRONT_LABELS[frontDir].style}>
+            <span style={{ transform: `rotate(-${rotation}deg)`, display: "block", transition: "transform 0.3s" }}>
+              {FRONT_LABELS[frontDir].text}
+            </span>
+          </div>
+
           {/* Special items */}
           {Object.entries(SPECIAL).map(([key, { label, w, h, className }]) => {
             if (!specialVisible[key]) return null;
@@ -958,6 +993,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           onClick={() => setShowTeacher(v => !v)}
           title="Toggle Teacher"
         >🧑‍🏫</button>
+        <button
+          className="seating-sidebar-btn"
+          onClick={cycleFrontDir}
+          title={`Front of the room: ${frontDir} (click to change) — used by the Front/Back seating rules, independent of where the Teacher card sits`}
+        >{FRONT_ARROWS[frontDir]}</button>
 
         <div className="seating-sidebar-divider" />
 
