@@ -23,26 +23,8 @@ body {
   overflow: hidden;
 }
 
-/* Teacher View's synced "🖥 Board" popup (see App.jsx's isBoardPopup)
-   scales everything down to 80% — not just a smaller window — so it lays
-   out like a miniature of the real board rather than the same fixed-size
-   UI cramped into less space. transform (not `zoom`) is what makes this
-   work cleanly: `zoom` doesn't compensate 100vh-based sizing (every level
-   from #root down would need its own 1/0.8 correction), and a transform on
-   body also becomes the containing block for position:fixed descendants —
-   including TextPane's floating toolbar, portaled straight onto <body> —
-   so that scales right along with everything else instead of escaping it.
-   Pre-inflating by 1/0.8 here cancels the 0.8 shrink back out to exactly
-   the real viewport size. */
-body.board-popup-scale {
-  width: 125vw;
-  height: 125vh;
-  transform: scale(0.8);
-  transform-origin: top left;
-}
-
 #root {
-  height: 100%;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }

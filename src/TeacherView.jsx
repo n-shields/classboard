@@ -220,16 +220,14 @@ export default function TeacherView() {
   };
 
   // Opens a second, ordinary board window — synced through localStorage the
-  // same way this Teacher View already is — so the teacher can switch its
-  // own period selector to a different period and edit that period's board/
-  // notes/roster without touching whatever's actually being projected in
-  // the primary window. Defaults to 80% of the screen; App.jsx gives it a
-  // red border + "Update" button (see isBoardPopup there) so it's never
-  // mistaken for the live display.
+  // same way this Teacher View already is (changes flow both ways, live) —
+  // so the teacher can switch its own period selector to a different period
+  // and edit that period's board/notes/roster without touching whatever's
+  // actually being projected in the primary window.
   const openBoardView = () => {
     const bounds = loadBoardViewBounds();
-    const width  = bounds?.width  || Math.round(window.screen.availWidth  * 0.8);
-    const height = bounds?.height || Math.round(window.screen.availHeight * 0.8);
+    const width  = bounds?.width  || 1100;
+    const height = bounds?.height || 760;
     const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + 40;
     const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + 40;
     const url = new URL(window.location.href);
