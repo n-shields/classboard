@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
-import { THEMES, THEME_KEYS } from "../data/themes";
+import { THEMES, THEME_KEYS, hasDarkText } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
 import { playClick, playDing, playClap, playQuack } from "../data/sounds";
 import {
@@ -59,6 +60,8 @@ export default function PeriodBar({
   const [editorOpen,    setEditorOpen]    = useState(false);
   const [studentsOpen,  setStudentsOpen]  = useState(false);
   const [layoutToolOpen, setLayoutToolOpen] = useState(false);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [themeMenuRect, setThemeMenuRect] = useState(null);
   const [visible,       setVisible]       = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isFullscreen,  setIsFullscreen]  = useState(false);
@@ -73,6 +76,8 @@ export default function PeriodBar({
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
   const sidebarHideTimer = useRef(null);
+  const themeMenuRef = useRef(null);
+  const themeBtnRef = useRef(null);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -285,6 +290,22 @@ export default function PeriodBar({
     else document.documentElement.requestFullscreen?.();
   };
 
+  // Close the theme dropdown on an outside click or Escape.
+  useEffect(() => {
+    if (!themeMenuOpen) return;
+    const onMouseDown = (e) => {
+      if (themeMenuRef.current?.contains(e.target) || themeBtnRef.current?.contains(e.target)) return;
+      setThemeMenuOpen(false);
+    };
+    const onKeyDown = (e) => { if (e.key === "Escape") setThemeMenuOpen(false); };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [themeMenuOpen]);
+
   const scheduleNames = Object.keys(schedules);
 
   const show = () => { clearTimeout(hideTimer.current); setVisible(true); };
@@ -375,13 +396,51 @@ export default function PeriodBar({
 
           <div className="tb-divider" />
 
-          {/* Theme picker — click dot to cycle */}
-          <button
-            className="tb-theme-dot"
-            style={{ background: THEMES[currentTheme]?.swatch }}
-            onClick={() => onThemeChange(THEME_KEYS[(THEME_KEYS.indexOf(currentTheme) + 1) % THEME_KEYS.length])}
-            title={`Theme: ${THEMES[currentTheme]?.name} (click to cycle)`}
-          />
+          {/* Theme picker — the menu is portaled to <body> (positioned from
+              the trigger's live rect) since the toolbar row's overflow-x:
+              auto implicitly clips overflow-y too, cutting off anything
+              that tries to drop down past the row's own height. */}
+          <div className="tb-theme-picker">
+            <button
+              ref={themeBtnRef}
+              className="tb-theme-trigger"
+              onClick={() => {
+                if (!themeMenuOpen) setThemeMenuRect(themeBtnRef.current?.getBoundingClientRect() ?? null);
+                setThemeMenuOpen(v => !v);
+              }}
+              title={`Theme: ${THEMES[currentTheme]?.name}`}
+            >
+              <span className="tb-theme-swatch" style={{ background: THEMES[currentTheme]?.swatch }} />
+              {THEMES[currentTheme]?.name}
+              <span className="tb-theme-caret">▾</span>
+            </button>
+            {themeMenuOpen && themeMenuRect && createPortal(
+              <div
+                className="tb-theme-menu"
+                ref={themeMenuRef}
+                style={{ top: themeMenuRect.bottom + 4, left: themeMenuRect.left }}
+              >
+                {THEME_KEYS.flatMap((key, i) => {
+                  const nodes = [];
+                  if (i > 0 && hasDarkText(key) && !hasDarkText(THEME_KEYS[i - 1])) {
+                    nodes.push(<div key={`div-${key}`} className="tb-theme-menu-divider" />);
+                  }
+                  nodes.push(
+                    <button
+                      key={key}
+                      className={`tb-theme-option ${key === currentTheme ? "tb-theme-option--active" : ""}`}
+                      onClick={() => { onThemeChange(key); setThemeMenuOpen(false); }}
+                    >
+                      <span className="tb-theme-swatch" style={{ background: THEMES[key].swatch }} />
+                      {THEMES[key].name}
+                    </button>,
+                  );
+                  return nodes;
+                })}
+              </div>,
+              document.body,
+            )}
+          </div>
 
           {/* Student list */}
           {onNamesChange && (
