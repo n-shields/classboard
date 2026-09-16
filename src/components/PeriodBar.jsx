@@ -4,7 +4,7 @@ import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
-import { playClick, playDing } from "../data/sounds";
+import { playClick, playDing, playClap, playQuack } from "../data/sounds";
 import {
   isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
@@ -167,6 +167,7 @@ export default function PeriodBar({
   //                stays open until the teacher closes it (Space, Escape, or
   //                clicking off).
   //   a            toggles auto-detect period
+  //   c / q        plays a clap / duck-quack sound effect
   const periods = schedules[scheduleType] || [];
   const namesRef = useRef(names);
   const gemsRef = useRef(gems);
@@ -238,6 +239,12 @@ export default function PeriodBar({
         if (e.repeat || document.querySelector(".modal-overlay")) return;
         e.preventDefault();
         onAutoModeChangeRef.current?.(!autoModeRef.current);
+        return;
+      }
+      if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "q") {
+        if (e.repeat || document.querySelector(".modal-overlay")) return;
+        e.preventDefault();
+        if (e.key.toLowerCase() === "c") playClap(); else playQuack();
         return;
       }
       const periodDelta = periodDeltaForKey(e.key);

@@ -211,7 +211,6 @@ export default function ClockWidget({
   //   space  pause the timer if running, start it if paused
   //   r      reset the timer back to its last-entered duration
   //   p/t    jump to Period / Timer mode
-  //   c      collapse or expand the clock pane
   useEffect(() => {
     const handler = (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -247,13 +246,12 @@ export default function ClockWidget({
         case "p": setMode("Period"); break;
         case "t": setMode("Timer"); break;
         case "r": setMode("Timer"); resetTimer(); break;
-        case "c": onToggle?.(); break;
         default: break;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setPreset, adjustTimer, onToggle, timerDone, timerRunning, timerInput]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [setPreset, adjustTimer, timerDone, timerRunning, timerInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTimerInputBlur = () => {
     const parts = timerInput.split(":").map(Number);
