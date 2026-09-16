@@ -164,6 +164,17 @@
   flex-shrink: 0;
 }
 
+.textpane-toolbar-backcolor {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  background: transparent;
+}
+
 .textpane-toolbar-divider {
   width: 1px;
   height: 20px;

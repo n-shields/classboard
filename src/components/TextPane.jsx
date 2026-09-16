@@ -100,6 +100,28 @@ export default function TextPane({
     saveContent();
   };
 
+  // A native color input's own click steals focus (and, in some browsers,
+  // the selection) away from the contentEditable before its picker dialog
+  // even opens — so the selection has to be captured up front, on mousedown,
+  // and restored just before the command runs in onChange.
+  const savedRangeRef = useRef(null);
+  const captureSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+  const execBackColor = (color) => {
+    editorRef.current?.focus();
+    if (savedRangeRef.current) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRangeRef.current);
+    }
+    document.execCommand("hiliteColor", false, color);
+    saveContent();
+  };
+
   const changeSizeForSelection = (delta) => {
     editorRef.current?.focus();
     document.execCommand("fontSize", false, "7");
@@ -288,6 +310,14 @@ export default function TextPane({
           <button className={`btn btn-sm textpane-toolbar-btn ${isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isNumbered ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
+          <input
+            type="color"
+            className="textpane-toolbar-backcolor"
+            defaultValue="#ffff00"
+            onMouseDown={captureSelection}
+            onChange={e => execBackColor(e.target.value)}
+            title="Highlight color for selected text"
+          />
           <div className="textpane-toolbar-divider" />
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={addPage} title="Add a page">+</button>
