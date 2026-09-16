@@ -84,6 +84,47 @@
   padding: 3px 7px;
 }
 
+/* ── Left hover trigger zone (periods sidebar) ── */
+.period-sidebar-trigger {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  z-index: 200;
+}
+
+/* ── Left periods sidebar ── */
+.period-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 199;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 8px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
+  transform: translateX(-110%);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+}
+.period-sidebar::-webkit-scrollbar { display: none; }
+
+.period-sidebar--visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.period-sidebar .period-btn {
+  width: 100%;
+}
+
 /* ── Period buttons ── */
 .period-btn {
   background: var(--surface);

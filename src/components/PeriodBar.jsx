@@ -60,6 +60,7 @@ export default function PeriodBar({
   const [studentsOpen,  setStudentsOpen]  = useState(false);
   const [layoutToolOpen, setLayoutToolOpen] = useState(false);
   const [visible,       setVisible]       = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
   const [isFullscreen,  setIsFullscreen]  = useState(false);
   // "off": no folder chosen. "on": chosen and writable. "needs-permission":
   // a folder was chosen in an earlier session but the browser hasn't
@@ -71,6 +72,7 @@ export default function PeriodBar({
   const autosaveHandleRef = useRef(null);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
+  const sidebarHideTimer = useRef(null);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -270,6 +272,9 @@ export default function PeriodBar({
   const show = () => { clearTimeout(hideTimer.current); setVisible(true); };
   const scheduleHide = () => { hideTimer.current = setTimeout(() => setVisible(false), 300); };
 
+  const showSidebar = () => { clearTimeout(sidebarHideTimer.current); setSidebarVisible(true); };
+  const scheduleHideSidebar = () => { sidebarHideTimer.current = setTimeout(() => setSidebarVisible(false), 300); };
+
   const openTeacherView = () => {
     const bounds = loadTeacherViewBounds();
     // Floored (not just defaulted) so a size saved from before the student
@@ -352,24 +357,6 @@ export default function PeriodBar({
 
           <div className="tb-divider" />
 
-          {/* Period buttons */}
-          {periods.map((p, i) => {
-            const isActive = i === currentPeriodIndex;
-            const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
-            return (
-              <button
-                key={p.id ?? `${p.label}-${i}`}
-                className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
-                onClick={() => onPeriodSelect(i)}
-                title={`${p.start}–${p.end}`}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-
-          <div className="tb-divider" />
-
           {/* Theme picker — click dot to cycle */}
           <button
             className="tb-theme-dot"
@@ -419,6 +406,32 @@ export default function PeriodBar({
           >⛶</button>
           <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleImportFile} />
         </div>
+      </div>
+
+      {/* Invisible hover zone at the left edge — periods live in their own
+          slide-out sidebar so the top toolbar doesn't have to grow with the
+          schedule's period count. */}
+      <div className="period-sidebar-trigger" onMouseEnter={showSidebar} onMouseLeave={scheduleHideSidebar} />
+
+      <div
+        className={`period-sidebar${sidebarVisible ? " period-sidebar--visible" : ""}`}
+        onMouseEnter={showSidebar}
+        onMouseLeave={scheduleHideSidebar}
+      >
+        {periods.map((p, i) => {
+          const isActive = i === currentPeriodIndex;
+          const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
+          return (
+            <button
+              key={p.id ?? `${p.label}-${i}`}
+              className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
+              onClick={() => onPeriodSelect(i)}
+              title={`${p.start}–${p.end}`}
+            >
+              {p.label}
+            </button>
+          );
+        })}
       </div>
 
       {editorOpen && (
