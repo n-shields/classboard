@@ -119,6 +119,15 @@ function loadLayouts() {
 // openBoardView) — stable for the life of the window, so no need for state.
 const isBoardPopup = typeof window !== "undefined" && !!window.opener;
 
+// Named so the popup's "Update" button can find and refresh this specific
+// window later regardless of how many windows away it was opened from
+// (window.opener chains break if any link in them gets closed or wasn't
+// opened via our own buttons) — window.open(url, name) against an existing
+// name navigates that window directly, rather than needing a live
+// reference to it.
+const MAIN_BOARD_WINDOW_NAME = "classboard-main";
+if (typeof window !== "undefined" && !isBoardPopup) window.name = MAIN_BOARD_WINDOW_NAME;
+
 export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
@@ -238,6 +247,14 @@ export default function App() {
 
   // Apply theme whenever it changes
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
+
+  // Scale everything in the popup down to 80% (see the .board-popup-scale
+  // rule in index.css for why this is a body class + transform, not zoom).
+  useEffect(() => {
+    if (!isBoardPopup) return;
+    document.body.classList.add("board-popup-scale");
+    return () => document.body.classList.remove("board-popup-scale");
+  }, []);
 
   // Remember this window's position/size, but only when it's the popup
   // opened from Teacher View (see openBoardView) — the primary board window
@@ -766,8 +783,11 @@ export default function App() {
       {isBoardPopup && (
         <button
           className="app-board-update-btn"
-          onClick={() => window.location.reload()}
-          title="Reload this window with the latest saved data"
+          onClick={() => {
+            const url = `${window.location.origin}${window.location.pathname}`;
+            window.open(url, MAIN_BOARD_WINDOW_NAME);
+          }}
+          title="Refresh the main class board with your latest changes"
         >⟳ Update</button>
       )}
       <PeriodBar
