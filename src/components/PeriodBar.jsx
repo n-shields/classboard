@@ -3,9 +3,11 @@ import { createPortal } from "react-dom";
 import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
+import HotkeysEditor from "./HotkeysEditor";
 import { THEMES, THEME_KEYS, hasDarkText } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
-import { playClick, playDing, playClap, playQuack } from "../data/sounds";
+import { playClick, playDing } from "../data/sounds";
+import { loadSoundHotkeys, saveSoundHotkeys, soundById } from "../data/soundHotkeys";
 import {
   isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
@@ -60,6 +62,8 @@ export default function PeriodBar({
   const [editorOpen,    setEditorOpen]    = useState(false);
   const [studentsOpen,  setStudentsOpen]  = useState(false);
   const [layoutToolOpen, setLayoutToolOpen] = useState(false);
+  const [hotkeysEditorOpen, setHotkeysEditorOpen] = useState(false);
+  const [soundHotkeys, setSoundHotkeys] = useState(loadSoundHotkeys);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [themeMenuRect, setThemeMenuRect] = useState(null);
   const [visible,       setVisible]       = useState(false);
@@ -172,7 +176,8 @@ export default function PeriodBar({
   //                stays open until the teacher closes it (Space, Escape, or
   //                clicking off).
   //   a            toggles auto-detect period
-  //   c / q        plays a clap / duck-quack sound effect
+  //   (custom)     plays a sound effect — see soundHotkeys / HotkeysEditor,
+  //                opened from the "🔊 Hotkeys" button
   const periods = schedules[scheduleType] || [];
   const namesRef = useRef(names);
   const gemsRef = useRef(gems);
@@ -182,6 +187,7 @@ export default function PeriodBar({
   const periodsRef = useRef(periods);
   const currentPeriodIndexRef = useRef(currentPeriodIndex);
   const onPeriodSelectRef = useRef(onPeriodSelect);
+  const soundHotkeysRef = useRef(soundHotkeys);
   useEffect(() => { namesRef.current = names; }, [names]);
   useEffect(() => { gemsRef.current = gems; }, [gems]);
   useEffect(() => { onGemsChangeRef.current = onGemsChange; }, [onGemsChange]);
@@ -190,6 +196,7 @@ export default function PeriodBar({
   useEffect(() => { periodsRef.current = periods; }, [periods]);
   useEffect(() => { currentPeriodIndexRef.current = currentPeriodIndex; }, [currentPeriodIndex]);
   useEffect(() => { onPeriodSelectRef.current = onPeriodSelect; }, [onPeriodSelect]);
+  useEffect(() => { soundHotkeysRef.current = soundHotkeys; }, [soundHotkeys]);
 
   useEffect(() => {
     // e.code (the physical key) rather than e.key, since holding Shift
@@ -246,10 +253,14 @@ export default function PeriodBar({
         onAutoModeChangeRef.current?.(!autoModeRef.current);
         return;
       }
-      if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "q") {
+      // Matches how HotkeysEditor stores a captured key: lowercased for a
+      // plain character, as-is (e.g. "ArrowLeft") for anything longer.
+      const soundKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const soundId = soundHotkeysRef.current[soundKey];
+      if (soundId) {
         if (e.repeat || document.querySelector(".modal-overlay")) return;
         e.preventDefault();
-        if (e.key.toLowerCase() === "c") playClap(); else playQuack();
+        soundById(soundId)?.play();
         return;
       }
       const periodDelta = periodDeltaForKey(e.key);
@@ -288,6 +299,11 @@ export default function PeriodBar({
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen?.();
+  };
+
+  const handleSoundHotkeysChange = (map) => {
+    setSoundHotkeys(map);
+    saveSoundHotkeys(map);
   };
 
   // Close the theme dropdown on an outside click or Escape.
@@ -393,6 +409,7 @@ export default function PeriodBar({
 
           <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setEditorOpen(true)}>Edit</button>
           <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setLayoutToolOpen(true)} title="Show/hide panes, presets, and saved layouts">▦ Layout</button>
+          <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setHotkeysEditorOpen(true)} title="Assign sound effects to keyboard shortcuts">🔊 Hotkeys</button>
 
           <div className="tb-divider" />
 
@@ -557,6 +574,14 @@ export default function PeriodBar({
           layout={layout}
           onLayoutChange={onLayoutChange}
           onClose={() => setLayoutToolOpen(false)}
+        />
+      )}
+
+      {hotkeysEditorOpen && (
+        <HotkeysEditor
+          hotkeys={soundHotkeys}
+          onChange={handleSoundHotkeysChange}
+          onClose={() => setHotkeysEditorOpen(false)}
         />
       )}
     </>
