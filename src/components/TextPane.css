@@ -115,14 +115,19 @@
    continuously. text-indent (not transform) is what's animated — it only
    shifts where the glyphs render, leaving the editable element's own box
    (and hit-testing) fixed in place, so clicking into the pane to edit it
-   still works no matter where mid-scroll the text currently is. --marquee-
-   from/to (pixel values, set by TextPane's applyMarqueeDistance) span from
-   fully off-screen right to fully off-screen left based on the text's
-   actual measured width, rather than a fixed 2x-the-pane's-width travel —
-   that fixed distance only worked for text shorter than the pane; longer
-   text never finished exiting before the loop reset, reading as a stall
-   right as it reached the left edge. The 28s/percent fallbacks here just
-   cover the instant before that effect runs. */
+   still works no matter where mid-scroll the text currently is. (transform
+   can't do this job: it moves the whole box — clip region included — as
+   one rigid unit, so overflow:hidden would just clip differently as the
+   box slides rather than reveal text scrolling within a still frame; that
+   needs an inner element transformed inside a separate, stationary clipping
+   parent, which doesn't fit cleanly around a single contentEditable.)
+   --marquee-from/to (pixel values, set by TextPane's applyMarqueeDistance)
+   span from fully off-screen right to fully off-screen left based on the
+   text's actual measured width, rather than a fixed 2x-the-pane's-width
+   travel — that fixed distance only worked for text shorter than the pane;
+   longer text never finished exiting before the loop reset, reading as a
+   stall right as it reached the left edge. The 28s/percent fallbacks here
+   just cover the instant before that effect runs. */
 .textpane-textarea--scrolling {
   white-space: nowrap;
   overflow: hidden;

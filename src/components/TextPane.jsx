@@ -70,6 +70,19 @@ export default function TextPane({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePageId]);
 
+  // Pick up edits to this same page arriving from elsewhere — another open
+  // window (they sync through localStorage + the "storage" event almost
+  // instantly, see App's reload effect), or a sync'd tab in another period —
+  // while never touching the DOM if this pane is the one actually being
+  // typed into right now, which would yank the caret out from under the
+  // person typing.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el || !activePage || document.activeElement === el) return;
+    const html = activePage.html ?? "";
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }, [activePage?.html]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Track selection state for conditional formatting
   useEffect(() => {
     const update = () => {
@@ -102,12 +115,23 @@ export default function TextPane({
   // That fixed-distance version only worked for text shorter than the pane:
   // longer text never finished exiting before the loop reset, reading as a
   // stall/pause once it reached the left edge.
+  const lastMarqueeMeasureRef = useRef(null);
   const applyMarqueeDistance = () => {
     const el = editorRef.current;
     if (!el || !activePage?.scrolling) return;
     const containerWidth = el.clientWidth;
     const textWidth = el.scrollWidth;
     if (!containerWidth) return;
+    // Reassigning animation-duration (or the --marquee-from/to it derives
+    // from) while the animation is already running can make the browser
+    // reset/jump its current position, even when the new values are
+    // identical to what's already applied — this fires on every keystroke
+    // (via saveContent) and on every ResizeObserver callback (which can
+    // report spuriously, e.g. once on initial .observe()), so skip the
+    // reassignment entirely unless the measured width actually changed.
+    const last = lastMarqueeMeasureRef.current;
+    if (last && last.containerWidth === containerWidth && last.textWidth === textWidth) return;
+    lastMarqueeMeasureRef.current = { containerWidth, textWidth };
     const distancePx = containerWidth + textWidth;
     const seconds = distancePx / (CSS_PX_PER_CM * SCROLL_SPEED_CM_PER_SEC);
     el.style.setProperty("--marquee-from", `${containerWidth}px`);
@@ -366,7 +390,7 @@ export default function TextPane({
             style={{ opacity: activePage.bgColor ? 1 : 0.35 }}
           >↺</button>
           <div className="textpane-toolbar-divider" />
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page">✕</button>
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={addPage} title="Add a page">+</button>
           <button
             className={`btn btn-sm textpane-toolbar-btn ${activeSyncMates.length > 0 ? "btn-primary" : "btn-ghost"}`}
