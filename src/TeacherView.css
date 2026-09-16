@@ -19,7 +19,7 @@
   flex-shrink: 0;
 }
 
-.teacher-view-seats-btn {
+.teacher-view-header-btn {
   flex-shrink: 0;
 }
 
@@ -34,29 +34,6 @@
 .teacher-view-period {
   font-size: 0.85rem;
   font-weight: 600;
-}
-
-.teacher-view-textbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.tb-scrolling-toggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  cursor: pointer;
-  user-select: none;
-}
-.tb-scrolling-toggle input {
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 .teacher-view-body {

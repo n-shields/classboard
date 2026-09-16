@@ -14,6 +14,7 @@ import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, 
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
+import { saveBoardViewBounds } from "./data/teacherView";
 import "./App.css";
 
 const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
@@ -233,6 +234,21 @@ export default function App() {
 
   // Apply theme whenever it changes
   useEffect(() => { applyTheme(currentTheme); }, [currentTheme]);
+
+  // Remember this window's position/size, but only when it's the popup
+  // opened from Teacher View (see openBoardView) — the primary board window
+  // (usually fullscreen on a projector) shouldn't have its bounds saved,
+  // which would otherwise clobber the popup's own remembered spot.
+  useEffect(() => {
+    if (!window.opener) return;
+    const save = () => saveBoardViewBounds({
+      left: window.screenX, top: window.screenY,
+      width: window.outerWidth, height: window.outerHeight,
+    });
+    const id = setInterval(save, 2000);
+    window.addEventListener("beforeunload", save);
+    return () => { clearInterval(id); window.removeEventListener("beforeunload", save); };
+  }, []);
 
   // ── Schedule auto-selection ──────────────────────────────────────────────
   useEffect(() => {

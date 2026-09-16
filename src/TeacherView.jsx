@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import ClockWidget from "./components/ClockWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
@@ -8,7 +8,7 @@ import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod,
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
-import { saveTeacherViewBounds, loadSeatingViewBounds } from "./data/teacherView";
+import { saveTeacherViewBounds, loadSeatingViewBounds, loadBoardViewBounds } from "./data/teacherView";
 import { loadTeacherLayout, saveTeacherLayout } from "./data/teacherLayout";
 import "./TeacherView.css";
 
@@ -173,13 +173,6 @@ export default function TeacherView() {
 
   const currentTeacherNotesPages = pagesForPane(currentTeacherPages, currentTeacherPanes, TEACHER_NOTES_PANE);
 
-  // The notes pane renders no toolbar of its own — Teacher View is small
-  // enough (and has only this one text pane) that a plain, always-visible
-  // text-controls bar below the header is simpler than an active-pane
-  // tracking scheme like the main board's.
-  const notesPaneRef = useRef(null);
-  const [notesStatus, setNotesStatus] = useState(null);
-
   const tiles = {
     clock: (
       <ClockWidget
@@ -204,13 +197,11 @@ export default function TeacherView() {
     notes: (
       <TextPane
         key={`teacher-notes-${periodKey}`}
-        ref={notesPaneRef}
         kind="Notes"
         defaultFontSize={20}
         pages={currentTeacherNotesPages}
         onPagesChange={handleTeacherPagesChange}
         periodLabel={currentPeriod?.label}
-        onStatusChange={setNotesStatus}
       />
     ),
   };
@@ -228,6 +219,24 @@ export default function TeacherView() {
     popup?.focus();
   };
 
+  // Opens a second, ordinary board window — synced through localStorage the
+  // same way this Teacher View already is — so the teacher can switch its
+  // own period selector to a different period and edit that period's board/
+  // notes/roster without touching whatever's actually being projected in
+  // the primary window.
+  const openBoardView = () => {
+    const bounds = loadBoardViewBounds();
+    const width  = bounds?.width  || 1100;
+    const height = bounds?.height || 760;
+    const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + 40;
+    const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + 40;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    url.searchParams.delete("s");
+    const popup = window.open(url.toString(), "classboard-board-view", `width=${width},height=${height},left=${left},top=${top}`);
+    popup?.focus();
+  };
+
   return (
     <div className="teacher-view">
       <div className="teacher-view-header">
@@ -239,29 +248,15 @@ export default function TeacherView() {
           title="Edit the student list"
         >👥 Students</button>
         <button
-          className="btn btn-ghost btn-sm teacher-view-seats-btn"
+          className="btn btn-ghost btn-sm teacher-view-header-btn"
           onClick={openSeatingView}
           title="Open the seating chart in its own window"
         >⊞ Seats</button>
-      </div>
-      <div className="teacher-view-textbar">
-        <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.adjustFontSize(4); }} title={notesStatus?.hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
-        <button className="btn btn-ghost btn-sm" onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.adjustFontSize(-4); }} title={notesStatus?.hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
-        <button className={`btn btn-sm ${notesStatus?.isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.execFormat("bold"); }} title="Bold"><strong>B</strong></button>
-        <button className={`btn btn-sm ${notesStatus?.isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.execFormat("italic"); }} title="Italic"><em>I</em></button>
-        <button className={`btn btn-sm ${notesStatus?.isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
-        <button className={`btn btn-sm ${notesStatus?.isNumbered ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); notesPaneRef.current?.execFormat("insertOrderedList"); }} title="Numbered list">1.</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => notesPaneRef.current?.clear()} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => notesPaneRef.current?.addPage()} title="Add a page" style={{ marginLeft: "auto" }}>+</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => notesPaneRef.current?.closePage()} title="Close this page">🗑</button>
-        <label className="tb-scrolling-toggle" title="Scroll this page's text across the pane like a ticker">
-          <input
-            type="checkbox"
-            checked={!!notesStatus?.isScrolling}
-            onChange={() => notesPaneRef.current?.toggleScrolling()}
-          />
-          Scrolling
-        </label>
+        <button
+          className="btn btn-ghost btn-sm teacher-view-header-btn"
+          onClick={openBoardView}
+          title="Open a synced board window to browse and edit another period's content"
+        >🖥 Board</button>
       </div>
       <div className="teacher-view-body">
         <TileLayout

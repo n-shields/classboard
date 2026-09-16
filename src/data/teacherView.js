@@ -1,5 +1,6 @@
 export const TEACHER_VIEW_BOUNDS_KEY = "classboard_teacher_view_bounds";
 export const SEATING_VIEW_BOUNDS_KEY = "classboard_seating_view_bounds";
+export const BOARD_VIEW_BOUNDS_KEY = "classboard_board_view_bounds";
 
 function loadBounds(key) {
   try {
@@ -18,3 +19,6 @@ export function saveTeacherViewBounds(bounds) { saveBounds(TEACHER_VIEW_BOUNDS_K
 
 export function loadSeatingViewBounds() { return loadBounds(SEATING_VIEW_BOUNDS_KEY); }
 export function saveSeatingViewBounds(bounds) { saveBounds(SEATING_VIEW_BOUNDS_KEY, bounds); }
+
+export function loadBoardViewBounds() { return loadBounds(BOARD_VIEW_BOUNDS_KEY); }
+export function saveBoardViewBounds(bounds) { saveBounds(BOARD_VIEW_BOUNDS_KEY, bounds); }
