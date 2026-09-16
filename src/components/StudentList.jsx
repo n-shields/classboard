@@ -39,6 +39,13 @@ export default function StudentList({
   // Simple mode has no visible color swatch — double-clicking the name
   // opens a hidden color input's native picker instead.
   const colorInputRefs = useRef({});
+  // Clicking the points value highlights a row without the name field ever
+  // gaining real DOM focus — but the +/- gems shortcuts key off which field
+  // is actually focused (that's what keeps the global "every student"
+  // shortcut from double-firing), so a plain highlight wouldn't route
+  // keystrokes to just that student. Focusing the name input for real here
+  // fixes that in one place, since onFocus already sets activeIdx too.
+  const nameInputRefs = useRef({});
 
   // Points aren't a real focusable element, so a click there needs its own
   // "clear" path too — anything outside the two activation spots drops it.
@@ -392,6 +399,7 @@ export default function StudentList({
                     )}
                     <input
                       className="student-name-input"
+                      ref={el => { nameInputRefs.current[idx] = el; }}
                       value={name}
                       onChange={e => setName(idx, e.target.value)}
                       onFocus={simple ? () => setActiveIdx(idx) : undefined}
@@ -402,16 +410,24 @@ export default function StudentList({
                         // student — the global shortcut (all students) is blocked
                         // while any field has focus, so this doesn't double up.
                         if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-                          const delta = e.key === "+" || e.key === "=" ? 1 : e.key === "-" ? -1 : 0;
+                          const magnitude = e.shiftKey ? 10 : 1;
+                          const delta = e.code === "Equal" || e.key === "+" || e.key === "=" ? magnitude
+                            : e.code === "Minus" || e.key === "-" || e.key === "_" ? -magnitude : 0;
                           if (delta) {
                             e.preventDefault();
-                            if (e.repeat || heldTimersRef.current.has(e.key)) return; // we drive our own repeat, not the browser's
+                            // Keyed by the physical key, not e.key — Shift
+                            // changing mid-hold changes e.key (e.g. "-" <-> "_")
+                            // without its own keydown/keyup pair, which would
+                            // otherwise orphan the interval under a key its
+                            // matching keyup no longer reports.
+                            const holdKey = e.code || e.key;
+                            if (e.repeat || heldTimersRef.current.has(holdKey)) return; // we drive our own repeat, not the browser's
                             adjustGems(name, delta);
-                            heldTimersRef.current.set(e.key, setInterval(() => adjustGems(name, delta), GEMS_REPEAT_MS));
+                            heldTimersRef.current.set(holdKey, setInterval(() => adjustGems(name, delta), GEMS_REPEAT_MS));
                           }
                         }
                       }}
-                      onKeyUp={e => stopHeldKey(e.key)}
+                      onKeyUp={e => stopHeldKey(e.code || e.key)}
                       onDoubleClick={simple ? () => colorInputRefs.current[idx]?.click() : undefined}
                       title={simple ? "Double-click to change color" : undefined}
                       style={simple ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}
@@ -448,7 +464,7 @@ export default function StudentList({
                     <div className="student-gems" title={gemsLabel}>
                       <span
                         className="student-gems-value"
-                        onClick={simple ? () => setActiveIdx(idx) : undefined}
+                        onClick={simple ? () => nameInputRefs.current[idx]?.focus() : undefined}
                       >{gems[name] || 0}</span>
                     </div>
                     <input

@@ -159,12 +159,13 @@ export default function PeriodBar({
   // Keyboard shortcuts, active whenever no text field has focus:
   //   ←/→ and ↑/↓  cycle the active period (wraps; disables auto-detect,
   //                same as clicking a period button)
-  //   +/- (or =/-) give or take 1 gem from every student — held keys repeat
-  //                at a fixed rate via our own timer rather than relying on
-  //                the browser's OS-driven key-repeat, which varies and
-  //                starts after a delay. Applying a delta opens the (real,
-  //                central) student list, which then just stays open until
-  //                the teacher closes it (Space, Escape, or clicking off).
+  //   +/- (or =/-) give or take 1 gem from every student, or 10 with Shift
+  //                held — held keys repeat at a fixed rate via our own timer
+  //                rather than relying on the browser's OS-driven key-repeat,
+  //                which varies and starts after a delay. Applying a delta
+  //                opens the (real, central) student list, which then just
+  //                stays open until the teacher closes it (Space, Escape, or
+  //                clicking off).
   //   a            toggles auto-detect period
   const periods = schedules[scheduleType] || [];
   const namesRef = useRef(names);
@@ -185,9 +186,14 @@ export default function PeriodBar({
   useEffect(() => { onPeriodSelectRef.current = onPeriodSelect; }, [onPeriodSelect]);
 
   useEffect(() => {
-    const gemsDeltaForKey = (key) => {
-      if (key === "+" || key === "=") return 1;
-      if (key === "-") return -1;
+    // e.code (the physical key) rather than e.key, since holding Shift
+    // changes e.key itself (e.g. "-" becomes "_") — using the physical key
+    // plus e.shiftKey directly keeps ±1 vs ±10 correct regardless of
+    // keyboard layout or which character shift actually produces.
+    const gemsDeltaForKey = (e) => {
+      const magnitude = e.shiftKey ? 10 : 1;
+      if (e.code === "Equal" || e.key === "+" || e.key === "=") return magnitude;
+      if (e.code === "Minus" || e.key === "-" || e.key === "_") return -magnitude;
       return 0;
     };
     const periodDeltaForKey = (key) => {
@@ -241,16 +247,21 @@ export default function PeriodBar({
         cyclePeriod(periodDelta);
         return;
       }
-      const delta = gemsDeltaForKey(e.key);
+      const delta = gemsDeltaForKey(e);
       if (!delta) return;
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;
       e.preventDefault();
-      if (e.repeat || heldTimers.has(e.key)) return; // we drive our own repeat, not the browser's
+      // Keyed by the physical key (e.code), not e.key — releasing/pressing
+      // Shift mid-hold changes e.key (e.g. "-" <-> "_") without a keydown/
+      // keyup pair for the still-held key itself, which would otherwise
+      // orphan the interval under a key its matching keyup no longer reports.
+      const holdKey = e.code || e.key;
+      if (e.repeat || heldTimers.has(holdKey)) return; // we drive our own repeat, not the browser's
       applyDelta(delta);
-      heldTimers.set(e.key, setInterval(() => applyDelta(delta), GEMS_REPEAT_MS));
+      heldTimers.set(holdKey, setInterval(() => applyDelta(delta), GEMS_REPEAT_MS));
     };
-    const onKeyUp = (e) => stopKey(e.key);
+    const onKeyUp = (e) => stopKey(e.code || e.key);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", stopAll);
