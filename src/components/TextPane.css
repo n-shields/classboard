@@ -110,15 +110,14 @@
   margin: 0.15em 0;
 }
 
-/* ── Scrolling message mode — a ticker-style crawl, paused while editing ──
+/* ── Scrolling message mode — a ticker-style crawl, never pauses (even
+   while focused/editing) so it keeps reading on the board at all times.
    The 28s here is just a fallback before TextPane's own effect measures the
    pane and overrides animation-duration inline, calibrated to a constant
    1cm/sec regardless of pane width. */
 .textpane-textarea--scrolling {
   white-space: nowrap;
   overflow: hidden;
-}
-.textpane-textarea--scrolling:not(:focus) {
   animation: textpane-marquee 28s linear infinite;
 }
 @keyframes textpane-marquee {
@@ -164,7 +163,8 @@
   flex-shrink: 0;
 }
 
-.textpane-toolbar-backcolor {
+.textpane-toolbar-backcolor,
+.textpane-toolbar-bgcolor {
   flex-shrink: 0;
   width: 22px;
   height: 22px;

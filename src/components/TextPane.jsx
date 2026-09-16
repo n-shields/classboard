@@ -160,6 +160,14 @@ export default function TextPane({
     onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: "" } : p)));
   };
 
+  // The pane's own background, as opposed to execBackColor's text highlight —
+  // per page, like fontSize, so switching tabs can carry its own color.
+  const setBgColor = (color) => {
+    if (!activePage) return;
+    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, bgColor: color } : p)));
+  };
+  const clearBgColor = () => setBgColor(undefined);
+
   const addPage = () => {
     const page = makePage("", defaultFontSize);
     onPagesChange([...pages, page]);
@@ -245,7 +253,7 @@ export default function TextPane({
       onFocusCapture={showToolbar}
       onBlurCapture={scheduleHideToolbar}
     >
-      <div className="card textpane">
+      <div className="card textpane" style={activePage?.bgColor ? { background: activePage.bgColor } : undefined}>
         <div className="card-body textpane-body">
           {activePage ? (
             <div
@@ -318,6 +326,20 @@ export default function TextPane({
             onChange={e => execBackColor(e.target.value)}
             title="Highlight color for selected text"
           />
+          <input
+            type="color"
+            className="textpane-toolbar-bgcolor"
+            value={activePage.bgColor || "#141428"}
+            onChange={e => setBgColor(e.target.value)}
+            title="Background color for this pane"
+          />
+          <button
+            className="btn btn-ghost btn-sm textpane-toolbar-btn"
+            onClick={clearBgColor}
+            disabled={!activePage.bgColor}
+            title="Reset pane background to default"
+            style={{ opacity: activePage.bgColor ? 1 : 0.35 }}
+          >↺</button>
           <div className="textpane-toolbar-divider" />
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page" style={{ color: "var(--danger)" }}>✕</button>
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={addPage} title="Add a page">+</button>
