@@ -87,12 +87,12 @@
 .pw-cells {
   display: grid;
   grid-template-columns: repeat(var(--cols), 1fr);
-  gap: 4px;
+  gap: var(--cell-gap, 4px);
   width: 100%;
 }
 
 .pw-cell {
-  height: 14px;
+  height: var(--cell-size, 14px);
   border-radius: 3px;
   background: var(--surface2);
   border: 1px solid var(--border);

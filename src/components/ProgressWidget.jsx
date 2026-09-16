@@ -3,6 +3,26 @@ import "./ProgressWidget.css";
 
 const DEFAULT_BAR = { id: 1, title: "Class Prize", steps: 10, count: 0, color: "#facc15" };
 const DEFAULT_COLOR = "#facc15";
+const MAX_COLS = 20; // 100 steps -> 5 rows of 20
+
+function cellCols(steps) {
+  return Math.min(steps, MAX_COLS);
+}
+
+// Smaller cells as more rows stack up, so a 100-step goal (5 rows) still
+// fits in roughly the space a short one-row goal already used.
+function cellSize(steps) {
+  const rows = Math.ceil(steps / cellCols(steps));
+  if (rows <= 1) return 14;
+  if (rows === 2) return 12;
+  if (rows === 3) return 10;
+  if (rows === 4) return 9;
+  return 8;
+}
+
+function cellGap(steps) {
+  return cellSize(steps) <= 10 ? 2 : 4;
+}
 
 function migrateBars(data) {
   if (!data) return [{ ...DEFAULT_BAR }];
@@ -69,8 +89,8 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
       .map(b => ({
         ...b,
         title: b.title.trim() || "Goal",
-        steps: Math.max(1, Math.min(50, parseInt(b.steps) || 10)),
-        count: Math.min(b.count, Math.max(1, Math.min(50, parseInt(b.steps) || 10))),
+        steps: Math.max(1, Math.min(100, parseInt(b.steps) || 10)),
+        count: Math.min(b.count, Math.max(1, Math.min(100, parseInt(b.steps) || 10))),
       }))
       .filter((_, i) => i === 0 || draft[i]); // keep at least one
     saveBars(cleaned.length ? cleaned : [{ ...DEFAULT_BAR }]);
@@ -94,7 +114,17 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
                   {bar.remote && <span className="pw-remote-indicator" title="Linked to remote">⊙</span>}
                 </div>
               )}
-              <div className="pw-cells" style={{ "--cols": Math.min(bar.steps, 10) }}>
+              {/* Wraps at 20/row (so 100 steps lands as 5 rows of 20); cell
+                  size shrinks as rows stack up so a full 100-step goal still
+                  fits without dominating the tile. */}
+              <div
+                className="pw-cells"
+                style={{
+                  "--cols": cellCols(bar.steps),
+                  "--cell-size": `${cellSize(bar.steps)}px`,
+                  "--cell-gap": `${cellGap(bar.steps)}px`,
+                }}
+              >
                 {Array.from({ length: bar.steps }, (_, i) => (
                   <div
                     key={i}
@@ -138,10 +168,10 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
                     className="pw-edit-steps"
                     type="number"
                     min="1"
-                    max="50"
+                    max="100"
                     value={bar.steps}
                     onChange={e => updateDraft(i, "steps", e.target.value)}
-                    title="Steps (1–50)"
+                    title="Steps (1–100)"
                   />
                   <button
                     className={`btn btn-sm ${bar.remote ? "btn-primary" : "btn-ghost"}`}
