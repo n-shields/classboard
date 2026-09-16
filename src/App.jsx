@@ -9,7 +9,7 @@ import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
-import { THEMES, applyTheme, hasDarkText, lightenForDarkText } from "./data/themes";
+import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
@@ -629,11 +629,14 @@ export default function App() {
     applyTheme(theme);
     if (periodKey) {
       const patch = { theme };
-      // A pane background picked under a dark theme can go illegible once a
-      // light theme's dark text lands on top of it — brighten any that are
-      // now too dark, leaving already-light custom colors untouched.
-      if (hasDarkText(theme) && storedPages.some(p => p.bgColor)) {
-        patch.pages = storedPages.map(p => p.bgColor ? { ...p, bgColor: lightenForDarkText(p.bgColor) } : p);
+      // A pane background picked under one theme can go illegible once the
+      // opposite theme's text renders on top of it — brighten a too-dark one
+      // for dark (light-theme) text, or darken a too-light one for light
+      // (dark-theme) text; already-contrasting custom colors are untouched
+      // either way.
+      if (storedPages.some(p => p.bgColor)) {
+        const adjust = hasDarkText(theme) ? lightenForDarkText : darkenForLightText;
+        patch.pages = storedPages.map(p => p.bgColor ? { ...p, bgColor: adjust(p.bgColor) } : p);
       }
       savePeriod(periodKey, patch);
     } else {

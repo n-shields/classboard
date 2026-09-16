@@ -225,6 +225,20 @@ export function lightenForDarkText(hex, minLightness = 82) {
   }
 }
 
+// The mirror image: a pane background picked under a light theme can end up
+// washed out (or just hard to read light text against) once a dark theme's
+// light text renders on top of it. Nudges it down to a deep version of the
+// same hue instead.
+export function darkenForLightText(hex, maxLightness = 18) {
+  try {
+    const [h, s, l] = hexToHsl(hex);
+    if (l <= 50) return hex;
+    return hslToHex(h, s, maxLightness);
+  } catch (_) {
+    return hex;
+  }
+}
+
 export function applyTheme(key) {
   const theme = THEMES[key] || THEMES.midnight;
   const root = document.documentElement;
