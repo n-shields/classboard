@@ -94,9 +94,9 @@ export default function TextPane({
     onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: cleaned } : p)));
   };
 
-  const execFormat = (cmd) => {
+  const execFormat = (cmd, value = null) => {
     editorRef.current?.focus();
-    document.execCommand(cmd, false, null);
+    document.execCommand(cmd, false, value);
     saveContent();
   };
 
@@ -117,6 +117,7 @@ export default function TextPane({
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(savedRangeRef.current);
+      savedRangeRef.current = null; // one-shot — a plain button click (no picker dialog in the way) never needs a restore, so a stale range must never linger for it to pick up
     }
     document.execCommand("hiliteColor", false, color);
     saveContent();
@@ -326,6 +327,11 @@ export default function TextPane({
             onChange={e => execBackColor(e.target.value)}
             title="Highlight color for selected text"
           />
+          <button
+            className="btn btn-ghost btn-sm textpane-toolbar-btn"
+            onMouseDown={e => { e.preventDefault(); execFormat("hiliteColor", "transparent"); }}
+            title="Remove highlight from selected text"
+          >⊘</button>
           <input
             type="color"
             className="textpane-toolbar-bgcolor"
