@@ -69,7 +69,7 @@ function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p
 function saveRects(p, v) { try { localStorage.setItem(RECTS_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadDesks(p) { try { return JSON.parse(localStorage.getItem(DESKS_KEY(p)) || "[]"); } catch (_) { return []; } }
 function saveDesks(p, v) { try { localStorage.setItem(DESKS_KEY(p), JSON.stringify(v)); } catch (_) {} }
-const DEFAULT_CONSTRAINTS = { together: [], apart: [], frontBack: {} };
+const DEFAULT_CONSTRAINTS = { together: [], apart: [], frontBack: {}, pinned: [] };
 function loadConstraints(p) {
   try { return { ...DEFAULT_CONSTRAINTS, ...JSON.parse(localStorage.getItem(CONSTRAINTS_KEY(p)) || "{}") }; }
   catch (_) { return { ...DEFAULT_CONSTRAINTS }; }
@@ -357,6 +357,21 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   };
   const clearFrontBack = (n) => setConstraints(c => { const f = { ...c.frontBack }; delete f[n]; return { ...c, frontBack: f }; });
 
+  // Pinned students keep their exact seat through Randomize — a quiet
+  // escape hatch for "everyone shuffle except these two" without having to
+  // re-drag them back afterward.
+  const togglePinned = () => {
+    const group = selectedNames();
+    if (!group.length) return;
+    setConstraints(c => {
+      const pinnedSet = new Set(c.pinned);
+      const allPinned = group.every(n => pinnedSet.has(n));
+      group.forEach(n => (allPinned ? pinnedSet.delete(n) : pinnedSet.add(n)));
+      return { ...c, pinned: [...pinnedSet] };
+    });
+  };
+  const removePinned = (n) => setConstraints(c => ({ ...c, pinned: c.pinned.filter(x => x !== n) }));
+
   const shuffleArr = (arr) => {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -368,12 +383,20 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
 
   const randomize = () => {
     setPositions(prev => {
-      const keys = names.filter(n => prev[n]);
+      const pinnedSet = new Set(constraints.pinned);
+      const keys = names.filter(n => prev[n] && !pinnedSet.has(n));
       if (keys.length < 2) return prev;
       // Seats in reading order (front row / left-to-right first) so "front"/
       // "back" map to the actual first/last seats, and "together" groups can
-      // be laid down as a contiguous run of neighboring seats.
-      const seatCoords = keys.map(k => prev[k]).sort((a, b) => a.y - b.y || a.x - b.x);
+      // be laid down as a contiguous run of neighboring seats. Seats
+      // currently held by a pinned student are removed from the pool so
+      // nobody else can be shuffled into them.
+      const pinnedSeats = new Set(names.filter(n => pinnedSet.has(n) && prev[n]).map(n => `${prev[n].x},${prev[n].y}`));
+      const seatCoords = names
+        .filter(n => prev[n])
+        .map(n => prev[n])
+        .filter(p => !pinnedSeats.has(`${p.x},${p.y}`))
+        .sort((a, b) => a.y - b.y || a.x - b.x);
       const N = seatCoords.length;
 
       const together = constraints.together.map(g => g.filter(n => keys.includes(n))).filter(g => g.length > 1);
@@ -733,11 +756,25 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
                 <button className="seating-tb-btn" disabled={!selNames.length} onClick={() => setFrontBack("back")} title="Seat these students at the back">⬇ Back</button>
                 <button className="seating-tb-btn" disabled={!selNames.length} onClick={() => setFrontBack(null)} title="Clear front/back preference">Clear</button>
               </div>
+              <div className="seating-rules-row">
+                <button
+                  className={`seating-tb-btn ${selNames.length > 0 && selNames.every(n => constraints.pinned.includes(n)) ? "seating-tb-btn--rect-on" : ""}`}
+                  disabled={!selNames.length}
+                  onClick={togglePinned}
+                  title="Keep these students in their current seat when Randomize runs"
+                >📌 Pin</button>
+              </div>
 
-              {(constraints.together.length > 0 || constraints.apart.length > 0 || Object.keys(constraints.frontBack).length > 0) && (
+              {(constraints.together.length > 0 || constraints.apart.length > 0 || Object.keys(constraints.frontBack).length > 0 || constraints.pinned.length > 0) && (
                 <div className="seating-layout-divider" />
               )}
 
+              {constraints.pinned.map(n => (
+                <div key={`p-${n}`} className="seating-layout-item">
+                  <span className="seating-layout-item-btn seating-rules-tag" title="Kept in this seat when randomizing">📌 {n}</span>
+                  <button className="seating-layout-item-del" onClick={() => removePinned(n)} title="Unpin">✕</button>
+                </div>
+              ))}
               {constraints.together.map((g, i) => (
                 <div key={`t${i}`} className="seating-layout-item">
                   <span className="seating-layout-item-btn seating-rules-tag" title="Kept together">🤝 {g.join(" + ")}</span>
@@ -858,11 +895,13 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           {names.map(name => {
             const pos = positions[name];
             if (!pos) return null;
+            const isPinned = constraints.pinned.includes(name);
             return (
               <div key={name}
-                className={`seating-card${selected.has(name) ? " seating-card--selected" : ""}`}
+                className={`seating-card${selected.has(name) ? " seating-card--selected" : ""}${isPinned ? " seating-card--pinned" : ""}`}
                 style={{ left: pos.x, top: pos.y, width: CARD_SIZE, height: CARD_SIZE }}
-                onMouseDown={e => onCardMouseDown(e, name)}>
+                onMouseDown={e => onCardMouseDown(e, name)}
+                title={isPinned ? "Pinned — kept in this seat when Randomize runs" : undefined}>
                 <span style={{ transform: `rotate(-${rotation}deg)`, display: "block", transition: "transform 0.3s" }}>
                   {name}
                 </span>

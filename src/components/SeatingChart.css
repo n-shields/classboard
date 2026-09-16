@@ -357,6 +357,22 @@
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45), 0 0 14px rgba(99, 102, 241, 0.25) !important;
 }
 
+/* Pinned card — kept in place by Randomize. Deliberately understated (a
+   small corner badge, not a loud border) since most cards won't be pinned
+   and it shouldn't compete visually with selection/drag state. */
+.seating-card--pinned {
+  border-style: dashed;
+}
+.seating-card--pinned::after {
+  content: "📌";
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0.75;
+}
+
 /* Selected rect highlight */
 .seating-rect--selected {
   border-color: var(--accent, #6366f1);
