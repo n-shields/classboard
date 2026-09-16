@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import "./WheelOfNames.css";
 
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
@@ -29,6 +29,8 @@ export default function WheelOfNames({
   const canvasRef = useRef(null);
   const animRef   = useRef(null);
   const rotationRef = useRef(0);
+  const winnerRef = useRef(null);
+  const measureCanvasRef = useRef(null);
   const [spinning,      setSpinning]      = useState(false);
   const [winner,        setWinner]        = useState(null);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
@@ -178,6 +180,39 @@ export default function WheelOfNames({
 
   useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current); }, []);
 
+  // Size the winner's name as large as will fit on one line: measure it off
+  // a hidden canvas at a fixed reference size, then scale by however much
+  // headroom the overlay actually has (width-bound for long names,
+  // height-bound for short ones), so "Al" fills the wheel and "Bartholomew"
+  // shrinks just enough to stay on one line instead of truncating.
+  useLayoutEffect(() => {
+    const el = winnerRef.current;
+    if (!winner || !el) return;
+    if (!measureCanvasRef.current) measureCanvasRef.current = document.createElement("canvas");
+    const REF = 200; // reference px size for measurement — arbitrary, just needs to be large for precision
+    const LETTER_SPACING_EM = 0.02; // keep in sync with .wheel-winner-overlay's letter-spacing
+
+    const fit = () => {
+      const cs = getComputedStyle(el);
+      const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const availH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      if (availW <= 0 || availH <= 0) return;
+
+      const ctx = measureCanvasRef.current.getContext("2d");
+      ctx.font = `${cs.fontWeight} ${REF}px ${cs.fontFamily}`;
+      const textWidth = ctx.measureText(winner).width + REF * LETTER_SPACING_EM * Math.max(0, winner.length - 1);
+
+      const byWidth  = REF * (availW / Math.max(textWidth, 1));
+      const byHeight = availH * 0.82; // headroom above/below a single line
+      el.style.fontSize = `${Math.max(20, Math.min(byWidth, byHeight, 400))}px`;
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [winner]);
+
   const canSpin = !spinning && activeNames.length >= 2;
 
   return (
@@ -192,6 +227,7 @@ export default function WheelOfNames({
           />
           {winner && (
             <div
+              ref={winnerRef}
               className="wheel-winner-overlay"
               style={{ animationDuration: `${wheelSettings.displayDuration ?? 3}s` }}
               onAnimationEnd={() => setWinner(null)}
