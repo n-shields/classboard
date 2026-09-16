@@ -41,7 +41,7 @@ export default function TextPane({
   const [isNumbered, setIsNumbered] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(false);
-  const [toolbarPlacement, setToolbarPlacement] = useState("below"); // "above" | "below"
+  const [toolbarPlacement, setToolbarPlacement] = useState("below"); // "above" | "below" | "overlay"
   const [anchorRect, setAnchorRect] = useState(null);
   const editorRef = useRef(null);
   const wrapRef = useRef(null);
@@ -92,6 +92,27 @@ export default function TextPane({
     const cleaned = html === "<br>" ? "" : html;
     if (cleaned === "" && html !== "") editorRef.current.innerHTML = "";
     onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: cleaned } : p)));
+    applyMarqueeDistance();
+  };
+
+  // The marquee travels from fully off-screen right to fully off-screen
+  // left — containerWidth + the text's own rendered width (scrollWidth,
+  // free since overflow:hidden + white-space:nowrap already give us the
+  // unclipped content width) — rather than a fixed 2x container width.
+  // That fixed-distance version only worked for text shorter than the pane:
+  // longer text never finished exiting before the loop reset, reading as a
+  // stall/pause once it reached the left edge.
+  const applyMarqueeDistance = () => {
+    const el = editorRef.current;
+    if (!el || !activePage?.scrolling) return;
+    const containerWidth = el.clientWidth;
+    const textWidth = el.scrollWidth;
+    if (!containerWidth) return;
+    const distancePx = containerWidth + textWidth;
+    const seconds = distancePx / (CSS_PX_PER_CM * SCROLL_SPEED_CM_PER_SEC);
+    el.style.setProperty("--marquee-from", `${containerWidth}px`);
+    el.style.setProperty("--marquee-to", `${-textWidth}px`);
+    el.style.animationDuration = `${seconds}s`;
   };
 
   const execFormat = (cmd, value = null) => {
@@ -189,14 +210,19 @@ export default function TextPane({
   // ── Floating toolbar: shows on hover/focus, slides out of whichever edge
   // has room. Portaled to <body> since the tile grid clips any child that
   // overflows its own tile — position is computed from the pane's live rect.
+  // A pane spanning the layout's full height has no room on EITHER edge, so
+  // that case gets its own "overlay" placement: docked to the bottom of the
+  // pane itself (sliding up over its own content) instead of trying to slot
+  // into a gap that doesn't exist.
   const updateAnchor = () => {
     const el = wrapRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const root = el.closest(".tl-root");
-    const rootBottom = root ? root.getBoundingClientRect().bottom : window.innerHeight;
-    const touchesBottom = rootBottom - rect.bottom <= 4;
-    setToolbarPlacement(touchesBottom ? "above" : "below");
+    const rootRect = root ? root.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+    const touchesTop    = rect.top - rootRect.top <= 4;
+    const touchesBottom = rootRect.bottom - rect.bottom <= 4;
+    setToolbarPlacement(touchesTop && touchesBottom ? "overlay" : touchesBottom ? "above" : "below");
     setAnchorRect({ left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width });
   };
 
@@ -223,26 +249,19 @@ export default function TextPane({
 
   useEffect(() => () => clearTimeout(hideTimerRef.current), []);
 
-  // Calibrate the marquee to a constant real-world speed rather than a fixed
-  // duration — the CSS keyframes shift text-indent from 100% to -100%, a
-  // total travel of 2x the pane's width, so the duration needed for
-  // SCROLL_SPEED_CM_PER_SEC depends on how wide this particular pane is.
+  // Recalibrate the marquee's distance/duration (see applyMarqueeDistance)
+  // whenever scrolling turns on, the page changes, or the pane itself
+  // resizes — saveContent already recalculates on every edit, so content
+  // changes don't need to be a dependency here too.
   useEffect(() => {
     if (!isScrolling) return;
     const el = editorRef.current;
     if (!el) return;
-    const applyDuration = () => {
-      const width = el.clientWidth;
-      if (!width) return;
-      const distancePx = width * 2;
-      const seconds = distancePx / (CSS_PX_PER_CM * SCROLL_SPEED_CM_PER_SEC);
-      el.style.animationDuration = `${seconds}s`;
-    };
-    applyDuration();
-    const ro = new ResizeObserver(applyDuration);
+    applyMarqueeDistance();
+    const ro = new ResizeObserver(applyMarqueeDistance);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [isScrolling, activePageId]);
+  }, [isScrolling, activePageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -306,8 +325,8 @@ export default function TextPane({
           style={{
             left: anchorRect.left,
             width: anchorRect.width,
-            ...(toolbarPlacement === "below"
-              ? { top: anchorRect.bottom }
+            ...(toolbarPlacement === "below" ? { top: anchorRect.bottom }
+              : toolbarPlacement === "overlay" ? { bottom: window.innerHeight - anchorRect.bottom }
               : { bottom: window.innerHeight - anchorRect.top }),
           }}
           onMouseEnter={showToolbar}

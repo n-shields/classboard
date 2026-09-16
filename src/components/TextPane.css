@@ -110,34 +110,47 @@
   margin: 0.15em 0;
 }
 
-/* ── Scrolling message mode — a ticker-style crawl, never pauses (even
-   while focused/editing) so it keeps reading on the board at all times.
-   The 28s here is just a fallback before TextPane's own effect measures the
-   pane and overrides animation-duration inline, calibrated to a constant
-   1cm/sec regardless of pane width. */
+/* ── Scrolling message mode — a ticker-style crawl, paused while focused
+   for editing (so the text holds still to work on) but otherwise running
+   continuously. text-indent (not transform) is what's animated — it only
+   shifts where the glyphs render, leaving the editable element's own box
+   (and hit-testing) fixed in place, so clicking into the pane to edit it
+   still works no matter where mid-scroll the text currently is. --marquee-
+   from/to (pixel values, set by TextPane's applyMarqueeDistance) span from
+   fully off-screen right to fully off-screen left based on the text's
+   actual measured width, rather than a fixed 2x-the-pane's-width travel —
+   that fixed distance only worked for text shorter than the pane; longer
+   text never finished exiting before the loop reset, reading as a stall
+   right as it reached the left edge. The 28s/percent fallbacks here just
+   cover the instant before that effect runs. */
 .textpane-textarea--scrolling {
   white-space: nowrap;
   overflow: hidden;
+}
+.textpane-textarea--scrolling:not(:focus) {
   animation: textpane-marquee 28s linear infinite;
 }
 @keyframes textpane-marquee {
-  from { text-indent: 100%; }
-  to   { text-indent: -100%; }
+  from { text-indent: var(--marquee-from, 100%); }
+  to   { text-indent: var(--marquee-to, -100%); }
 }
 
 /* ── Floating format toolbar — slides out of whichever edge of the pane has
-   room (see TextPane's updateAnchor). Positioned via inline left/width/
-   top-or-bottom from the pane's live rect; opacity/pointer-events (not
-   display) drive show/hide so the transform transition can run both ways. */
+   room, or (a pane spanning the full layout height, so neither edge has
+   any) overlays the pane's own bottom edge instead (see TextPane's
+   updateAnchor). Positioned via inline left/width/top-or-bottom from the
+   pane's live rect; opacity/pointer-events (not display) drive show/hide so
+   the transform transition can run both ways. Wraps to a second row rather
+   than scrolling sideways when the pane's too narrow for every control on
+   one line — a floating toolbar's buttons should all be reachable at a
+   glance, not require discovering a hidden scroll area. */
 .textpane-toolbar {
   position: fixed;
   z-index: 250;
   display: flex;
   align-items: center;
   gap: 5px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
   padding: 6px 12px;
   background: color-mix(in srgb, var(--surface2) 92%, transparent);
   backdrop-filter: blur(3px);
@@ -148,10 +161,10 @@
   pointer-events: none;
   transition: transform 0.18s ease, opacity 0.15s ease;
 }
-.textpane-toolbar::-webkit-scrollbar { display: none; }
 
 .textpane-toolbar--below { transform: translateY(-10px); }
-.textpane-toolbar--above { transform: translateY(10px); }
+.textpane-toolbar--above,
+.textpane-toolbar--overlay { transform: translateY(10px); }
 
 .textpane-toolbar--visible {
   opacity: 1;
