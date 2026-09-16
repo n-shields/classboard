@@ -115,6 +115,10 @@ function loadLayouts() {
   return {};
 }
 
+// Set only for the popup Teacher View opens via its "🖥 Board" button (see
+// openBoardView) — stable for the life of the window, so no need for state.
+const isBoardPopup = typeof window !== "undefined" && !!window.opener;
+
 export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
@@ -240,7 +244,7 @@ export default function App() {
   // (usually fullscreen on a projector) shouldn't have its bounds saved,
   // which would otherwise clobber the popup's own remembered spot.
   useEffect(() => {
-    if (!window.opener) return;
+    if (!isBoardPopup) return;
     const save = () => saveBoardViewBounds({
       left: window.screenX, top: window.screenY,
       width: window.outerWidth, height: window.outerHeight,
@@ -758,7 +762,14 @@ export default function App() {
   };
 
   return (
-    <div className="app">
+    <div className={`app${isBoardPopup ? " app--board-popup" : ""}`}>
+      {isBoardPopup && (
+        <button
+          className="app-board-update-btn"
+          onClick={() => window.location.reload()}
+          title="Reload this window with the latest saved data"
+        >⟳ Update</button>
+      )}
       <PeriodBar
         schedules={schedules}           onSchedulesChange={handleSchedulesChange}
         scheduleType={scheduleType}     onScheduleTypeChange={handleScheduleTypeChange}
