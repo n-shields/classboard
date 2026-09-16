@@ -112,15 +112,23 @@
 
 /* ── Scrolling message mode — a ticker-style crawl, paused while focused
    for editing (so the text holds still to work on) but otherwise running
-   continuously. text-indent (not transform) is what's animated — it only
-   shifts where the glyphs render, leaving the editable element's own box
-   (and hit-testing) fixed in place, so clicking into the pane to edit it
-   still works no matter where mid-scroll the text currently is. (transform
-   can't do this job: it moves the whole box — clip region included — as
-   one rigid unit, so overflow:hidden would just clip differently as the
-   box slides rather than reveal text scrolling within a still frame; that
-   needs an inner element transformed inside a separate, stationary clipping
-   parent, which doesn't fit cleanly around a single contentEditable.)
+   continuously.
+   Animated by transform, not text-indent: text-indent forces a synchronous
+   layout recalc every single frame (it affects where content flows), which
+   visibly jitters/stalls under any real load — most noticeably right as
+   the indent crosses zero. transform is compositor-only, so the browser
+   can animate it smoothly regardless of what else is going on.
+   transform can't animate the same box that's doing the clipping, though —
+   moving an element moves its own clip region right along with it, so
+   overflow:hidden would just clip differently as the box slides rather
+   than reveal text scrolling within a still frame. .textpane-marquee-clip
+   is the fix: a stationary wrapper that does the actual clipping (and
+   forwards clicks to the editable child via its onMouseDown, since a
+   transformed child's hit box moves with it and can end up somewhere the
+   viewer isn't clicking), around a content-sized (not clipped) editable
+   child that transform can freely slide within it. Outside scrolling mode
+   the wrapper is `display: contents` — invisible to layout — so normal
+   editing is exactly as if it weren't there.
    --marquee-from/to (pixel values, set by TextPane's applyMarqueeDistance)
    span from fully off-screen right to fully off-screen left based on the
    text's actual measured width, rather than a fixed 2x-the-pane's-width
@@ -128,16 +136,32 @@
    longer text never finished exiting before the loop reset, reading as a
    stall right as it reached the left edge. The 28s/percent fallbacks here
    just cover the instant before that effect runs. */
+.textpane-marquee-clip {
+  display: contents;
+}
+.textpane-marquee-clip--active {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.textpane-marquee-clip--active .textpane-textarea--scrolling {
+  flex: none;
+  width: max-content;
+  max-width: none;
+  height: 100%;
+}
 .textpane-textarea--scrolling {
   white-space: nowrap;
   overflow: hidden;
 }
 .textpane-textarea--scrolling:not(:focus) {
   animation: textpane-marquee 28s linear infinite;
+  will-change: transform;
 }
 @keyframes textpane-marquee {
-  from { text-indent: var(--marquee-from, 100%); }
-  to   { text-indent: var(--marquee-to, -100%); }
+  from { transform: translateX(var(--marquee-from, 100%)); }
+  to   { transform: translateX(var(--marquee-to, -100%)); }
 }
 
 /* ── Floating format toolbar — slides out of whichever edge of the pane has

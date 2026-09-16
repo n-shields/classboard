@@ -109,17 +109,21 @@ export default function TextPane({
   };
 
   // The marquee travels from fully off-screen right to fully off-screen
-  // left — containerWidth + the text's own rendered width (scrollWidth,
-  // free since overflow:hidden + white-space:nowrap already give us the
-  // unclipped content width) — rather than a fixed 2x container width.
-  // That fixed-distance version only worked for text shorter than the pane:
-  // longer text never finished exiting before the loop reset, reading as a
-  // stall/pause once it reached the left edge.
+  // left — the clipping wrapper's width plus the text's own rendered width
+  // (scrollWidth, free since white-space:nowrap + a content-sized box
+  // already give us the unclipped width) — rather than a fixed 2x container
+  // width. That fixed-distance version only worked for text shorter than
+  // the pane: longer text never finished exiting before the loop reset,
+  // reading as a stall/pause once it reached the left edge. Width comes
+  // from the wrapper (.textpane-marquee-clip), not the editable element
+  // itself — in scrolling mode the editable is content-sized (as wide as
+  // its text) so it can be positioned by transform, so its own clientWidth
+  // no longer means "the pane's visible width".
   const lastMarqueeMeasureRef = useRef(null);
   const applyMarqueeDistance = () => {
     const el = editorRef.current;
     if (!el || !activePage?.scrolling) return;
-    const containerWidth = el.clientWidth;
+    const containerWidth = el.parentElement?.clientWidth ?? 0;
     const textWidth = el.scrollWidth;
     if (!containerWidth) return;
     // Reassigning animation-duration (or the --marquee-from/to it derives
@@ -280,10 +284,12 @@ export default function TextPane({
   useEffect(() => {
     if (!isScrolling) return;
     const el = editorRef.current;
-    if (!el) return;
+    if (!el?.parentElement) return;
     applyMarqueeDistance();
+    // The clipping wrapper (not the now content-sized editable element) is
+    // what reports the pane's actual visible width.
     const ro = new ResizeObserver(applyMarqueeDistance);
-    ro.observe(el);
+    ro.observe(el.parentElement);
     return () => ro.disconnect();
   }, [isScrolling, activePageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -300,23 +306,41 @@ export default function TextPane({
       <div className="card textpane" style={activePage?.bgColor ? { background: activePage.bgColor } : undefined}>
         <div className="card-body textpane-body">
           {activePage ? (
+            // In scrolling mode this wrapper does the actual clipping and
+            // stays put — text-indent used to be the whole marquee, but it
+            // forces a layout recalc every frame and visibly jitters/stalls
+            // under load. transform is compositor-only and smooth, but it
+            // moves an element's clip region right along with it, so it
+            // can't animate the same overflow:hidden box that's doing the
+            // clipping — it needs a separate, stationary clipping parent
+            // around a content-sized (not clipped) child instead. Outside
+            // scrolling mode this is `display: contents` (see CSS), i.e.
+            // invisible to layout, so normal editing is untouched by its
+            // presence. Its onMouseDown re-focuses the editable child on
+            // click regardless of where the (transformed, possibly moved
+            // away from the click point) text currently is.
             <div
-              ref={editorRef}
-              className={`textpane-textarea${isScrolling ? " textpane-textarea--scrolling" : ""}`}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={saveContent}
-              // A drag ending here (missing the tile's drop overlay, which
-              // covers the whole slot but not always this exact target)
-              // would otherwise fall through to the browser's default
-              // contentEditable drop handling, which inserts the dragged
-              // element's own text into the content. Suppress that; drops
-              // are handled by the tile grid's drop overlay instead.
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => e.preventDefault()}
-              style={{ fontSize: `${activePage.fontSize}px` }}
-              data-placeholder={`${kind}${periodLabel ? ` — ${periodLabel}` : ""}…`}
-            />
+              className={`textpane-marquee-clip${isScrolling ? " textpane-marquee-clip--active" : ""}`}
+              onMouseDown={isScrolling ? e => { e.preventDefault(); editorRef.current?.focus(); } : undefined}
+            >
+              <div
+                ref={editorRef}
+                className={`textpane-textarea${isScrolling ? " textpane-textarea--scrolling" : ""}`}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={saveContent}
+                // A drag ending here (missing the tile's drop overlay, which
+                // covers the whole slot but not always this exact target)
+                // would otherwise fall through to the browser's default
+                // contentEditable drop handling, which inserts the dragged
+                // element's own text into the content. Suppress that; drops
+                // are handled by the tile grid's drop overlay instead.
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => e.preventDefault()}
+                style={{ fontSize: `${activePage.fontSize}px` }}
+                data-placeholder={`${kind}${periodLabel ? ` — ${periodLabel}` : ""}…`}
+              />
+            </div>
           ) : (
             <div className="textpane-empty">
               <button className="btn btn-ghost btn-sm" onClick={addPage}>+ Add a page</button>
