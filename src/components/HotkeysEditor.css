@@ -45,3 +45,39 @@
   color: var(--text-dim);
   padding: 6px 0;
 }
+
+.hotkeys-custom-sounds {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.hotkeys-custom-sounds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotkeys-custom-sounds-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.hotkeys-custom-sounds .hotkeys-hint {
+  margin: 4px 0 10px;
+}
+
+.hotkeys-custom-sound-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.hotkeys-upload-error {
+  flex-basis: auto;
+  margin-bottom: 8px;
+}

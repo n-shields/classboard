@@ -1,4 +1,5 @@
 import { playClap, playQuack, playBuzzer, playBell, playWhistle } from "./sounds";
+import { loadCustomSounds, playDataUrl } from "./customSounds";
 
 // The catalog of preset sound effects a hotkey can be assigned to (see
 // HotkeysEditor). Adding a new preset here is all it takes to make it
@@ -11,8 +12,14 @@ export const SOUND_PRESETS = [
   { id: "whistle", label: "Whistle", play: playWhistle },
 ];
 
+// Resolves either a built-in preset or a teacher-uploaded custom sound
+// (see data/customSounds) — callers don't need to know which kind an id is.
 export function soundById(id) {
-  return SOUND_PRESETS.find(s => s.id === id) || null;
+  const preset = SOUND_PRESETS.find(s => s.id === id);
+  if (preset) return preset;
+  const custom = loadCustomSounds().find(s => s.id === id);
+  if (custom) return { id: custom.id, label: custom.label, play: () => playDataUrl(custom.dataUrl) };
+  return null;
 }
 
 const STORAGE_KEY = "classboard_sound_hotkeys";

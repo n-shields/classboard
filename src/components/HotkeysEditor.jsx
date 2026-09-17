@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { SOUND_PRESETS, soundById } from "../data/soundHotkeys";
+import { loadCustomSounds, addCustomSound, removeCustomSound, playDataUrl, MAX_CUSTOM_SOUND_BYTES } from "../data/customSounds";
 import "./HotkeysEditor.css";
 
 // Keys already meaningful elsewhere in the app — not enforced (a teacher
@@ -21,7 +22,10 @@ function keyLabel(key) {
 export default function HotkeysEditor({ hotkeys, onChange, onClose }) {
   const [draft, setDraft] = useState(() => Object.entries(hotkeys).map(([key, soundId]) => ({ key, soundId })));
   const [recordingIndex, setRecordingIndex] = useState(null);
+  const [customSounds, setCustomSounds] = useState(loadCustomSounds);
+  const [uploadError, setUploadError] = useState("");
   const overlayMouseDown = useRef(false);
+  const fileInputRef = useRef(null);
 
   // Capture the next keydown anywhere as the key for the row being recorded,
   // instead of a free-text field — guarantees whatever's stored is exactly
@@ -45,6 +49,38 @@ export default function HotkeysEditor({ hotkeys, onChange, onClose }) {
   const addRow = () => setDraft(d => [...d, { key: "", soundId: SOUND_PRESETS[0].id }]);
   const removeRow = (i) => setDraft(d => d.filter((_, idx) => idx !== i));
   const updateSound = (i, soundId) => setDraft(d => d.map((row, idx) => idx === i ? { ...row, soundId } : row));
+
+  const handleUpload = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    setUploadError("");
+    if (file.size > MAX_CUSTOM_SOUND_BYTES) {
+      setUploadError(`"${file.name}" is too big (max ${Math.round(MAX_CUSTOM_SOUND_BYTES / 1024)}KB) — try a shorter clip.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const label = file.name.replace(/\.[^./]+$/, "") || file.name;
+        addCustomSound(label, reader.result);
+        setCustomSounds(loadCustomSounds());
+      } catch (_) {
+        setUploadError("Couldn't save that sound — storage may be full.");
+      }
+    };
+    reader.onerror = () => setUploadError(`Couldn't read "${file.name}".`);
+    reader.readAsDataURL(file);
+  };
+
+  const deleteCustomSound = (id) => {
+    removeCustomSound(id);
+    setCustomSounds(loadCustomSounds());
+    // Any hotkey row currently pointing at the deleted sound just falls back
+    // to silently doing nothing when pressed (soundById returns null) —
+    // rather than yanking it out from under the teacher mid-edit, leave the
+    // row as-is so they notice and can pick a replacement themselves.
+  };
 
   const save = () => {
     const map = {};
@@ -85,7 +121,14 @@ export default function HotkeysEditor({ hotkeys, onChange, onClose }) {
                   value={row.soundId}
                   onChange={e => updateSound(i, e.target.value)}
                 >
-                  {SOUND_PRESETS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  <optgroup label="Presets">
+                    {SOUND_PRESETS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </optgroup>
+                  {customSounds.length > 0 && (
+                    <optgroup label="Custom">
+                      {customSounds.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    </optgroup>
+                  )}
                 </select>
                 <button
                   className="btn btn-ghost btn-sm"
@@ -101,6 +144,36 @@ export default function HotkeysEditor({ hotkeys, onChange, onClose }) {
           {draft.length === 0 && <div className="hotkeys-empty">No sound hotkeys yet.</div>}
         </div>
         <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={addRow}>+ Add hotkey</button>
+
+        <div className="hotkeys-custom-sounds">
+          <div className="hotkeys-custom-sounds-header">
+            <h3>Custom sounds</h3>
+            <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()}>
+              ↑ Upload sound
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              style={{ display: "none" }}
+              onChange={handleUpload}
+            />
+          </div>
+          <p className="hotkeys-hint">
+            Uploaded clips are saved with your other data, so they're included in Export/Import
+            and keep working even if the original file is gone.
+          </p>
+          {uploadError && <div className="hotkeys-warning hotkeys-upload-error">{uploadError}</div>}
+          {customSounds.length === 0 && <div className="hotkeys-empty">No custom sounds uploaded yet.</div>}
+          {customSounds.map(s => (
+            <div key={s.id} className="hotkeys-row">
+              <span className="hotkeys-custom-sound-label" title={s.label}>{s.label}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => playDataUrl(s.dataUrl)} title="Preview this sound">▶</button>
+              <button className="btn btn-danger btn-sm" onClick={() => deleteCustomSound(s.id)} title="Remove">✕</button>
+            </div>
+          ))}
+        </div>
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={save}>Save</button>
