@@ -217,6 +217,32 @@
   background: transparent;
 }
 
+/* Wraps each color swatch with a small +/✕ badge indicating what clicking
+   it will do — apply a color, or (once one's applied) remove it — since
+   the swatch alone just shows a color with no hint that a second press
+   behaves differently from the first. */
+.textpane-swatch-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.textpane-swatch-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 8px;
+  line-height: 10px;
+  text-align: center;
+  pointer-events: none;
+}
+
 .textpane-toolbar-divider {
   width: 1px;
   height: 20px;
