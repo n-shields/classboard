@@ -173,6 +173,16 @@
   margin: 2px 0;
 }
 
+.tb-theme-menu-label {
+  flex-basis: 100%;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding: 0 2px 2px;
+}
+
 /* Import/export */
 .ei-btn {
   font-size: 0.8rem;

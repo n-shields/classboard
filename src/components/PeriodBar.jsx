@@ -327,6 +327,17 @@ export default function PeriodBar({
   const show = () => { clearTimeout(hideTimer.current); setVisible(true); };
   const scheduleHide = () => { hideTimer.current = setTimeout(() => setVisible(false), 300); };
 
+  // The theme menu is portaled to <body>, outside .period-toolbar's own DOM
+  // subtree — so without this, moving the mouse from the trigger button down
+  // into the dropdown reads as leaving the toolbar, hiding it out from under
+  // the still-open menu. Closing the menu whenever the toolbar itself hides
+  // keeps the two in sync (its own onMouseEnter/onMouseLeave below reuse
+  // show/scheduleHide so hovering the dropdown counts as still hovering the
+  // toolbar in the first place).
+  useEffect(() => {
+    if (!visible) setThemeMenuOpen(false);
+  }, [visible]);
+
   const showSidebar = () => { clearTimeout(sidebarHideTimer.current); setSidebarVisible(true); };
   const scheduleHideSidebar = () => { sidebarHideTimer.current = setTimeout(() => setSidebarVisible(false), 300); };
 
@@ -435,11 +446,19 @@ export default function PeriodBar({
                 className="tb-theme-menu tb-theme-menu--swatches"
                 ref={themeMenuRef}
                 style={{ top: themeMenuRect.bottom + 4, left: themeMenuRect.left }}
+                onMouseEnter={show}
+                onMouseLeave={scheduleHide}
               >
                 {THEME_KEYS.flatMap((key, i) => {
                   const nodes = [];
-                  if (i > 0 && hasDarkText(key) && !hasDarkText(THEME_KEYS[i - 1])) {
+                  // A row of same-size circles alone doesn't say which
+                  // themes are dark-background vs light — label each group
+                  // instead of just dividing them.
+                  if (i === 0) {
+                    nodes.push(<div key="label-dark" className="tb-theme-menu-label">Dark</div>);
+                  } else if (hasDarkText(key) && !hasDarkText(THEME_KEYS[i - 1])) {
                     nodes.push(<div key={`div-${key}`} className="tb-theme-menu-divider" />);
+                    nodes.push(<div key="label-light" className="tb-theme-menu-label">Light</div>);
                   }
                   nodes.push(
                     <button
