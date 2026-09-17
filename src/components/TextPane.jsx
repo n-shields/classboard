@@ -331,10 +331,26 @@ export default function TextPane({
             // invisible to layout, so normal editing is untouched by its
             // presence. Its onMouseDown re-focuses the editable child on
             // click regardless of where the (transformed, possibly moved
-            // away from the click point) text currently is.
+            // away from the click point) text currently is, and places the
+            // caret at the actual click point (via caretRangeFromPoint,
+            // which hit-tests the visual/painted position and so still
+            // lands correctly on transformed text) rather than wherever
+            // .focus() alone would leave it — otherwise a click here looked
+            // like it did nothing, since the caret never moved to match.
             <div
               className={`textpane-marquee-clip${isScrolling ? " textpane-marquee-clip--active" : ""}`}
-              onMouseDown={isScrolling ? e => { e.preventDefault(); editorRef.current?.focus(); } : undefined}
+              onMouseDown={isScrolling ? e => {
+                e.preventDefault();
+                const editor = editorRef.current;
+                if (!editor) return;
+                editor.focus();
+                const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+                if (range && editor.contains(range.startContainer)) {
+                  const sel = window.getSelection();
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+              } : undefined}
             >
               <div
                 ref={editorRef}
