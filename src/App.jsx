@@ -551,15 +551,21 @@ export default function App() {
   };
 
   // A page tab was dropped on tile `targetTileId`: merge into it if it
-  // already hosts a text pane (closing the source pane if that was its last
-  // page — see canCloseSourcePane), otherwise pop the page out into a
-  // brand-new tile next to it — unless it's the only page in a fixed tile
+  // already hosts a text pane and the drop landed away from its edges
+  // (closing the source pane if that was its last page — see
+  // canCloseSourcePane), otherwise pop the page out into a brand-new tile
+  // at the given side — unless it's the only page in a fixed tile
   // (text/notes) being dropped on a non-pane target, where there's no pane
   // to merge into; reposition that tile as a whole instead of duplicating
   // it, so the drag reads as "move this pane" like it would if it had no
   // pages to speak of.
   const handlePageDrop = (info, targetTileId, side) => {
-    if (isPaneTile(targetTileId)) {
+    // A `side` of null means the drop landed away from the target's own
+    // edges (see TileLayout's EDGE_ZONE) — stack as a tab there. Otherwise,
+    // even a pane tile falls through to the split/detach path below, so
+    // dragging near an existing pane's edge still docks a new region
+    // instead of always merging into its tab strip.
+    if (isPaneTile(targetTileId) && !side) {
       handleMergePage(info, targetTileId);
       return;
     }

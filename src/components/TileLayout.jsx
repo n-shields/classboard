@@ -7,45 +7,55 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // ── Drop overlay shown when a tile is being dragged ──────────────────────────
 
-// `isMergeTarget`: this tile hosts a text pane, so dropping anywhere on it
-// joins its tab strip instead of splitting off a new tile — shown as a
-// single full-tile highlight rather than a directional split indicator.
-function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
-  const [side, setSide] = useState(null);
+// How close to the tile's own outer edge the pointer has to be, while
+// dragging a tab over a mergeable pane, to still dock/split instead of
+// stacking — so the wide center of the pane keeps stacking (the common
+// case, no need to aim), while hugging the edge near the resize handle
+// between panes still reaches the split behavior.
+const EDGE_ZONE = 0.2;
 
-  const getSide = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    if (y < 0.25) return "top";
-    if (y > 0.75) return "bottom";
-    if (x < 0.3) return "left";
-    return "right";
-  };
+// `isMergeTarget`: this tile hosts a text pane, so dropping on its center
+// joins its tab strip instead of splitting off a new tile ("zone" comes
+// back as "merge") — but only away from its own edges; near an edge it
+// falls through to the normal directional split, same as any other tile.
+function getZone(e, isMergeTarget) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  const y = (e.clientY - rect.top) / rect.height;
+  const nearEdge = x < EDGE_ZONE || x > 1 - EDGE_ZONE || y < EDGE_ZONE || y > 1 - EDGE_ZONE;
+  if (isMergeTarget && !nearEdge) return "merge";
+  if (y < 0.25) return "top";
+  if (y > 0.75) return "bottom";
+  if (x < 0.3) return "left";
+  return "right";
+}
+
+function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
+  const [zone, setZone] = useState(null);
 
   return (
     <div
       className="tl-drop-overlay"
-      onDragOver={e => { e.preventDefault(); setSide(getSide(e)); }}
+      onDragOver={e => { e.preventDefault(); setZone(getZone(e, isMergeTarget)); }}
       onDragLeave={e => {
         // Only clear if leaving the overlay itself (not a child)
-        if (!e.currentTarget.contains(e.relatedTarget)) setSide(null);
+        if (!e.currentTarget.contains(e.relatedTarget)) setZone(null);
       }}
       onDrop={e => {
         e.preventDefault();
         const pageJson = e.dataTransfer.getData(PAGE_DND_TYPE);
-        if (side && pageJson) {
-          onDropPage(JSON.parse(pageJson), side);
+        if (zone && pageJson) {
+          onDropPage(JSON.parse(pageJson), zone === "merge" ? null : zone);
         } else {
           const fromId = e.dataTransfer.getData("text/plain");
-          if (side && fromId && fromId !== tileId) onDrop(fromId, side);
+          if (zone && zone !== "merge" && fromId && fromId !== tileId) onDrop(fromId, zone);
         }
-        setSide(null);
+        setZone(null);
       }}
     >
-      {side && (isMergeTarget
+      {zone && (zone === "merge"
         ? <div className="tl-drop-indicator tl-drop-merge"><span>+ Add tab</span></div>
-        : <div className={`tl-drop-indicator tl-drop-${side}`} />
+        : <div className={`tl-drop-indicator tl-drop-${zone}`} />
       )}
     </div>
   );
