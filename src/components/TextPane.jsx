@@ -9,8 +9,8 @@ import "./TextPane.css";
 // any pane detached from either) — there's no functional difference between
 // them, so any tab can dock into any pane.
 //
-// The pane owns its formatting/page controls directly: hovering (or
-// focusing) it slides a small toolbar out below the pane by default, or
+// The pane owns its formatting/page controls directly: focusing it (a real
+// click, not just a hover) slides a small toolbar out below the pane by default, or
 // above it if the pane sits flush against the bottom of the layout
 // (nothing below it to slide into) — so the toolbar never covers the
 // pane's own content. It's portaled to <body> and positioned from the
@@ -290,7 +290,8 @@ export default function TextPane({
     onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, scrolling: !p.scrolling } : p)));
   };
 
-  // ── Floating toolbar: shows on hover/focus, slides out of whichever edge
+  // ── Floating toolbar: shows on focus (a real click into the pane, not a
+  // mouse hover), slides out of whichever edge
   // has room. Portaled to <body> since the tile grid clips any child that
   // overflows its own tile — position is computed from the pane's live rect.
   // A pane spanning the layout's full height has no room on EITHER edge, so
@@ -363,8 +364,6 @@ export default function TextPane({
       className="textpane-wrap"
       tabIndex={-1}
       ref={wrapRef}
-      onMouseEnter={showToolbar}
-      onMouseLeave={scheduleHideToolbar}
       onFocusCapture={showToolbar}
       onBlurCapture={scheduleHideToolbar}
     >
