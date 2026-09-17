@@ -205,6 +205,10 @@
   flex-shrink: 0;
 }
 
+.textpane-toolbar-btn--end {
+  margin-left: auto;
+}
+
 .textpane-toolbar-backcolor,
 .textpane-toolbar-bgcolor {
   flex-shrink: 0;

@@ -265,12 +265,6 @@ export default function TextPane({
     }
   };
 
-  const clear = () => {
-    if (!activePage) return;
-    if (editorRef.current) editorRef.current.innerHTML = "";
-    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, html: "" } : p)));
-  };
-
   // The pane's own background, as opposed to execBackColor's text highlight —
   // per page, like fontSize, so switching tabs can carry its own color.
   const setBgColor = (color) => {
@@ -322,7 +316,17 @@ export default function TextPane({
   };
   const scheduleHideToolbar = () => {
     clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setToolbarVisible(false), HOVER_HIDE_DELAY_MS);
+    hideTimerRef.current = setTimeout(() => {
+      // A mouseleave fires (starting this timer) even mid-drag while
+      // selecting text, if the drag happens to cross the pane's edge —
+      // but focus never actually left the editor, so hiding here yanked
+      // the toolbar away while still mid-selection. Re-check focus at
+      // fire time and skip the hide if it's still within this pane; the
+      // toolbar's own onMouseLeave (and the editor's real blur) will
+      // still close it once the user's actually done.
+      if (wrapRef.current?.contains(document.activeElement)) return;
+      setToolbarVisible(false);
+    }, HOVER_HIDE_DELAY_MS);
   };
 
   // Keep the floating toolbar aligned while visible — the pane can resize
@@ -505,8 +509,6 @@ export default function TextPane({
             <span className="textpane-swatch-badge" aria-hidden="true">{activePage.bgColor ? "✕" : "+"}</span>
           </span>
           <div className="textpane-toolbar-divider" />
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={clear} title="Clear this page">✕</button>
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onClick={addPage} title="Add a page">+</button>
           <button
             className={`btn btn-sm textpane-toolbar-btn ${activeSyncMates.length > 0 ? "btn-primary" : "btn-ghost"}`}
             onClick={() => setSyncModalOpen(true)}
@@ -517,6 +519,7 @@ export default function TextPane({
             <input type="checkbox" checked={isScrolling} onChange={toggleScrolling} />
             Scrolling message
           </label>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn textpane-toolbar-btn--end" onClick={addPage} title="Add a page">+</button>
         </div>,
         document.body,
       )}
