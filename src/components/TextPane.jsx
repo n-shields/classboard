@@ -183,6 +183,11 @@ export default function TextPane({
       span.innerHTML = el.innerHTML;
       el.replaceWith(span);
       newSpans.push(span);
+      // A bullet/number marker's size follows its own <li>'s font-size, not
+      // its (resized) text content's — without this a resized list item's
+      // marker stays at the old size while its text visibly changes.
+      const li = span.closest("li");
+      if (li) li.style.fontSize = span.style.fontSize;
     });
     if (newSpans.length > 0) {
       const range = document.createRange();
@@ -195,11 +200,19 @@ export default function TextPane({
     saveContent();
   };
 
-  const adjustFontSize = (delta) => {
+  // direction is +1 (larger) or -1 (smaller); selected text still steps by
+  // a flat few px, but the whole page's base size steps by 1% of its
+  // current size instead — proportional across the page's whole practical
+  // range (20px Notes text vs. 48px Board text), where a flat step would
+  // feel too coarse at the small end and too fine at the large end. A
+  // literal 1% rounds to 0px below ~100px, so it's floored at 1px so every
+  // click still moves it somewhere.
+  const adjustFontSize = (direction) => {
     if (hasSelection) {
-      changeSizeForSelection(delta);
+      changeSizeForSelection(direction * 4);
     } else if (activePage) {
-      const fontSize = Math.min(144, Math.max(10, activePage.fontSize + delta));
+      const step = Math.max(1, Math.round(activePage.fontSize * 0.01));
+      const fontSize = Math.min(144, Math.max(10, activePage.fontSize + direction * step));
       onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, fontSize } : p)));
     }
   };
@@ -380,8 +393,8 @@ export default function TextPane({
           onMouseEnter={showToolbar}
           onMouseLeave={scheduleHideToolbar}
         >
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(4); }} title={hasSelection ? "Larger selected text" : "Larger text"}>A+</button>
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(-4); }} title={hasSelection ? "Smaller selected text" : "Smaller text"}>A−</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(1); }} title={hasSelection ? "Larger selected text" : "Larger text (1%)"}>A+</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(-1); }} title={hasSelection ? "Smaller selected text" : "Smaller text (1%)"}>A−</button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("bold"); }} title="Bold"><strong>B</strong></button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>
