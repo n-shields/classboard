@@ -99,7 +99,17 @@ export default function TextPane({
     return () => document.removeEventListener("selectionchange", update);
   }, []);
 
+  // execCommand fires a native "input" event of its own mid-operation, which
+  // reaches this via onInput — a problem specifically for changeSizeForSelection,
+  // which does further DOM surgery (replacing execCommand's <font> markers
+  // with properly-sized spans) *after* calling execCommand. That auto-fired
+  // save would persist the intermediate, not-yet-cleaned-up markup, and
+  // since it lands as its own state update, it could still win out over the
+  // correct explicit save that follows — set while that surgery is in
+  // progress to skip the spurious intermediate one.
+  const suppressAutoSaveRef = useRef(false);
   const saveContent = () => {
+    if (suppressAutoSaveRef.current) return;
     if (!editorRef.current || !activePage) return;
     const html = editorRef.current.innerHTML;
     const cleaned = html === "<br>" ? "" : html;
@@ -173,13 +183,43 @@ export default function TextPane({
   };
 
   const changeSizeForSelection = (delta) => {
-    editorRef.current?.focus();
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    // The selection's *current* size has to be read before execCommand runs,
+    // not after from the <font> marker's parent — execCommand replaces
+    // (rather than nests inside) a span from a previous resize, so once
+    // there's already been one, the marker's parent is back to the editor
+    // itself (the page's base size), not the span's actual current size.
+    // Reading it after execCommand looked fine on a selection's first-ever
+    // resize (parent genuinely was the base size then) but got every resize
+    // after that wrong, always computing from the base size instead of
+    // wherever the previous click had actually left it.
+    const sel = window.getSelection();
+    let referenceNode = editor;
+    if (sel.rangeCount > 0) {
+      const { startContainer, startOffset } = sel.getRangeAt(0);
+      if (startContainer.nodeType === Node.TEXT_NODE) {
+        referenceNode = startContainer.parentElement;
+      } else {
+        // A "select all" range's startContainer is often the shared ancestor
+        // itself (e.g. the editor div), with startOffset as a *child index*
+        // rather than a text-node character offset — startContainer.parentElement
+        // would just be the container's own parent, missing the actually-
+        // selected child (and its font-size) entirely.
+        const child = startContainer.childNodes[startOffset];
+        referenceNode = child
+          ? (child.nodeType === Node.TEXT_NODE ? child.parentElement : child)
+          : startContainer;
+      }
+    }
+    const currentSize = parseFloat(window.getComputedStyle(referenceNode).fontSize);
+    suppressAutoSaveRef.current = true;
     document.execCommand("fontSize", false, "7");
     const newSpans = [];
-    editorRef.current.querySelectorAll('font[size="7"]').forEach(el => {
-      const size = parseFloat(window.getComputedStyle(el.parentElement).fontSize);
+    editor.querySelectorAll('font[size="7"]').forEach(el => {
       const span = document.createElement("span");
-      span.style.fontSize = `${Math.max(10, Math.min(200, Math.round(size + delta)))}px`;
+      span.style.fontSize = `${Math.max(10, Math.min(200, Math.round(currentSize + delta)))}px`;
       span.innerHTML = el.innerHTML;
       el.replaceWith(span);
       newSpans.push(span);
@@ -193,10 +233,10 @@ export default function TextPane({
       const range = document.createRange();
       range.setStartBefore(newSpans[0]);
       range.setEndAfter(newSpans[newSpans.length - 1]);
-      const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
     }
+    suppressAutoSaveRef.current = false;
     saveContent();
   };
 
