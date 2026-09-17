@@ -164,6 +164,13 @@ export default function TextPane({
   // even opens — so the selection has to be captured up front, on mousedown,
   // and restored just before the command runs in onChange.
   const savedRangeRef = useRef(null);
+  // Whether the highlight swatch's most recent pick is still in effect —
+  // there's no single "current" highlight color to compare against the way
+  // there is for the pane background, since a selection can span mixed
+  // colors, so this just tracks "did clicking this swatch last apply a
+  // color" to decide whether the *next* click should toggle it off instead
+  // of opening the picker again.
+  const highlightAppliedRef = useRef(false);
   const captureSelection = () => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
@@ -459,21 +466,41 @@ export default function TextPane({
             type="color"
             className="textpane-toolbar-backcolor"
             defaultValue="#ffff00"
-            onMouseDown={captureSelection}
-            onChange={e => execBackColor(e.target.value)}
-            title="Highlight color for selected text"
+            onMouseDown={e => {
+              // Second press (a color from this swatch is still applied):
+              // toggle it off instead of reopening the picker — a native
+              // color input only fires onChange when the committed value
+              // actually differs, so re-confirming the same swatch value
+              // wouldn't otherwise give us anything to detect a "press it
+              // again" toggle from.
+              if (highlightAppliedRef.current) {
+                e.preventDefault();
+                execFormat("hiliteColor", "transparent");
+                highlightAppliedRef.current = false;
+                return;
+              }
+              captureSelection();
+            }}
+            onChange={e => {
+              execBackColor(e.target.value);
+              highlightAppliedRef.current = true;
+            }}
+            title="Highlight color for selected text (click again to remove)"
           />
           <button
             className="btn btn-ghost btn-sm textpane-toolbar-btn"
-            onMouseDown={e => { e.preventDefault(); execFormat("hiliteColor", "transparent"); }}
+            onMouseDown={e => { e.preventDefault(); execFormat("hiliteColor", "transparent"); highlightAppliedRef.current = false; }}
             title="Remove highlight from selected text"
           >⊘</button>
           <input
             type="color"
             className="textpane-toolbar-bgcolor"
             value={activePage.bgColor || "#141428"}
+            onMouseDown={e => {
+              if (activePage.bgColor) { e.preventDefault(); clearBgColor(); }
+            }}
             onChange={e => setBgColor(e.target.value)}
-            title="Background color for this pane"
+            title="Background color for this pane (click again to remove)"
           />
           <button
             className="btn btn-ghost btn-sm textpane-toolbar-btn"
