@@ -142,6 +142,37 @@
   margin: 4px 2px;
 }
 
+/* ── Swatches-only variant: circles wrapped into a compact grid instead of
+   a vertical list of named rows, since the color itself is the label. ── */
+.tb-theme-menu--swatches {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  max-width: 132px;
+}
+
+.tb-theme-option--swatch {
+  padding: 3px;
+  border-radius: 50%;
+}
+
+.tb-theme-option--swatch .tb-theme-swatch {
+  width: 20px;
+  height: 20px;
+}
+
+.tb-theme-option--swatch.tb-theme-option--active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.tb-theme-menu--swatches .tb-theme-menu-divider {
+  flex-basis: 100%;
+  height: 1px;
+  margin: 2px 0;
+}
+
 /* Import/export */
 .ei-btn {
   font-size: 0.8rem;

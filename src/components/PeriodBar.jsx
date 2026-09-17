@@ -428,12 +428,11 @@ export default function PeriodBar({
               title={`Theme: ${THEMES[currentTheme]?.name}`}
             >
               <span className="tb-theme-swatch" style={{ background: THEMES[currentTheme]?.swatch }} />
-              {THEMES[currentTheme]?.name}
               <span className="tb-theme-caret">▾</span>
             </button>
             {themeMenuOpen && themeMenuRect && createPortal(
               <div
-                className="tb-theme-menu"
+                className="tb-theme-menu tb-theme-menu--swatches"
                 ref={themeMenuRef}
                 style={{ top: themeMenuRect.bottom + 4, left: themeMenuRect.left }}
               >
@@ -445,11 +444,12 @@ export default function PeriodBar({
                   nodes.push(
                     <button
                       key={key}
-                      className={`tb-theme-option ${key === currentTheme ? "tb-theme-option--active" : ""}`}
+                      className={`tb-theme-option tb-theme-option--swatch ${key === currentTheme ? "tb-theme-option--active" : ""}`}
                       onClick={() => { onThemeChange(key); setThemeMenuOpen(false); }}
+                      title={THEMES[key].name}
+                      aria-label={THEMES[key].name}
                     >
                       <span className="tb-theme-swatch" style={{ background: THEMES[key].swatch }} />
-                      {THEMES[key].name}
                     </button>,
                   );
                   return nodes;
