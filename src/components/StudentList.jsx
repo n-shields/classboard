@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { playClick, playDing } from "../data/sounds";
 import { GEMS_REPEAT_MS } from "../data/gems";
 import "./StudentList.css";
@@ -46,6 +46,10 @@ export default function StudentList({
   // keystrokes to just that student. Focusing the name input for real here
   // fixes that in one place, since onFocus already sets activeIdx too.
   const nameInputRefs = useRef({});
+  // Simple mode (the board-facing view) sizes its text as large as the
+  // roster and the modal's own size allow — see the useLayoutEffect below
+  // (after sortedEntries) that binary-searches --student-font-size.
+  const listRef = useRef(null);
 
   // Points aren't a real focusable element, so a click there needs its own
   // "clear" path too — anything outside the two activation spots drops it.
@@ -96,6 +100,37 @@ export default function StudentList({
     }
     return entries;
   }, [names, sortMode, birthdays, gems]);
+
+  // Binary-searches the largest --student-font-size that still lets every
+  // row fit inside the list's own box without needing to scroll, so a small
+  // class reads in huge letters across the room while a full one still fits
+  // (and, as a safety net, still scrolls rather than silently clipping if
+  // even the smallest size doesn't fit everyone). Recomputed on a
+  // ResizeObserver (the modal itself resizing) and whenever row content
+  // that affects layout changes.
+  useLayoutEffect(() => {
+    if (!simple) return;
+    const el = listRef.current;
+    if (!el) return;
+    const fits = (remSize) => {
+      el.style.setProperty("--student-font-size", `${remSize}rem`);
+      return el.scrollHeight <= el.clientHeight + 1;
+    };
+    const compute = () => {
+      if (!el.clientHeight) return; // not laid out yet — a pending resize will retry
+      let lo = 0.8, hi = 6;
+      if (!fits(lo)) { el.style.setProperty("--student-font-size", `${lo}rem`); return; }
+      for (let i = 0; i < 14; i++) {
+        const mid = (lo + hi) / 2;
+        if (fits(mid)) lo = mid; else hi = mid;
+      }
+      el.style.setProperty("--student-font-size", `${lo}rem`);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [simple, sortedEntries, gems, jobs, gemsLabel]);
 
   const reorderNames = (fromIdx, toIdx) => {
     if (fromIdx === toIdx) return;
@@ -367,7 +402,14 @@ export default function StudentList({
                 <option value="points">{gemsLabel} (high to low)</option>
               </select>
             </div>
-            <div className={`student-list ${useColumns ? "student-list--columns" : ""}`}>
+            <div
+              ref={listRef}
+              className={`student-list ${useColumns ? "student-list--columns" : ""}`}
+              // grid-auto-flow: column needs an explicit row-track count to
+              // know when to wrap into the second column — without it,
+              // every row would stack in the first column only.
+              style={useColumns ? { gridTemplateRows: `repeat(${Math.max(1, Math.ceil(sortedEntries.length / 2))}, max-content)` } : undefined}
+            >
               {sortedEntries.map(({ name, idx }) => {
                 const excluded = excludedNames.includes(name);
                 const draggableRow = sortMode === "default";
