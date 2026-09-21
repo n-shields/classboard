@@ -3,11 +3,10 @@ import { createPortal } from "react-dom";
 import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
-import HotkeysEditor from "./HotkeysEditor";
 import { THEMES, THEME_KEYS, hasDarkText } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
 import { playClick, playDing } from "../data/sounds";
-import { loadSoundHotkeys, saveSoundHotkeys, soundById } from "../data/soundHotkeys";
+import { loadSoundHotkeys, soundById } from "../data/soundHotkeys";
 import {
   isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
@@ -62,7 +61,6 @@ export default function PeriodBar({
   const [editorOpen,    setEditorOpen]    = useState(false);
   const [studentsOpen,  setStudentsOpen]  = useState(false);
   const [layoutToolOpen, setLayoutToolOpen] = useState(false);
-  const [hotkeysEditorOpen, setHotkeysEditorOpen] = useState(false);
   const [soundHotkeys, setSoundHotkeys] = useState(loadSoundHotkeys);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [themeMenuRect, setThemeMenuRect] = useState(null);
@@ -176,8 +174,8 @@ export default function PeriodBar({
   //                stays open until the teacher closes it (Space, Escape, or
   //                clicking off).
   //   a            toggles auto-detect period
-  //   (custom)     plays a sound effect — see soundHotkeys / HotkeysEditor,
-  //                opened from the "🔊 Hotkeys" button
+  //   (custom)     plays a sound effect — assigned from Teacher View's
+  //                "🔊 Hotkeys" button, see soundHotkeys / HotkeysEditor
   const periods = schedules[scheduleType] || [];
   const namesRef = useRef(names);
   const gemsRef = useRef(gems);
@@ -301,10 +299,14 @@ export default function PeriodBar({
     else document.documentElement.requestFullscreen?.();
   };
 
-  const handleSoundHotkeysChange = (map) => {
-    setSoundHotkeys(map);
-    saveSoundHotkeys(map);
-  };
+  // Hotkeys are now assigned from Teacher View's own "🔊 Hotkeys" button (a
+  // separate window) rather than here — reload on a storage event so a
+  // change made there takes effect on this board without a reload.
+  useEffect(() => {
+    const reload = () => setSoundHotkeys(loadSoundHotkeys());
+    window.addEventListener("storage", reload);
+    return () => window.removeEventListener("storage", reload);
+  }, []);
 
   // Close the theme dropdown on an outside click or Escape.
   useEffect(() => {
@@ -420,7 +422,6 @@ export default function PeriodBar({
 
           <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setEditorOpen(true)}>Edit</button>
           <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setLayoutToolOpen(true)} title="Show/hide panes, presets, and saved layouts">▦ Layout</button>
-          <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setHotkeysEditorOpen(true)} title="Assign sound effects to keyboard shortcuts">🔊 Hotkeys</button>
 
           <div className="tb-divider" />
 
@@ -596,13 +597,6 @@ export default function PeriodBar({
         />
       )}
 
-      {hotkeysEditorOpen && (
-        <HotkeysEditor
-          hotkeys={soundHotkeys}
-          onChange={handleSoundHotkeysChange}
-          onClose={() => setHotkeysEditorOpen(false)}
-        />
-      )}
     </>
   );
 }

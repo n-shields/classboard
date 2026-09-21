@@ -4,12 +4,14 @@ import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
+import HotkeysEditor from "./components/HotkeysEditor";
 import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriodIndex } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
 import { saveTeacherViewBounds, loadSeatingViewBounds, loadBoardViewBounds } from "./data/teacherView";
 import { loadTeacherLayout, saveTeacherLayout } from "./data/teacherLayout";
+import { loadSoundHotkeys, saveSoundHotkeys } from "./data/soundHotkeys";
 import "./TeacherView.css";
 
 const DEFAULT_COLLAPSED = { clock: false, reminders: false, notes: false };
@@ -43,6 +45,8 @@ export default function TeacherView() {
   const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
   const [now, setNow] = useState(() => new Date());
   const [studentsOpen, setStudentsOpen] = useState(false);
+  const [hotkeysEditorOpen, setHotkeysEditorOpen] = useState(false);
+  const [soundHotkeys, setSoundHotkeys] = useState(loadSoundHotkeys);
   const [layout, setLayout] = useState(loadTeacherLayout);
   const [collapsed, setCollapsed] = useState({ ...DEFAULT_COLLAPSED });
   const toggleCollapsed = useCallback((key) => setCollapsed(c => ({ ...c, [key]: !c[key] })), []);
@@ -65,6 +69,7 @@ export default function TeacherView() {
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
       setActivePeriod(loadActivePeriod());
+      setSoundHotkeys(loadSoundHotkeys());
     };
     const id = setInterval(() => { setNow(new Date()); reload(); }, 15_000);
     window.addEventListener("storage", reload);
@@ -153,6 +158,11 @@ export default function TeacherView() {
   const handleJobsChange      = (jobs)          => { const next = savePeriodPatch(periodKey, { jobs });          if (next) setPeriodData(next); };
   const handleGemsLabelChange = (gemsLabel)     => { const next = savePeriodPatch(periodKey, { gemsLabel });     if (next) setPeriodData(next); };
   const handleSortModeChange  = (sortMode)      => { const next = savePeriodPatch(periodKey, { sortMode });      if (next) setPeriodData(next); };
+
+  const handleSoundHotkeysChange = (map) => {
+    setSoundHotkeys(map);
+    saveSoundHotkeys(map);
+  };
 
   const handleDeleteClassList = (label) => {
     setPeriodData(deleteClassList(periodData, label));
@@ -257,6 +267,11 @@ export default function TeacherView() {
           onClick={openBoardView}
           title="Open a synced board window to browse and edit another period's content"
         >🖥 Board</button>
+        <button
+          className="btn btn-ghost btn-sm teacher-view-header-btn"
+          onClick={() => setHotkeysEditorOpen(true)}
+          title="Assign sound effects to keyboard shortcuts"
+        >🔊 Hotkeys</button>
       </div>
       <div className="teacher-view-body">
         <TileLayout
@@ -292,6 +307,14 @@ export default function TeacherView() {
           onDeleteClassList={handleDeleteClassList}
           periodLabel={currentPeriod?.label}
           onClose={() => setStudentsOpen(false)}
+        />
+      )}
+
+      {hotkeysEditorOpen && (
+        <HotkeysEditor
+          hotkeys={soundHotkeys}
+          onChange={handleSoundHotkeysChange}
+          onClose={() => setHotkeysEditorOpen(false)}
         />
       )}
     </div>
