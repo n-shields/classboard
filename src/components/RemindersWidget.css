@@ -68,6 +68,7 @@
 .reminders-message--end         { color: var(--warn); }
 .reminders-message--untilClosed { color: var(--danger); }
 .reminders-message--time        { color: var(--success); }
+.reminders-message--autoExport  { color: var(--accent2); }
 
 .reminders-widget--active {
   animation: reminders-pulse 2.4s ease-in-out infinite;

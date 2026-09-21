@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { doExport } from "../data/exportData";
+import { loadAutoExportReminders, saveAutoExportReminders } from "../data/autoExportReminders";
 import "./RemindersWidget.css";
 
 const DISMISS_KEY_BASE = "classboard_reminders_dismissed";
@@ -8,7 +10,7 @@ const DEFAULT_REMINDERS = [
   { id: 2, text: "Clean-up", edge: "end",   minutes: 10, enabled: true },
 ];
 
-const EDGES = ["start", "end", "untilClosed", "time", "birthdayToday", "birthdayWeekend"];
+const EDGES = ["start", "end", "untilClosed", "time", "birthdayToday", "birthdayWeekend", "autoExport"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // "YYYY-MM-DD" -> "MM-DD", for comparing a stored birthday against a date
@@ -95,7 +97,22 @@ export default function RemindersWidget({
   defaultReminders = DEFAULT_REMINDERS, scope = "main",
   names = [], birthdays = {},
 }) {
-  const reminders = useMemo(() => normalizeReminders(remindersProp, defaultReminders), [remindersProp, defaultReminders]);
+  const periodReminders = useMemo(() => normalizeReminders(remindersProp, defaultReminders), [remindersProp, defaultReminders]);
+  // Auto-export reminders are global (see data/autoExportReminders), and
+  // only surfaced in Teacher View — the one window that's more likely to
+  // still be open near the end of the day (see openBoardView's own comment
+  // for the same reasoning). Merging them into `reminders` here, rather
+  // than keeping a separate UI, is what makes them show up as just another
+  // option in the same editor list.
+  const [rawAutoExport, setRawAutoExport] = useState(() => (scope === "teacher" ? loadAutoExportReminders() : []));
+  useEffect(() => {
+    if (scope !== "teacher") return;
+    const reload = () => setRawAutoExport(loadAutoExportReminders());
+    window.addEventListener("storage", reload);
+    return () => window.removeEventListener("storage", reload);
+  }, [scope]);
+  const autoExportReminders = useMemo(() => normalizeReminders(rawAutoExport, []), [rawAutoExport]);
+  const reminders = useMemo(() => [...periodReminders, ...autoExportReminders], [periodReminders, autoExportReminders]);
   const [now, setNow] = useState(() => new Date());
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -106,11 +123,44 @@ export default function RemindersWidget({
   // Dismissals only count for the class sitting they were made in; a stale
   // record is simply ignored, so it clears itself when the period rolls over.
   const dismissedIds = dismissedRec.key === key ? dismissedRec.ids : [];
+  // A brief on-screen confirmation once an auto-export reminder actually
+  // fires — separate from the period-scoped `active` messages below, since
+  // this can happen with no class in session at all (see the effect below).
+  const [exportFlash, setExportFlash] = useState(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 5000);
     return () => clearInterval(id);
   }, []);
+
+  // Auto-export doesn't wait for a class period to be "current" the way
+  // every other reminder kind does — the whole point is firing near the end
+  // of the school day, which can be after the last period's own window has
+  // already closed. Guarded per (reminder id, calendar day) in localStorage
+  // — not scoped to this window — so it survives a reload, and if two
+  // Teacher View windows somehow both have this open, only the first to
+  // notice claims it.
+  useEffect(() => {
+    const today = now.toDateString();
+    for (const r of reminders) {
+      if (r.edge !== "autoExport" || r.enabled === false) continue;
+      const sinceTime = (now - timeToday(r.time, now)) / 60000;
+      if (sinceTime < 0 || sinceTime >= r.minutes) continue;
+      const doneKey = `classboard_auto_export_done_${r.id}`;
+      if (localStorage.getItem(doneKey) === today) continue;
+      localStorage.setItem(doneKey, today);
+      doExport();
+      setExportFlash({ id: r.id, text: r.text || "Data exported" });
+    }
+  }, [reminders, now]);
+
+  // Fade the confirmation on its own, rather than requiring a click —
+  // there's no class necessarily even in session to dismiss it.
+  useEffect(() => {
+    if (!exportFlash) return;
+    const id = setTimeout(() => setExportFlash(null), 10_000);
+    return () => clearTimeout(id);
+  }, [exportFlash]);
 
   const dismiss = (id) => {
     const rec = { key, ids: [...dismissedIds, id] };
@@ -158,35 +208,56 @@ export default function RemindersWidget({
     setDraft(d => d.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   const removeDraft = (i) => setDraft(d => d.filter((_, idx) => idx !== i));
   const addDraft = () =>
-    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => r.id || 0)) + 1, text: "", edge: "start", minutes: 5, time: "12:00", enabled: true }]);
+    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => (typeof r.id === "number" ? r.id : 0))) + 1, text: "", edge: "start", minutes: 5, time: "12:00", enabled: true }]);
 
+  // Auto-export rows are split back out and saved to their own, global
+  // store instead of going through onRemindersChange (which persists into
+  // whichever period is currently active — the wrong place for something
+  // meant to survive past that period, or fire with none active at all).
   const saveEdit = () => {
-    const cleaned = draft
-      .map(r => ({
+    const periodRows = [];
+    const autoExportRows = [];
+    for (const r of draft) {
+      const text = (r.text || "").trim();
+      const cleanedRow = {
         id: r.id,
-        text: r.text.trim(),
+        text,
         edge: EDGES.includes(r.edge) ? r.edge : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
         time: TIME_RE.test(r.time) ? r.time : "12:00",
         enabled: r.enabled !== false,
-      }))
-      .filter(r => r.text);
-    onRemindersChange?.(cleaned);
+      };
+      if (r.edge === "autoExport") autoExportRows.push({ ...cleanedRow, text: text || "Data exported" });
+      else if (text) periodRows.push(cleanedRow);
+    }
+    onRemindersChange?.(periodRows);
+    if (scope === "teacher") {
+      saveAutoExportReminders(autoExportRows);
+      setRawAutoExport(autoExportRows);
+    }
     setEditOpen(false);
   };
 
+  // The export confirmation stands alone — it can fire with no class in
+  // session at all, so it's shown alongside (not gated behind) the
+  // period-scoped `active` messages, with its own dismiss that just clears
+  // the flash instead of touching the per-sitting dismissed record.
+  const displayMessages = exportFlash
+    ? [...active, { id: `export-${exportFlash.id}`, edge: "autoExport", text: `📤 ${exportFlash.text}`, isFlash: true }]
+    : active;
+
   return (
-    <div className={`card reminders-widget ${collapsed ? "card--collapsed" : ""} ${active.length ? "reminders-widget--active" : ""}`} tabIndex={-1}>
+    <div className={`card reminders-widget ${collapsed ? "card--collapsed" : ""} ${displayMessages.length ? "reminders-widget--active" : ""}`} tabIndex={-1}>
       <div className="card-body reminders-body">
-        {active.length > 0 ? (
-          <div className="reminders-messages" data-count={Math.min(active.length, 4)}>
-            {active.map(r => (
+        {displayMessages.length > 0 ? (
+          <div className="reminders-messages" data-count={Math.min(displayMessages.length, 4)}>
+            {displayMessages.map(r => (
               <div key={r.id} className={`reminders-message reminders-message--${r.edge}`}>
                 <span className="reminders-message-text">{r.text}</span>
                 <button
                   className="reminders-dismiss"
-                  onClick={() => dismiss(r.id)}
-                  title="Dismiss for this class"
+                  onClick={() => (r.isFlash ? setExportFlash(null) : dismiss(r.id))}
+                  title="Dismiss"
                 >✕</button>
               </div>
             ))}
@@ -213,10 +284,14 @@ export default function RemindersWidget({
               time until you dismiss it. The two birthday kinds show themselves
               automatically, at a time you pick, only on days there's actually a
               match — no message otherwise.
+              {scope === "teacher" && " Auto-export downloads a dated backup at a time you pick (e.g. just after the last bell) — it fires once per day even with no class in session, unlike every other kind here."}
             </p>
             <div className="reminders-edit-list">
               {draft.map((r, i) => (
-                <div key={r.id} className={`reminders-edit-row ${r.enabled === false ? "reminders-edit-row--off" : ""}`}>
+                // Index, not r.id — period-scoped and auto-export rows are
+                // two separately-numbered id sequences merged into one
+                // list, so their ids alone can collide here.
+                <div key={i} className={`reminders-edit-row ${r.enabled === false ? "reminders-edit-row--off" : ""}`}>
                   <input
                     type="checkbox"
                     className="reminders-edit-toggle"
@@ -224,9 +299,11 @@ export default function RemindersWidget({
                     onChange={e => updateDraft(i, "enabled", e.target.checked)}
                     title={r.enabled === false ? "Turn this reminder on" : "Turn this reminder off"}
                   />
-                  {r.edge === "birthdayToday" || r.edge === "birthdayWeekend" ? (
+                  {r.edge === "birthdayToday" || r.edge === "birthdayWeekend" || r.edge === "autoExport" ? (
                     <span className="reminders-edit-auto-text">
-                      {r.edge === "birthdayToday" ? "🎂 Auto: today's birthdays" : "🎂 Auto: this weekend's birthdays"}
+                      {r.edge === "birthdayToday" ? "🎂 Auto: today's birthdays"
+                        : r.edge === "birthdayWeekend" ? "🎂 Auto: this weekend's birthdays"
+                        : "📤 Auto: export data"}
                     </span>
                   ) : (
                     <input
@@ -241,11 +318,14 @@ export default function RemindersWidget({
                     onChange={e => {
                       const edge = e.target.value;
                       updateDraft(i, "edge", edge);
-                      // These two auto-generate their message at display time, but
-                      // still need *some* stored text or saving would drop them
-                      // (empty-text reminders are treated as deleted).
-                      if (!r.text && (edge === "birthdayToday" || edge === "birthdayWeekend")) {
-                        updateDraft(i, "text", edge === "birthdayToday" ? "Birthday today" : "Birthdays this weekend");
+                      // These auto-generate their message (or need none at
+                      // all) at display/trigger time, but still need *some*
+                      // stored text or saving would drop them (empty-text
+                      // reminders are treated as deleted).
+                      if (!r.text && (edge === "birthdayToday" || edge === "birthdayWeekend" || edge === "autoExport")) {
+                        updateDraft(i, "text", edge === "birthdayToday" ? "Birthday today"
+                          : edge === "birthdayWeekend" ? "Birthdays this weekend"
+                          : "Data exported");
                       }
                     }}
                   >
@@ -255,8 +335,11 @@ export default function RemindersWidget({
                     <option value="untilClosed">Until closed</option>
                     <option value="birthdayToday">Birthday today</option>
                     <option value="birthdayWeekend">Birthdays this weekend</option>
+                    {/* Global, not per-period (see autoExportReminders.js) —
+                        only meaningful, and only savable, from Teacher View. */}
+                    {scope === "teacher" && <option value="autoExport">📤 Auto-export data</option>}
                   </select>
-                  {(r.edge === "time" || r.edge === "birthdayToday" || r.edge === "birthdayWeekend") && (
+                  {(r.edge === "time" || r.edge === "birthdayToday" || r.edge === "birthdayWeekend" || r.edge === "autoExport") && (
                     <input
                       className="reminders-edit-time"
                       type="time"

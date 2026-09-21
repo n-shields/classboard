@@ -12,29 +12,8 @@ import {
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
 } from "../data/autosave";
 import { GEMS_REPEAT_MS } from "../data/gems";
+import { collectData, doExport } from "../data/exportData";
 import "./PeriodBar.css";
-
-function collectData() {
-  const data = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (!k?.startsWith("classboard_")) continue;
-    const v = localStorage.getItem(k);
-    if (v !== null) try { data[k] = JSON.parse(v); } catch (_) { data[k] = v; }
-  }
-  return data;
-}
-
-function doExport() {
-  const data = collectData();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `classboard-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function PeriodBar({
   schedules, onSchedulesChange,
