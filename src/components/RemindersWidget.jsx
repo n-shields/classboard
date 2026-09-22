@@ -10,7 +10,8 @@ const DEFAULT_REMINDERS = [
   { id: 2, text: "Clean-up", edge: "end",   minutes: 10, enabled: true },
 ];
 
-const EDGES = ["start", "end", "untilClosed", "time", "birthdayToday", "birthdayWeekend", "autoExport"];
+const EDGES = ["start", "end", "untilClosed", "time", "autoExport"];
+const BIRTHDAY_KINDS = ["today", "weekend"];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // "YYYY-MM-DD" -> "MM-DD", for comparing a stored birthday against a date
@@ -47,15 +48,40 @@ function normalizeReminders(list, defaults = DEFAULT_REMINDERS) {
       let id = Number.isFinite(r.id) ? r.id : i + 1;
       while (seen.has(id)) id++;
       seen.add(id);
+      // Earlier versions stored which birthday kind a row was as its own
+      // trigger edge (always fired at a fixed clock time) — migrate that
+      // shape forward into { edge: "time", birthday: "today"|"weekend" },
+      // which fires identically, so an already-saved reminder keeps
+      // working exactly as before under the new, shared trigger model.
+      let edge = r.edge;
+      let birthday = BIRTHDAY_KINDS.includes(r.birthday) ? r.birthday : undefined;
+      if (edge === "birthdayToday") { edge = "time"; birthday = "today"; }
+      else if (edge === "birthdayWeekend") { edge = "time"; birthday = "weekend"; }
       return {
         id,
         text: r.text,
-        edge: EDGES.includes(r.edge) ? r.edge : "start",
+        edge: EDGES.includes(edge) ? edge : "start",
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
         time: TIME_RE.test(r.time) ? r.time : "12:00",
         enabled: r.enabled !== false,
+        ...(birthday ? { birthday } : {}),
       };
     });
+}
+
+// Whether a reminder's trigger window is open right now — shared by freely
+// composed reminders and both birthday kinds alike, which differ only in
+// what additionally has to be true (an actual birthday match) and what
+// text they show once triggered (see the `active` loop below).
+function windowActive(r, sinceStart, untilEnd, now) {
+  if (r.edge === "start") return sinceStart >= 0 && sinceStart < r.minutes;
+  if (r.edge === "end") return untilEnd > 0 && untilEnd <= r.minutes;
+  if (r.edge === "untilClosed") return sinceStart >= 0 && untilEnd > 0;
+  if (r.edge === "time") {
+    const sinceTime = (now - timeToday(r.time, now)) / 60000;
+    return sinceTime >= 0 && sinceTime < r.minutes;
+  }
+  return false;
 }
 
 // A "HH:MM" time on today's date, relative to `now`
@@ -90,6 +116,50 @@ function loadDismissed(scope) {
 
 function saveDismissed(rec, scope) {
   try { localStorage.setItem(dismissKeyFor(scope), JSON.stringify(rec)); } catch (_) {}
+}
+
+// One row in the "Show birthdays" section — same First/Last/At time/Until
+// closed + minutes controls as a freely-composed reminder row (see
+// windowActive), just with a fixed, non-editable label instead of a text
+// field and no kind-select entry for autoExport (birthdays can't be that).
+function BirthdayRow({ label, row, enabled, onChange }) {
+  return (
+    <div className={`reminders-edit-row ${!enabled ? "reminders-edit-row--off" : ""}`}>
+      <input
+        type="checkbox"
+        className="reminders-edit-toggle"
+        checked={enabled}
+        onChange={e => onChange({ enabled: e.target.checked })}
+        title={enabled ? "Turn this reminder off" : "Turn this reminder on"}
+      />
+      <span className="reminders-edit-auto-text">{label}</span>
+      <select value={row.edge} onChange={e => onChange({ edge: e.target.value })}>
+        <option value="start">First</option>
+        <option value="end">Last</option>
+        <option value="time">At time</option>
+        <option value="untilClosed">Until closed</option>
+      </select>
+      {row.edge === "time" && (
+        <input
+          className="reminders-edit-time"
+          type="time"
+          value={row.time}
+          onChange={e => onChange({ time: e.target.value })}
+        />
+      )}
+      {row.edge !== "untilClosed" && (
+        <>
+          <input
+            className="reminders-edit-mins"
+            type="number" min="1" max="120"
+            value={row.minutes}
+            onChange={e => onChange({ minutes: e.target.value })}
+          />
+          <span className="reminders-edit-unit">min</span>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function RemindersWidget({
@@ -174,28 +244,19 @@ export default function RemindersWidget({
     const untilEnd   = (timeToday(currentPeriod.end, now) - now) / 60000;
     for (const r of reminders) {
       if (r.enabled === false || dismissedIds.includes(r.id)) continue;
-      if (r.edge === "start" && sinceStart >= 0 && sinceStart < r.minutes) active.push(r);
-      else if (r.edge === "end" && untilEnd > 0 && untilEnd <= r.minutes) active.push(r);
-      else if (r.edge === "untilClosed" && sinceStart >= 0 && untilEnd > 0) active.push(r);
-      else if (r.edge === "time") {
-        const sinceTime = (now - timeToday(r.time, now)) / 60000;
-        if (sinceTime >= 0 && sinceTime < r.minutes) active.push(r);
-      } else if (r.edge === "birthdayToday") {
-        const sinceTime = (now - timeToday(r.time, now)) / 60000;
-        if (sinceTime >= 0 && sinceTime < r.minutes) {
-          const today = namesBornOn(names, birthdays, monthDayOf(now));
-          if (today.length) active.push({ ...r, text: `🎂 Happy Birthday, ${joinNames(today)}!` });
-        }
-      } else if (r.edge === "birthdayWeekend") {
-        const sinceTime = (now - timeToday(r.time, now)) / 60000;
-        if (sinceTime >= 0 && sinceTime < r.minutes) {
-          const [sat, sun] = upcomingWeekend(now);
-          const parts = [
-            ...namesBornOn(names, birthdays, monthDayOf(sat)).map(n => `${n} (Sat)`),
-            ...namesBornOn(names, birthdays, monthDayOf(sun)).map(n => `${n} (Sun)`),
-          ];
-          if (parts.length) active.push({ ...r, text: `🎂 Birthdays this weekend: ${parts.join(", ")}` });
-        }
+      if (!windowActive(r, sinceStart, untilEnd, now)) continue;
+      if (r.birthday === "today") {
+        const today = namesBornOn(names, birthdays, monthDayOf(now));
+        if (today.length) active.push({ ...r, text: `🎂 Happy Birthday, ${joinNames(today)}!` });
+      } else if (r.birthday === "weekend") {
+        const [sat, sun] = upcomingWeekend(now);
+        const parts = [
+          ...namesBornOn(names, birthdays, monthDayOf(sat)).map(n => `${n} (Sat)`),
+          ...namesBornOn(names, birthdays, monthDayOf(sun)).map(n => `${n} (Sun)`),
+        ];
+        if (parts.length) active.push({ ...r, text: `🎂 Birthdays this weekend: ${parts.join(", ")}` });
+      } else {
+        active.push(r);
       }
     }
   }
@@ -215,13 +276,14 @@ export default function RemindersWidget({
   // compose — so it gets its own checkbox instead of making the teacher add
   // a row and find "Birthday today" in the kind dropdown. Checking it
   // reveals the two birthday-specific reminders (today / this weekend),
-  // each with its own enable checkbox and the same time+duration controls
-  // every other reminder gets — still just the two underlying rows this
-  // widget already knew about (birthdayToday/birthdayWeekend), only edited
-  // through dedicated controls instead of the generic list + kind dropdown.
-  const birthdayEdges = ["birthdayToday", "birthdayWeekend"];
-  const todayRow    = draft ? draft.find(r => r.edge === "birthdayToday")    : null;
-  const weekendRow  = draft ? draft.find(r => r.edge === "birthdayWeekend") : null;
+  // each with its own enable checkbox and the exact same First/Last/At
+  // time/Until closed + minutes controls a freely-composed reminder gets
+  // (see windowActive) — still just the two underlying rows this widget
+  // already knew about (identified by `birthday: "today"|"weekend"`, not
+  // by their own dedicated edge), only edited through this dedicated
+  // section instead of the generic list + kind dropdown.
+  const todayRow    = draft ? draft.find(r => r.birthday === "today")    : null;
+  const weekendRow  = draft ? draft.find(r => r.birthday === "weekend") : null;
   const todayEnabled   = !!todayRow   && todayRow.enabled   !== false;
   const weekendEnabled = !!weekendRow && weekendRow.enabled !== false;
   // The master checkbox reflects (and drives) whether either is on, rather
@@ -229,17 +291,18 @@ export default function RemindersWidget({
   // "showing birthdays" while both underlying reminders are actually off.
   const birthdaysShown = todayEnabled || weekendEnabled;
 
-  const setBirthdayRow = (edge, patch) => {
+  const setBirthdayRow = (kind, patch) => {
     setDraft(d => {
-      const idx = d.findIndex(r => r.edge === edge);
+      const idx = d.findIndex(r => r.birthday === kind);
       if (idx >= 0) return d.map((r, i) => (i === idx ? { ...r, ...patch } : r));
       return [...d, {
         id: nextDraftId(d),
-        text: edge === "birthdayToday" ? "Birthday today" : "Birthdays this weekend",
-        edge,
-        minutes: 120,
-        time: "08:00",
+        text: kind === "today" ? "Birthday today" : "Birthdays this weekend",
+        edge: "start",
+        minutes: 10,
+        time: "12:00",
         enabled: true,
+        birthday: kind,
         ...patch,
       }];
     });
@@ -249,12 +312,12 @@ export default function RemindersWidget({
     if (checked) {
       // Turning the section on for the first time defaults to "today" only
       // — "this weekend" stays off until the teacher opts in below.
-      if (!todayEnabled && !weekendEnabled) setBirthdayRow("birthdayToday", { enabled: true });
+      if (!todayEnabled && !weekendEnabled) setBirthdayRow("today", { enabled: true });
     } else {
-      // Collapsing disables both rather than removing them, so their times
-      // survive being turned back on later.
-      if (todayRow)   setBirthdayRow("birthdayToday",   { enabled: false });
-      if (weekendRow) setBirthdayRow("birthdayWeekend", { enabled: false });
+      // Collapsing disables both rather than removing them, so their
+      // settings survive being turned back on later.
+      if (todayRow)   setBirthdayRow("today",   { enabled: false });
+      if (weekendRow) setBirthdayRow("weekend", { enabled: false });
     }
   };
 
@@ -264,7 +327,7 @@ export default function RemindersWidget({
   // this filtered view) for updateDraft/removeDraft, since those still
   // address the full draft array.
   const genericRows = draft
-    ? draft.map((r, i) => ({ r, i })).filter(({ r }) => !birthdayEdges.includes(r.edge))
+    ? draft.map((r, i) => ({ r, i })).filter(({ r }) => !r.birthday)
     : [];
 
   // Auto-export rows are split back out and saved to their own, global
@@ -283,6 +346,7 @@ export default function RemindersWidget({
         minutes: Math.max(1, Math.min(120, parseInt(r.minutes, 10) || 5)),
         time: TIME_RE.test(r.time) ? r.time : "12:00",
         enabled: r.enabled !== false,
+        ...(BIRTHDAY_KINDS.includes(r.birthday) ? { birthday: r.birthday } : {}),
       };
       if (r.edge === "autoExport") autoExportRows.push({ ...cleanedRow, text: text || "Data exported" });
       else if (text) periodRows.push(cleanedRow);
@@ -348,52 +412,18 @@ export default function RemindersWidget({
               </div>
               {birthdaysShown && (
               <div className="reminders-edit-birthday-options">
-                <div className={`reminders-edit-row ${!todayEnabled ? "reminders-edit-row--off" : ""}`}>
-                  <input
-                    type="checkbox"
-                    className="reminders-edit-toggle"
-                    checked={todayEnabled}
-                    onChange={e => setBirthdayRow("birthdayToday", { enabled: e.target.checked })}
-                    title={todayEnabled ? "Turn this reminder off" : "Turn this reminder on"}
-                  />
-                  <span className="reminders-edit-auto-text">Today</span>
-                  <input
-                    className="reminders-edit-time"
-                    type="time"
-                    value={todayRow?.time ?? "08:00"}
-                    onChange={e => setBirthdayRow("birthdayToday", { time: e.target.value })}
-                  />
-                  <input
-                    className="reminders-edit-mins"
-                    type="number" min="1" max="120"
-                    value={todayRow?.minutes ?? 120}
-                    onChange={e => setBirthdayRow("birthdayToday", { minutes: e.target.value })}
-                  />
-                  <span className="reminders-edit-unit">min</span>
-                </div>
-                <div className={`reminders-edit-row ${!weekendEnabled ? "reminders-edit-row--off" : ""}`}>
-                  <input
-                    type="checkbox"
-                    className="reminders-edit-toggle"
-                    checked={weekendEnabled}
-                    onChange={e => setBirthdayRow("birthdayWeekend", { enabled: e.target.checked })}
-                    title={weekendEnabled ? "Turn this reminder off" : "Turn this reminder on"}
-                  />
-                  <span className="reminders-edit-auto-text">This weekend</span>
-                  <input
-                    className="reminders-edit-time"
-                    type="time"
-                    value={weekendRow?.time ?? "08:00"}
-                    onChange={e => setBirthdayRow("birthdayWeekend", { time: e.target.value })}
-                  />
-                  <input
-                    className="reminders-edit-mins"
-                    type="number" min="1" max="120"
-                    value={weekendRow?.minutes ?? 120}
-                    onChange={e => setBirthdayRow("birthdayWeekend", { minutes: e.target.value })}
-                  />
-                  <span className="reminders-edit-unit">min</span>
-                </div>
+                <BirthdayRow
+                  label="Today"
+                  row={todayRow ?? { edge: "start", minutes: 10, time: "12:00" }}
+                  enabled={todayEnabled}
+                  onChange={patch => setBirthdayRow("today", patch)}
+                />
+                <BirthdayRow
+                  label="This weekend"
+                  row={weekendRow ?? { edge: "start", minutes: 10, time: "12:00" }}
+                  enabled={weekendEnabled}
+                  onChange={patch => setBirthdayRow("weekend", patch)}
+                />
               </div>
               )}
             </div>
