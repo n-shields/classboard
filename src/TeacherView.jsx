@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import ClockWidget from "./components/ClockWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
@@ -234,16 +234,24 @@ export default function TeacherView() {
   // so the teacher can switch its own period selector to a different period
   // and edit that period's board/notes/roster without touching whatever's
   // actually being projected in the primary window.
+  //
+  // Each click spawns its own new window rather than refocusing one shared
+  // target: a unique name per call (a fixed name makes window.open reuse the
+  // existing window instead), cascaded down-right from the last so a second
+  // board doesn't land exactly on top of the first and look like nothing
+  // happened. Several can be open at once, all syncing with each other.
+  const boardViewCountRef = useRef(0);
   const openBoardView = () => {
     const bounds = loadBoardViewBounds();
     const width  = bounds?.width  || 1100;
     const height = bounds?.height || 760;
-    const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + 40;
-    const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + 40;
+    const offset = (boardViewCountRef.current++ % 6) * 30;
+    const left   = (Number.isFinite(bounds?.left) ? bounds.left : window.screenX + 40) + offset;
+    const top    = (Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + 40) + offset;
     const url = new URL(window.location.href);
     url.searchParams.delete("view");
     url.searchParams.delete("s");
-    const popup = window.open(url.toString(), "classboard-board-view", `width=${width},height=${height},left=${left},top=${top}`);
+    const popup = window.open(url.toString(), `classboard-board-view-${Date.now()}`, `width=${width},height=${height},left=${left},top=${top}`);
     popup?.focus();
   };
 
