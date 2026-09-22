@@ -15,12 +15,21 @@ const ROTATIONS  = [0, 90, 180, 270];
 // isn't standing at when the chart is set up).
 const FRONT_DIRS   = ["top", "right", "bottom", "left"];
 const FRONT_ARROWS = { top: "⬆", right: "➡", bottom: "⬇", left: "⬅" };
-const FRONT_LABELS = {
-  top:    { text: "▲ FRONT", style: { top: 6, left: "50%", transform: "translateX(-50%)" } },
-  right:  { text: "FRONT ▶", style: { top: "50%", right: 6, transform: "translateY(-50%)" } },
-  bottom: { text: "▼ FRONT", style: { bottom: 6, left: "50%", transform: "translateX(-50%)" } },
-  left:   { text: "◀ FRONT", style: { top: "50%", left: 6, transform: "translateY(-50%)" } },
-};
+const FRONT_TEXT = { top: "▲ FRONT", right: "FRONT ▶", bottom: "▼ FRONT", left: "◀ FRONT" };
+// Where the label sits along the chosen wall until the teacher drags it
+// somewhere else — e.g. lined up with an actual whiteboard that isn't dead
+// center. Cycling to a different wall (cycleFrontDir) resets to this, since
+// a manually-dragged point from the old wall wouldn't land anywhere
+// meaningful relative to the new one.
+function frontDefaultPos(dir) {
+  switch (dir) {
+    case "right":  return { x: CANVAS_W - 24, y: CANVAS_H / 2 };
+    case "bottom": return { x: CANVAS_W / 2,   y: CANVAS_H - 20 };
+    case "left":   return { x: 24,             y: CANVAS_H / 2 };
+    case "top":
+    default:       return { x: CANVAS_W / 2,   y: 20 };
+  }
+}
 function seatComparator(frontDir) {
   switch (frontDir) {
     case "bottom": return (a, b) => (b.y - a.y) || (a.x - b.x);
@@ -108,6 +117,9 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [positions,   setPositions]   = useState(() => initPositions(names, stored, initDesks));
   const [rotation,    setRotation]    = useState(initUI.rotation);
   const [frontDir,    setFrontDir]    = useState(initUI.frontDir);
+  // null = use frontDefaultPos(frontDir); set once the teacher drags the
+  // label off that default spot.
+  const [frontPos,    setFrontPos]    = useState(initUI.frontPos ?? null);
   const [zoom,        setZoom]        = useState(1);
   const [showDoor,    setShowDoor]    = useState(initUI.showDoor);
   const [showTeacher, setShowTeacher] = useState(initUI.showTeacher);
@@ -136,6 +148,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const resizing        = useRef(null);
   // panningRef.current: { startX, startY, origPan:{x,y} }
   const panningRef      = useRef(null);
+  // frontDraggingRef.current: { startX, startY, orig:{x,y} } — the front
+  // label is a single free-floating point, not part of the multi-select/
+  // group-drag `positions` system the cards and rects share, so it gets its
+  // own small drag handler instead of hooking into that machinery.
+  const frontDraggingRef = useRef(null);
   const drawStartRef    = useRef(null);
   const initialStateRef = useRef(null);
   // Always-current refs so event handlers don't need positions/rects as deps
@@ -144,11 +161,13 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const panRef          = useRef(pan);
   const desksRef        = useRef(desks);
   const namesRef        = useRef(names);
+  const frontPosRef     = useRef(frontPos ?? frontDefaultPos(frontDir));
   useEffect(() => { positionsRef.current = positions; });
   useEffect(() => { rectsRef.current = rects; });
   useEffect(() => { panRef.current = pan; });
   useEffect(() => { desksRef.current = desks; });
   useEffect(() => { namesRef.current = names; });
+  useEffect(() => { frontPosRef.current = frontPos ?? frontDefaultPos(frontDir); });
 
   // Snapshot on open for cancel
   useEffect(() => {
@@ -160,7 +179,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, []); // eslint-disable-line
 
   useEffect(() => { savePositions(periodKey, positions); }, [positions, periodKey]);
-  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation, frontDir }); }, [showDoor, showTeacher, rotation, frontDir, periodKey]);
+  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation, frontDir, frontPos }); }, [showDoor, showTeacher, rotation, frontDir, frontPos, periodKey]);
   useEffect(() => { saveRects(periodKey, rects); }, [rects, periodKey]);
   useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
   useEffect(() => { saveConstraints(periodKey, constraints); }, [constraints, periodKey]);
@@ -234,8 +253,9 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, [showRulesMenu]);
 
   const cycleRotation = () => setRotation(r => ROTATIONS[(ROTATIONS.indexOf(r) + 1) % ROTATIONS.length]);
-  const cycleFrontDir = () => setFrontDir(d => FRONT_DIRS[(FRONT_DIRS.indexOf(d) + 1) % FRONT_DIRS.length]);
-  const resetPositions = () => { setPositions(initPositions(names, null)); setDesks([]); setZoom(1); setPan({ x: 0, y: 0 }); };
+  // Cycling to a new wall drops any manual drag — see frontDefaultPos.
+  const cycleFrontDir = () => { setFrontDir(d => FRONT_DIRS[(FRONT_DIRS.indexOf(d) + 1) % FRONT_DIRS.length]); setFrontPos(null); };
+  const resetPositions = () => { setPositions(initPositions(names, null)); setDesks([]); setZoom(1); setPan({ x: 0, y: 0 }); setFrontPos(null); };
 
   // Empty desks — for unassigned seats — are stored as plain card-shaped
   // entries in `positions` (like students), so drag/select/arrow-key
@@ -283,6 +303,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         doorPos:    positions.__door__,
         teacherPos: positions.__teacher__,
         frontDir,
+        frontPos,
       },
     };
     saveLayoutTemplates(next);
@@ -340,6 +361,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     setShowDoor(tpl.showDoor);
     setShowTeacher(tpl.showTeacher);
     if (tpl.frontDir) setFrontDir(tpl.frontDir);
+    setFrontPos(tpl.frontPos ?? null);
     setShowLayoutMenu(false);
   };
 
@@ -596,6 +618,16 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     panningRef.current = { startX: e.clientX, startY: e.clientY, origPan: { ...panRef.current } };
   }, [drawMode]);
 
+  // Front-of-room label mousedown: start its own lightweight drag, entirely
+  // separate from the card/rect select+drag system above (no selection, no
+  // group-drag, no swap-on-drop — it's just one free-floating point).
+  const onFrontMouseDown = useCallback((e) => {
+    if (drawMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    frontDraggingRef.current = { startX: e.clientX, startY: e.clientY, orig: frontPosRef.current };
+  }, [drawMode]);
+
   // Combined drag + marquee effect
   useEffect(() => {
     const MIN = SNAP_GRID;
@@ -632,12 +664,18 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
         const { startX, startY, origPan } = panningRef.current;
         setPan({ x: origPan.x + e.clientX - startX, y: origPan.y + e.clientY - startY });
       }
+      if (frontDraggingRef.current) {
+        const { startX, startY, orig } = frontDraggingRef.current;
+        const { x: dx, y: dy } = toLocal(e.clientX - startX, e.clientY - startY);
+        setFrontPos({ x: snapV(orig.x + dx), y: snapV(orig.y + dy) });
+      }
     };
 
     const onUp = (e) => {
       const dragInfo = dragging.current;
       dragging.current = null;
       resizing.current = null;
+      frontDraggingRef.current = null;
 
       // Dropping a single student/desk card centered on another one swaps
       // them, snapping both back to their (pre-drag) prior positions rather
@@ -902,11 +940,19 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
               style={{ left: preview.x, top: preview.y, width: preview.w, height: preview.h }} />
           )}
 
-          {/* Front-of-room indicator — a fact about the physical room, not
-              draggable like Door/Teacher, and independent of them. */}
-          <div className="seating-front-label" style={FRONT_LABELS[frontDir].style}>
+          {/* Front-of-room indicator — a fact about the physical room,
+              independent of Door/Teacher, but (unlike the fixed compass
+              rule itself) freely draggable so it can line up with wherever
+              the front actually is, like an off-center whiteboard, rather
+              than always sitting dead-center on its wall. */}
+          <div
+            className="seating-front-label"
+            style={{ left: (frontPos ?? frontDefaultPos(frontDir)).x, top: (frontPos ?? frontDefaultPos(frontDir)).y }}
+            onMouseDown={onFrontMouseDown}
+            title="Drag to reposition"
+          >
             <span style={{ transform: `rotate(-${rotation}deg)`, display: "block", transition: "transform 0.3s" }}>
-              {FRONT_LABELS[frontDir].text}
+              {FRONT_TEXT[frontDir]}
             </span>
           </div>
 

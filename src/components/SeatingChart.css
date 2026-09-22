@@ -357,18 +357,34 @@
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45), 0 0 14px rgba(99, 102, 241, 0.25) !important;
 }
 
-/* Front-of-room indicator — quiet by design (dim, small caps), pinned to
-   whichever edge is the actual front, independent of Door/Teacher. */
+/* Front-of-room indicator — quiet by design (dim, small caps), defaults to
+   the middle of whichever edge is the actual front but is freely draggable
+   (left/top are the label's own anchor point, set inline; translate(-50%,
+   -50%) centers the text on it so the drop point feels like "where the
+   label sits" regardless of how long the text is). */
 .seating-front-label {
   position: absolute;
+  transform: translate(-50%, -50%);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.32);
-  pointer-events: none;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: grab;
   user-select: none;
   white-space: nowrap;
   z-index: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.seating-front-label:hover {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+}
+.seating-front-label:active {
+  cursor: grabbing;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Pinned card — kept in place by Randomize. Deliberately understated (a
