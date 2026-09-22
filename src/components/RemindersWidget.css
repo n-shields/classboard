@@ -114,7 +114,7 @@
 
 .reminders-edit-modal {
   min-width: 380px;
-  max-width: 460px;
+  max-width: 500px;
 }
 
 .reminders-edit-hint {
@@ -123,15 +123,44 @@
   margin-bottom: 14px;
 }
 
+/* The birthdays shortcut sits above the reminder rows, set apart from them
+   since it's a standing preference rather than one of the listed messages. */
+.reminders-edit-birthday {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reminders-edit-birthday-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.reminders-edit-birthday-label input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .reminders-edit-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+/* Wraps rather than squeezing: the kinds that take a time input have one
+   control more than the rest, which was enough to crush the flex label
+   beside them to zero width — leaving the row looking unlabeled. */
 .reminders-edit-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -151,13 +180,13 @@
 }
 
 .reminders-edit-text {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 110px;
+  min-width: 110px;
 }
 
 .reminders-edit-auto-text {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 150px;
+  min-width: 150px;
   font-size: 0.85rem;
   font-style: italic;
   color: var(--text-dim);

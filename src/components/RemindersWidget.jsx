@@ -207,8 +207,34 @@ export default function RemindersWidget({
   const updateDraft = (i, field, value) =>
     setDraft(d => d.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
   const removeDraft = (i) => setDraft(d => d.filter((_, idx) => idx !== i));
+  const nextDraftId = (d) => Math.max(0, ...d.map(r => (typeof r.id === "number" ? r.id : 0))) + 1;
   const addDraft = () =>
-    setDraft(d => [...d, { id: Math.max(0, ...d.map(r => (typeof r.id === "number" ? r.id : 0))) + 1, text: "", edge: "start", minutes: 5, time: "12:00", enabled: true }]);
+    setDraft(d => [...d, { id: nextDraftId(d), text: "", edge: "start", minutes: 5, time: "12:00", enabled: true }]);
+
+  // Announcing birthdays is a yes/no preference, not really a message to
+  // compose — so it gets a plain checkbox instead of making the teacher add
+  // a row and find "Birthday today" in the kind dropdown. It's a shortcut
+  // onto the same underlying reminder, which still appears in the list
+  // below for anything finer (how long it stays up); both controls read and
+  // write the one draft row, so they can't disagree. Unchecking disables
+  // that row rather than deleting it, so the time survives a toggle off/on.
+  const birthdayRowIdx = draft ? draft.findIndex(r => r.edge === "birthdayToday") : -1;
+  const birthdaysShown = birthdayRowIdx >= 0 && draft[birthdayRowIdx].enabled !== false;
+  const toggleBirthdays = (checked) => {
+    setDraft(d => {
+      const idx = d.findIndex(r => r.edge === "birthdayToday");
+      if (idx >= 0) return d.map((r, i) => (i === idx ? { ...r, enabled: checked } : r));
+      if (!checked) return d;
+      return [...d, {
+        id: nextDraftId(d),
+        text: "Birthday today",
+        edge: "birthdayToday",
+        minutes: 120,
+        time: "08:00",
+        enabled: true,
+      }];
+    });
+  };
 
   // Auto-export rows are split back out and saved to their own, global
   // store instead of going through onRemindersChange (which persists into
@@ -286,6 +312,25 @@ export default function RemindersWidget({
               match — no message otherwise.
               {scope === "teacher" && " Auto-export downloads a dated backup at a time you pick (e.g. just after the last bell) — it fires once per day even with no class in session, unlike every other kind here."}
             </p>
+            <div className="reminders-edit-birthday">
+              <label className="reminders-edit-birthday-label">
+                <input
+                  type="checkbox"
+                  checked={birthdaysShown}
+                  onChange={e => toggleBirthdays(e.target.checked)}
+                />
+                🎂 Show birthdays
+              </label>
+              {birthdaysShown && (
+                <input
+                  className="reminders-edit-time"
+                  type="time"
+                  value={draft[birthdayRowIdx].time}
+                  onChange={e => updateDraft(birthdayRowIdx, "time", e.target.value)}
+                  title="When to start showing today's birthdays"
+                />
+              )}
+            </div>
             <div className="reminders-edit-list">
               {draft.map((r, i) => (
                 // Index, not r.id — period-scoped and auto-export rows are
