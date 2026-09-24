@@ -8,33 +8,6 @@
   position: relative;
 }
 
-.decibel-readout-row {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-  flex-shrink: 0;
-}
-
-.decibel-readout {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  width: fit-content;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-/* Each number toggles its own visibility independently — the hover tint is
-   the only hint, since a hidden number otherwise leaves no visible trace to
-   click back on. */
-.decibel-readout:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
 .decibel-value {
   font-size: clamp(1.6rem, 5vw, 2.6rem);
   font-weight: 700;
@@ -62,6 +35,14 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Each graph's number toggles independently when its graph is clicked — the
+   hover tint is the only hint, since a hidden number otherwise leaves no
+   visible trace to click back on. */
+.decibel-thermo-row:hover .decibel-thermo {
+  border-color: var(--text-dim);
 }
 
 .decibel-thermo-label {
@@ -73,10 +54,31 @@
 .decibel-thermo {
   position: relative;
   flex: 1;
-  height: 12px;
-  border-radius: 6px;
+  /* Tall enough to hold the overlaid live-value number (see .decibel-value's
+     own clamp) plus some breathing room, instead of the thin sliver this
+     was before the number moved onto it. */
+  height: clamp(2.4rem, 7vw, 3.6rem);
+  border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border);
+  transition: border-color 0.15s;
+}
+
+.decibel-thermo-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* The gradient underneath can be anywhere from green to red, so the
+     overlaid number needs its own contrast rather than relying on the bar's
+     color at any given fill level. */
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.5);
+}
+.decibel-thermo-overlay .decibel-unit {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* The gradient always spans the bar's full (fixed 0-100) scale — the mask
@@ -102,12 +104,23 @@
   position: relative;
   flex: 1;
   min-height: 0;
+  cursor: pointer;
 }
 
 .decibel-canvas {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.decibel-graph-overlay {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  pointer-events: none;
 }
 
 .decibel-placeholder {
@@ -138,7 +151,7 @@
 
 .decibel-controls {
   position: absolute;
-  top: 8px;
+  bottom: 8px;
   right: 8px;
   display: flex;
   gap: 4px;

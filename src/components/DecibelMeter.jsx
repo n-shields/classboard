@@ -92,8 +92,10 @@ export default function DecibelMeter() {
     });
 
     // Average of what's currently in view — a dashed line in its own color
-    // so it reads as a computed stat, not another scale gridline. Also
-    // pushed to state so the big readout above can show it too.
+    // so it reads as a computed stat, not another scale gridline. The
+    // number itself is pushed to state and shown as the big overlay on the
+    // graph instead of being labeled here too, which would risk overlapping
+    // that overlay whenever the average sits near the top of the range.
     const avgValue = points.reduce((sum, p) => sum + p.v, 0) / points.length;
     setAvg(avgValue);
     const avgY = y(avgValue);
@@ -103,9 +105,6 @@ export default function DecibelMeter() {
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, avgY); ctx.lineTo(w, avgY); ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = warn;
-    const avgLabel = `avg ${Math.round(avgValue)}`;
-    ctx.fillText(avgLabel, w - 4 - ctx.measureText(avgLabel).width, Math.min(avgY + 2, h - 11));
 
     ctx.beginPath();
     ctx.moveTo(x(points[0].t), h);
@@ -186,31 +185,16 @@ export default function DecibelMeter() {
   return (
     <div className="card decibel-meter" tabIndex={-1}>
       <div className="card-body decibel-body">
-        <div className="decibel-readout-row">
-          <div
-            className="decibel-readout"
-            onClick={() => setLiveHidden(h => !h)}
-            title={liveHidden ? "Click to show" : "Click to hide"}
-          >
-            <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
-              {active ? Math.round(level) : "—"}
-            </span>
-            <span className="decibel-unit">dB</span>
-          </div>
-
-          <div
-            className="decibel-readout"
-            onClick={() => setAvgHidden(h => !h)}
-            title={avgHidden ? "Click to show" : "Click to hide"}
-          >
-            <span className={`decibel-value decibel-value--avg ${avgHidden ? "decibel-value--hidden" : ""}`}>
-              {avg != null ? Math.round(avg) : "—"}
-            </span>
-            <span className="decibel-unit">avg</span>
-          </div>
-        </div>
-
-        <div className="decibel-thermo-row">
+        {/* The live number is overlaid directly on its own "graph" (the
+            thermometer) rather than taking a separate row, so clicking
+            either graph toggles that graph's number instead of needing its
+            own dedicated readout row — saves the height that row used to
+            cost. */}
+        <div
+          className="decibel-thermo-row"
+          onClick={() => setLiveHidden(h => !h)}
+          title={liveHidden ? "Click to show" : "Click to hide"}
+        >
           <span className="decibel-thermo-label">0</span>
           <div className="decibel-thermo">
             <div className="decibel-thermo-gradient" />
@@ -218,18 +202,34 @@ export default function DecibelMeter() {
               className="decibel-thermo-mask"
               style={{ left: `${Math.max(0, Math.min(100, (active ? level : 0) / THERMO_MAX * 100))}%` }}
             />
+            <div className="decibel-thermo-overlay">
+              <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
+                {active ? Math.round(level) : "—"}
+              </span>
+              <span className="decibel-unit">dB</span>
+            </div>
           </div>
           <span className="decibel-thermo-label">{THERMO_MAX}</span>
         </div>
 
-        <div className="decibel-graph-wrap">
+        <div
+          className="decibel-graph-wrap"
+          onClick={() => setAvgHidden(h => !h)}
+          title={avgHidden ? "Click to show" : "Click to hide"}
+        >
           <canvas ref={canvasRef} className="decibel-canvas" />
+          <div className="decibel-graph-overlay">
+            <span className={`decibel-value decibel-value--avg ${avgHidden ? "decibel-value--hidden" : ""}`}>
+              {avg != null ? Math.round(avg) : "—"}
+            </span>
+            <span className="decibel-unit">avg</span>
+          </div>
           {!active && (
             <div className="decibel-placeholder">
               {error ? (
                 <span className="decibel-error">{error}</span>
               ) : (
-                <span onClick={startMic} title="Start listening">🎙</span>
+                <span onClick={e => { e.stopPropagation(); startMic(); }} title="Start listening">🎙</span>
               )}
             </div>
           )}
