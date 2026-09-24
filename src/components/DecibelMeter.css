@@ -99,13 +99,13 @@
   display: block;
 }
 
-/* Both readouts float on top of the time graph, fixed at a third and two
-   thirds of its width rather than tied to any data position, so they don't
-   drift around as the graph's own auto-scale changes. */
+/* Both readouts float on top of the time graph, pinned to its left/right
+   edges rather than tied to any data position, so they don't drift around
+   as the graph's own auto-scale changes. */
 .decibel-graph-value {
   position: absolute;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -121,8 +121,8 @@
 .decibel-graph-value:hover {
   background: rgba(255, 255, 255, 0.06);
 }
-.decibel-graph-value--live { left: 33.333%; }
-.decibel-graph-value--avg  { left: 66.666%; }
+.decibel-graph-value--live { left: 4px; }
+.decibel-graph-value--avg  { right: 4px; }
 
 .decibel-placeholder {
   position: absolute;
@@ -205,6 +205,7 @@
   flex-wrap: wrap;
   font-size: 0.82rem;
   color: var(--text-dim);
+  margin-top: 12px;
 }
 
 .decibel-settings-row input[type="number"] {
@@ -219,4 +220,43 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 16px;
+}
+
+.decibel-curve-svg {
+  width: 100%;
+  height: auto;
+  touch-action: none; /* dragging a handle shouldn't also scroll/zoom the page on a touch screen */
+}
+
+.decibel-curve-plot-bg {
+  fill: var(--surface2);
+  stroke: var(--border);
+}
+
+.decibel-curve-axis-label {
+  font-size: 8px;
+  fill: var(--text-dim);
+}
+
+.decibel-curve-line {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.decibel-curve-handle {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+  cursor: grab;
+}
+.decibel-curve-handle:active {
+  cursor: grabbing;
+}
+
+.decibel-curve-formula {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin-top: 6px;
+  color: var(--text);
 }
