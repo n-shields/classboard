@@ -552,7 +552,14 @@ export default function StudentList({
                           onClick={() => nameInputRefs.current[idx]?.focus()}
                         >
                           {gems[name] || 0}
-                          {boosted && <span className="student-gems-boost-badge">+{boostAnimation.amount}</span>}
+                          {boosted && (
+                            // Keyed by the animation's own id so each rapid-fire
+                            // tick remounts this span — otherwise React would
+                            // just update the text of the same element in place
+                            // and the CSS pop animation (already finished/held
+                            // via `forwards`) would never restart mid-burst.
+                            <span key={boostAnimation.id} className="student-gems-boost-badge">+{boostAnimation.amount}</span>
+                          )}
                         </span>
                       ) : (
                         <input

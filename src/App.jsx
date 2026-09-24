@@ -611,14 +611,36 @@ export default function App() {
   // A won Noise Challenge gives every currently-listed student the same
   // flat reward — the same "everyone +N" idiom PeriodBar's own +/- shortcut
   // already uses — then pops the (board-facing, simple) student list open
-  // so the win is actually visible, and hands it a fresh boost token so it
-  // can play a little animation on each gems value.
+  // so the win is actually visible. Rather than jumping straight to the
+  // final total, it lands the reward as `rewardAmount` separate +1 ticks
+  // (each its own gems write, each with a fresh boost token so StudentList
+  // replays its "+1" pop every time), spaced out to land in ~3s total —
+  // capped per-step so a reward of 1 or 2 doesn't crawl, and floored so a
+  // huge reward doesn't spam faster than the pop animation can read.
+  //
+  // Each tick computes from the gems snapshot taken when the burst started
+  // plus however many of its own ticks have landed so far, rather than
+  // reading the live currentGems — that state only updates once React
+  // re-renders after each write, so reading it fresh inside the next
+  // already-scheduled tick's closure would just see the pre-burst value
+  // again and again instead of building on the previous tick.
   const handleNoiseChallengeWin = useCallback((rewardAmount) => {
-    const next = { ...currentGems };
-    for (const name of currentNames) next[name] = Math.max(0, (next[name] || 0) + rewardAmount);
-    handleGemsChange(next);
+    const steps = Math.max(1, Math.round(rewardAmount));
+    const stepMs = Math.max(40, Math.min(300, 3000 / steps));
+    const startGems = currentGems;
+    const names = currentNames;
     setStudentsOpenSignal(s => s + 1);
-    setGemsBoostAnimation({ amount: rewardAmount, id: Date.now() });
+
+    let applied = 0;
+    const applyStep = () => {
+      applied += 1;
+      const next = { ...startGems };
+      for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + applied);
+      handleGemsChange(next);
+      setGemsBoostAnimation({ amount: 1, id: `${Date.now()}-${applied}` });
+      if (applied < steps) setTimeout(applyStep, stepMs);
+    };
+    applyStep();
   }, [currentGems, currentNames, handleGemsChange]);
   const handleJobsChange = useCallback((jobs) => {
     const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
