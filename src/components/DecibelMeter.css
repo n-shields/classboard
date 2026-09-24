@@ -54,31 +54,18 @@
 .decibel-thermo {
   position: relative;
   flex: 1;
-  /* Tall enough to hold the overlaid live-value number (see .decibel-value's
-     own clamp) plus some breathing room, instead of the thin sliver this
-     was before the number moved onto it. */
-  height: clamp(2.4rem, 7vw, 3.6rem);
-  border-radius: 8px;
+  height: 12px;
+  border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--border);
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, opacity 0.15s;
 }
 
-.decibel-thermo-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  /* The gradient underneath can be anywhere from green to red, so the
-     overlaid number needs its own contrast rather than relying on the bar's
-     color at any given fill level. */
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.5);
-}
-.decibel-thermo-overlay .decibel-unit {
-  color: rgba(255, 255, 255, 0.85);
+/* The number that used to sit on this bar now lives on the graph below, so
+   "hidden" just fades the bar's own fill — the outline and the 0/100 labels
+   flanking it stay put as the click target to bring it back. */
+.decibel-thermo--hidden {
+  opacity: 0;
 }
 
 /* The gradient always spans the bar's full (fixed 0-100) scale — the mask
@@ -104,7 +91,6 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  cursor: pointer;
 }
 
 .decibel-canvas {
@@ -113,15 +99,30 @@
   display: block;
 }
 
-.decibel-graph-overlay {
+/* Both readouts float on top of the time graph, fixed at a third and two
+   thirds of its width rather than tied to any data position, so they don't
+   drift around as the graph's own auto-scale changes. */
+.decibel-graph-value {
   position: absolute;
-  top: 4px;
-  right: 8px;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: baseline;
   gap: 6px;
-  pointer-events: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  /* The line/fill drawn on the canvas can pass directly behind either
+     number, so it needs its own contrast rather than counting on always
+     landing over empty background. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7), 0 0 8px rgba(0, 0, 0, 0.4);
 }
+.decibel-graph-value:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.decibel-graph-value--live { left: 33.333%; }
+.decibel-graph-value--avg  { left: 66.666%; }
 
 .decibel-placeholder {
   position: absolute;

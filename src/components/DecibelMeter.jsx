@@ -55,6 +55,7 @@ export default function DecibelMeter() {
   const [avg,          setAvg]          = useState(null);
   const [liveHidden,   setLiveHidden]   = useState(false);
   const [avgHidden,    setAvgHidden]    = useState(false);
+  const [thermoHidden, setThermoHidden] = useState(false);
   const [settings,     setSettingsState] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // tick() runs inside a long-lived setInterval started once in startMic —
@@ -211,51 +212,61 @@ export default function DecibelMeter() {
   return (
     <div className="card decibel-meter" tabIndex={-1}>
       <div className="card-body decibel-body">
-        {/* The live number is overlaid directly on its own "graph" (the
-            thermometer) rather than taking a separate row, so clicking
-            either graph toggles that graph's number instead of needing its
-            own dedicated readout row — saves the height that row used to
-            cost. */}
+        {/* A slim, always-in-place strip — its own colored fill toggles
+            invisible on click (the bar's outline and 0/100 labels stay put
+            as the click target), rather than a dedicated readout row like
+            it used to be. */}
         <div
           className="decibel-thermo-row"
-          onClick={() => setLiveHidden(h => !h)}
-          title={liveHidden ? "Click to show" : "Click to hide"}
+          onClick={() => setThermoHidden(h => !h)}
+          title={thermoHidden ? "Click to show" : "Click to hide"}
         >
           <span className="decibel-thermo-label">0</span>
-          <div className="decibel-thermo">
+          <div className={`decibel-thermo ${thermoHidden ? "decibel-thermo--hidden" : ""}`}>
             <div className="decibel-thermo-gradient" />
             <div
               className="decibel-thermo-mask"
               style={{ left: `${Math.max(0, Math.min(100, (active ? level : 0) / THERMO_MAX * 100))}%` }}
             />
-            <div className="decibel-thermo-overlay">
-              <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
-                {active ? Math.round(level) : "—"}
-              </span>
-              <span className="decibel-unit">dB</span>
-            </div>
           </div>
           <span className="decibel-thermo-label">{THERMO_MAX}</span>
         </div>
 
-        <div
-          className="decibel-graph-wrap"
-          onClick={() => setAvgHidden(h => !h)}
-          title={avgHidden ? "Click to show" : "Click to hide"}
-        >
+        {/* Both numbers live on top of the time graph itself now, at a
+            fixed 1/3 and 2/3 of its width — each toggles only itself, since
+            they now share one surface instead of each having its own graph
+            to click. */}
+        <div className="decibel-graph-wrap">
           <canvas ref={canvasRef} className="decibel-canvas" />
-          <div className="decibel-graph-overlay">
+
+          <div
+            className="decibel-graph-value decibel-graph-value--live"
+            onClick={() => setLiveHidden(h => !h)}
+            title={liveHidden ? "Click to show" : "Click to hide"}
+          >
+            <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
+              {active ? Math.round(level) : "—"}
+            </span>
+            <span className="decibel-unit">dB</span>
+          </div>
+
+          <div
+            className="decibel-graph-value decibel-graph-value--avg"
+            onClick={() => setAvgHidden(h => !h)}
+            title={avgHidden ? "Click to show" : "Click to hide"}
+          >
             <span className={`decibel-value decibel-value--avg ${avgHidden ? "decibel-value--hidden" : ""}`}>
               {avg != null ? Math.round(avg) : "—"}
             </span>
             <span className="decibel-unit">avg</span>
           </div>
+
           {!active && (
             <div className="decibel-placeholder">
               {error ? (
                 <span className="decibel-error">{error}</span>
               ) : (
-                <span onClick={e => { e.stopPropagation(); startMic(); }} title="Start listening">🎙</span>
+                <span onClick={startMic} title="Start listening">🎙</span>
               )}
             </div>
           )}
