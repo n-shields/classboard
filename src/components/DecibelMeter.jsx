@@ -39,10 +39,12 @@ export default function DecibelMeter() {
   // the current reading and the canvas actually need to re-render on change.
   const historyRef  = useRef([]);
 
-  const [active,      setActive]      = useState(false);
-  const [error,       setError]       = useState(null);
-  const [level,       setLevel]       = useState(0);
-  const [transparent, setTransparent] = useState(false);
+  const [active,     setActive]     = useState(false);
+  const [error,      setError]      = useState(null);
+  const [level,      setLevel]      = useState(0);
+  const [avg,        setAvg]        = useState(null);
+  const [liveHidden, setLiveHidden] = useState(false);
+  const [avgHidden,  setAvgHidden]  = useState(false);
 
   const draw = () => {
     const canvas = canvasRef.current;
@@ -60,7 +62,7 @@ export default function DecibelMeter() {
     // buffer doesn't grow forever across a long session.
     const points = historyRef.current.filter(p => p.t >= windowStart);
     historyRef.current = points;
-    if (points.length < 2) return;
+    if (points.length < 2) { setAvg(null); return; }
 
     let min = Infinity, max = -Infinity;
     for (const p of points) { if (p.v < min) min = p.v; if (p.v > max) max = p.v; }
@@ -91,9 +93,11 @@ export default function DecibelMeter() {
     });
 
     // Average of what's currently in view — a dashed line in its own color
-    // so it reads as a computed stat, not another scale gridline.
-    const avg = points.reduce((sum, p) => sum + p.v, 0) / points.length;
-    const avgY = y(avg);
+    // so it reads as a computed stat, not another scale gridline. Also
+    // pushed to state so the big readout above can show it too.
+    const avgValue = points.reduce((sum, p) => sum + p.v, 0) / points.length;
+    setAvg(avgValue);
+    const avgY = y(avgValue);
     ctx.save();
     ctx.setLineDash([4, 3]);
     ctx.strokeStyle = warn;
@@ -101,7 +105,7 @@ export default function DecibelMeter() {
     ctx.beginPath(); ctx.moveTo(0, avgY); ctx.lineTo(w, avgY); ctx.stroke();
     ctx.restore();
     ctx.fillStyle = warn;
-    const avgLabel = `avg ${Math.round(avg)}`;
+    const avgLabel = `avg ${Math.round(avgValue)}`;
     ctx.fillText(avgLabel, w - 4 - ctx.measureText(avgLabel).width, Math.min(avgY + 2, h - 11));
 
     ctx.beginPath();
@@ -181,15 +185,30 @@ export default function DecibelMeter() {
   }, []);
 
   return (
-    <div className={`card decibel-meter ${transparent ? "decibel-meter--transparent" : ""}`} tabIndex={-1}>
+    <div className="card decibel-meter" tabIndex={-1}>
       <div className="card-body decibel-body">
-        <div
-          className="decibel-readout"
-          onClick={() => setTransparent(t => !t)}
-          title={transparent ? "Click to restore background" : "Click to make background transparent"}
-        >
-          <span className="decibel-value">{active ? Math.round(level) : "—"}</span>
-          <span className="decibel-unit">dB</span>
+        <div className="decibel-readout-row">
+          <div
+            className="decibel-readout"
+            onClick={() => setLiveHidden(h => !h)}
+            title={liveHidden ? "Click to show" : "Click to hide"}
+          >
+            <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
+              {active ? Math.round(level) : "—"}
+            </span>
+            <span className="decibel-unit">dB</span>
+          </div>
+
+          <div
+            className="decibel-readout"
+            onClick={() => setAvgHidden(h => !h)}
+            title={avgHidden ? "Click to show" : "Click to hide"}
+          >
+            <span className={`decibel-value decibel-value--avg ${avgHidden ? "decibel-value--hidden" : ""}`}>
+              {avg != null ? Math.round(avg) : "—"}
+            </span>
+            <span className="decibel-unit">avg</span>
+          </div>
         </div>
 
         <div className="decibel-thermo-row">

@@ -8,25 +8,31 @@
   position: relative;
 }
 
+.decibel-readout-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  flex-shrink: 0;
+}
+
 .decibel-readout {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  flex-shrink: 0;
   width: fit-content;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 6px;
   cursor: pointer;
+  transition: background-color 0.15s;
 }
 
-/* A transparent tile has nothing of its own to hint that the readout is
-   still clickable, so give it a focus-ring-style affordance on hover. */
-.decibel-meter--transparent .decibel-readout:hover {
-  outline: 1px dashed var(--border);
-  outline-offset: 4px;
-}
-
-.decibel-meter--transparent {
-  background: transparent;
-  border-color: transparent;
+/* Each number toggles its own visibility independently — the hover tint is
+   the only hint, since a hidden number otherwise leaves no visible trace to
+   click back on. */
+.decibel-readout:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .decibel-value {
@@ -34,6 +40,15 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.decibel-value--hidden {
+  opacity: 0;
+}
+
+.decibel-value--avg {
+  color: var(--warn);
 }
 
 .decibel-unit {
