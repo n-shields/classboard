@@ -1,0 +1,104 @@
+.decibel-meter {
+  height: 100%;
+}
+
+.decibel-body {
+  padding: 10px;
+  gap: 8px;
+  position: relative;
+}
+
+.decibel-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.decibel-value {
+  font-size: clamp(1.6rem, 5vw, 2.6rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.decibel-unit {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.decibel-graph-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.decibel-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.decibel-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 8px;
+}
+
+.decibel-placeholder span:not(.decibel-error) {
+  font-size: 2.2rem;
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.decibel-placeholder span:not(.decibel-error):hover {
+  opacity: 0.9;
+  transform: scale(1.1);
+}
+
+.decibel-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+.decibel-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.decibel-meter:hover .decibel-controls,
+.decibel-meter:focus-within .decibel-controls {
+  opacity: 1;
+}
+
+.decibel-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+}
+.decibel-btn:hover {
+  background: rgba(0, 0, 0, 0.55);
+}
+.decibel-btn-danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}

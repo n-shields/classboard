@@ -1,4 +1,4 @@
-export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders'];
+export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel'];
 
 const HIDDEN_TILES_KEY = 'classboard_hidden_tiles';
 
@@ -76,7 +76,7 @@ export const DEFAULT_LAYOUT = {
     b: {
       dir: 'v', ratio: 0.38,
       a: 'notes',
-      b: { dir: 'v', ratio: 0.5, a: 'wheel', b: 'prize' },
+      b: { dir: 'v', ratio: 0.34, a: 'wheel', b: { dir: 'v', ratio: 0.5, a: 'prize', b: 'decibel' } },
     },
   },
 };
@@ -84,6 +84,7 @@ export const DEFAULT_LAYOUT = {
 // Where to graft a tile that a previously-saved layout predates.
 const NEW_TILE_PLACEMENT = {
   reminders: { near: 'prize', side: 'bottom' },
+  decibel: { near: 'prize', side: 'bottom' },
 };
 
 /** Remove a leaf by ID; returns null if the leaf was the only node */

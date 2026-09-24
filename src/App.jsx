@@ -8,6 +8,7 @@ import ProgressWidget from "./components/ProgressWidget";
 import TileLayout from "./components/TileLayout";
 import DateWidget from "./components/DateWidget";
 import RemindersWidget from "./components/RemindersWidget";
+import DecibelMeter from "./components/DecibelMeter";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
@@ -26,7 +27,7 @@ function loadPeriodLayoutTrees() {
 }
 
 const DEFAULT_COLLAPSED = { date: false, clock: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
-const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders" };
+const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Decibel" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
@@ -776,6 +777,7 @@ export default function App() {
         birthdays={currentBirthdays}
       />
     ),
+    decibel: <DecibelMeter />,
   };
 
   return (

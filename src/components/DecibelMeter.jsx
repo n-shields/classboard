@@ -1,0 +1,196 @@
+import { useState, useRef, useEffect } from "react";
+import "./DecibelMeter.css";
+
+// There's no way to get a calibrated, device-independent SPL reading out of
+// a browser mic — every device's gain/sensitivity differs — so this reports
+// a relative "dB" derived from the mic signal's own RMS level (dBFS) plus a
+// fixed offset chosen so a quiet room reads in the 30s-40s and normal
+// classroom talking in the 60s-70s, roughly like a real SPL meter would.
+// It's a good louder/quieter indicator, not a calibrated measurement.
+const REFERENCE_OFFSET = 100;
+const FFT_SIZE = 1024;
+const SAMPLE_INTERVAL_MS = 150;
+const WINDOW_MS = 60_000; // how much history the graph scrolls through
+const MIN_SPAN = 10; // floor for the auto-scaled range, so a flat/quiet
+                      // stretch doesn't get blown up into a jittery-looking band
+
+function readLevel(analyser, buffer) {
+  analyser.getByteTimeDomainData(buffer);
+  let sumSquares = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const norm = (buffer[i] - 128) / 128;
+    sumSquares += norm * norm;
+  }
+  const rms = Math.sqrt(sumSquares / buffer.length);
+  const dBFS = 20 * Math.log10(rms || 1e-8);
+  return Math.max(0, Math.round((dBFS + REFERENCE_OFFSET) * 10) / 10);
+}
+
+export default function DecibelMeter() {
+  const canvasRef   = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const bufferRef   = useRef(null);
+  const streamRef   = useRef(null);
+  const intervalRef = useRef(null);
+  // Kept as a ref (not state) since it's written many times a second — only
+  // the current reading and the canvas actually need to re-render on change.
+  const historyRef  = useRef([]);
+
+  const [active, setActive] = useState(false);
+  const [error,  setError]  = useState(null);
+  const [level,  setLevel]  = useState(0);
+
+  const draw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    if (!w || !h) return;
+
+    const now = performance.now();
+    const windowStart = now - WINDOW_MS;
+    // Drop anything that's scrolled out of the window as we go, so the
+    // buffer doesn't grow forever across a long session.
+    const points = historyRef.current.filter(p => p.t >= windowStart);
+    historyRef.current = points;
+    if (points.length < 2) return;
+
+    let min = Infinity, max = -Infinity;
+    for (const p of points) { if (p.v < min) min = p.v; if (p.v > max) max = p.v; }
+    if (max - min < MIN_SPAN) {
+      const mid = (max + min) / 2;
+      min = mid - MIN_SPAN / 2;
+      max = mid + MIN_SPAN / 2;
+    }
+    const pad = (max - min) * 0.15;
+    min = Math.max(0, min - pad); // readings are floored at 0 — don't scale past that
+    max += pad;
+
+    const x = (t) => ((t - windowStart) / WINDOW_MS) * w;
+    const y = (v) => h - ((v - min) / (max - min)) * h;
+    const accent = getComputedStyle(canvas).getPropertyValue("--accent").trim() || "#5b8dee";
+
+    // Scale reference lines, labeled with the auto-scaled dB range they represent.
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.font = "10px Segoe UI, sans-serif";
+    ctx.textBaseline = "top";
+    [max, (max + min) / 2, min].forEach(v => {
+      const yy = y(v);
+      ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke();
+      ctx.fillText(`${Math.round(v)}`, 4, Math.min(yy + 2, h - 11));
+    });
+
+    ctx.beginPath();
+    ctx.moveTo(x(points[0].t), h);
+    points.forEach(p => ctx.lineTo(x(p.t), y(p.v)));
+    ctx.lineTo(x(points[points.length - 1].t), h);
+    ctx.closePath();
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.22;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const px = x(p.t), py = y(p.v);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  };
+
+  // Just samples and records — the separate always-on draw interval below
+  // (which also has to keep running while the mic is off, so the graph
+  // still visibly scrolls old readings away) is what actually repaints.
+  const tick = () => {
+    const analyser = analyserRef.current, buffer = bufferRef.current;
+    if (!analyser || !buffer) return;
+    const v = readLevel(analyser, buffer);
+    setLevel(v);
+    historyRef.current.push({ t: performance.now(), v });
+  };
+
+  const stopMic = () => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
+    analyserRef.current = null;
+    setActive(false);
+  };
+
+  const startMic = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = FFT_SIZE;
+      source.connect(analyser);
+      audioCtxRef.current = audioCtx;
+      analyserRef.current = analyser;
+      bufferRef.current = new Uint8Array(analyser.fftSize);
+      setActive(true);
+      intervalRef.current = setInterval(tick, SAMPLE_INTERVAL_MS);
+    } catch (err) {
+      setError(err.message || "Microphone access denied");
+    }
+  };
+
+  const reset = () => {
+    historyRef.current = [];
+    draw();
+  };
+
+  // Auto-start on mount, matching the camera pane's behavior.
+  useEffect(() => { startMic(); return stopMic; }, []); // eslint-disable-line
+
+  // Redraw (auto-scaled to whatever's still in the window) even while idle,
+  // so the graph keeps scrolling and old readings age out visually.
+  useEffect(() => {
+    const id = setInterval(draw, SAMPLE_INTERVAL_MS);
+    const ro = new ResizeObserver(draw);
+    if (canvasRef.current) ro.observe(canvasRef.current);
+    return () => { clearInterval(id); ro.disconnect(); };
+  }, []);
+
+  return (
+    <div className="card decibel-meter" tabIndex={-1}>
+      <div className="card-body decibel-body">
+        <div className="decibel-readout">
+          <span className="decibel-value">{active ? Math.round(level) : "—"}</span>
+          <span className="decibel-unit">dB</span>
+        </div>
+
+        <div className="decibel-graph-wrap">
+          <canvas ref={canvasRef} className="decibel-canvas" />
+          {!active && (
+            <div className="decibel-placeholder">
+              {error ? (
+                <span className="decibel-error">{error}</span>
+              ) : (
+                <span onClick={startMic} title="Start listening">🎙</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="decibel-controls">
+          <button
+            className={`decibel-btn ${active ? "decibel-btn-danger" : ""}`}
+            onClick={active ? stopMic : startMic}
+            title={active ? "Stop listening" : "Start listening"}
+          >{active ? "■" : "🎙"}</button>
+          <button className="decibel-btn" onClick={reset} title="Clear the graph">↺</button>
+        </div>
+      </div>
+    </div>
+  );
+}
