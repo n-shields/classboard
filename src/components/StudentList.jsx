@@ -3,6 +3,21 @@ import { playClick, playDing } from "../data/sounds";
 import { GEMS_REPEAT_MS } from "../data/gems";
 import "./StudentList.css";
 
+const FALLBACK_PIE_COLORS = ["#e94560", "#0f3460", "#533483", "#1a7431", "#b5451b", "#1e8bc3"];
+
+// A tiny wedge-colored circle standing in for a plain checkbox — reads more
+// immediately as "in the wheel" than a checkmark does, since it's a little
+// picture of the wheel itself. Built as a conic-gradient rather than SVG
+// arcs since a CSS gradient on a circle *is* a pie chart, no path math
+// needed.
+function WheelPieIcon({ colors }) {
+  const segs = colors.length > 0 ? colors : FALLBACK_PIE_COLORS;
+  const stops = segs
+    .map((c, i) => `${c} ${(i / segs.length) * 100}% ${((i + 1) / segs.length) * 100}%`)
+    .join(", ");
+  return <span className="student-wheel-icon" style={{ background: `conic-gradient(${stops})` }} aria-hidden="true" />;
+}
+
 export default function StudentList({
   names,
   onNamesChange,
@@ -437,12 +452,15 @@ export default function StudentList({
                       >⋮⋮</span>
                     )}
                     {!simple && (
-                      <input
-                        type="checkbox"
-                        checked={!excluded}
-                        onChange={() => toggleExclude(name)}
-                        title={excluded ? "Add to wheel" : "Remove from wheel"}
-                      />
+                      <label className="student-wheel-toggle" title={excluded ? "Add to wheel" : "Remove from wheel"}>
+                        <input
+                          type="checkbox"
+                          className="student-wheel-toggle-input"
+                          checked={!excluded}
+                          onChange={() => toggleExclude(name)}
+                        />
+                        <WheelPieIcon colors={wheelColors} />
+                      </label>
                     )}
                     <input
                       className="student-name-input"
