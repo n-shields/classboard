@@ -318,10 +318,40 @@
 }
 
 .student-gems-value {
+  position: relative;
   min-width: 32px;
   text-align: center;
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+}
+
+.student-gems-value--boost {
+  animation: student-gems-pulse 1.4s ease;
+  color: var(--success);
+}
+
+@keyframes student-gems-pulse {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+.student-gems-boost-badge {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, 0);
+  color: var(--success);
+  font-weight: 700;
+  font-size: 0.8em;
+  pointer-events: none;
+  animation: student-gems-badge-float 1.4s ease forwards;
+}
+
+@keyframes student-gems-badge-float {
+  0%   { opacity: 0; transform: translate(-50%, 0); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -1.4em); }
 }
 
 .student-gems-input {

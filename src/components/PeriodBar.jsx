@@ -36,6 +36,7 @@ export default function PeriodBar({
   otherPeriods = [], onDeleteClassList,
   periodLabel,
   layout, onLayoutChange,
+  openStudentsSignal, gemsBoostAnimation,
 }) {
   const [editorOpen,    setEditorOpen]    = useState(false);
   const [studentsOpen,  setStudentsOpen]  = useState(false);
@@ -65,6 +66,17 @@ export default function PeriodBar({
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  // Lets something outside this (otherwise self-contained) student-list
+  // toggle force it open — currently just a won Noise Challenge. Skips the
+  // very first run so the initial value of the signal (however it's seeded)
+  // never force-opens the list on mount.
+  const openStudentsSignalRef = useRef(openStudentsSignal);
+  useEffect(() => {
+    if (openStudentsSignalRef.current === openStudentsSignal) return;
+    openStudentsSignalRef.current = openStudentsSignal;
+    setStudentsOpen(true);
+  }, [openStudentsSignal]);
 
   // Reload a folder picked in an earlier session. Only `queryPermission` is
   // called here (never `requestPermission`, which can prompt and needs a
@@ -559,6 +571,7 @@ export default function PeriodBar({
           onJobsChange={onJobsChange}
           sortMode={sortMode}
           onSortModeChange={onSortModeChange}
+          boostAnimation={gemsBoostAnimation}
           wheelColors={wheelColors}
           otherPeriods={otherPeriods}
           onDeleteClassList={onDeleteClassList}

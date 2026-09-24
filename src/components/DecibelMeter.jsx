@@ -58,6 +58,13 @@ const MIN_SPAN = 10; // floor for the auto-scaled range, so a flat/quiet
 const THERMO_MAX = 100; // fixed full-scale for the live-value gauge — unlike
                          // the graph, a thermometer's scale doesn't wander
 
+function formatCountdown(endAt) {
+  const remainingSec = Math.max(0, Math.ceil((endAt - performance.now()) / 1000));
+  const m = Math.floor(remainingSec / 60);
+  const s = remainingSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 function readLevel(analyser, buffer, multiplier, offset) {
   analyser.getByteTimeDomainData(buffer);
   let sumSquares = 0;
@@ -70,7 +77,9 @@ function readLevel(analyser, buffer, multiplier, offset) {
   return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
 }
 
-export default function DecibelMeter() {
+const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5 };
+
+export default function DecibelMeter({ onChallengeWin }) {
   const canvasRef   = useRef(null);
   const curveSvgRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -97,6 +106,22 @@ export default function DecibelMeter() {
   // rather than closing over the `settings` state directly.
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  // Noise Challenge: keep the actual running state (target/deadline/running
+  // sum) in a ref, mutated directly inside tick() — same reasoning as
+  // historyRef, it's written many times a second and only needs to drive a
+  // render when something a person actually looks at changes. challengeUI
+  // mirrors just the static parts (deadline/target/reward) for rendering the
+  // countdown; challengeResult is the brief win/lose banner shown once it ends.
+  const challengeRef = useRef(null); // { endAt, targetDb, reward, sum, count } | null
+  const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward } | null
+  const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward } | null
+  const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
+  const [challengeDraft, setChallengeDraft] = useState(DEFAULT_CHALLENGE_DRAFT);
+  // tick() also needs the latest onChallengeWin without re-subscribing —
+  // same stale-closure concern as settingsRef.
+  const onChallengeWinRef = useRef(onChallengeWin);
+  useEffect(() => { onChallengeWinRef.current = onChallengeWin; }, [onChallengeWin]);
 
   const updateSettings = (patch) => {
     const next = { ...settings, ...patch };
@@ -258,6 +283,37 @@ export default function DecibelMeter() {
     const v = readLevel(analyser, buffer, multiplier, offset);
     setLevel(v);
     historyRef.current.push({ t: performance.now(), v });
+
+    const c = challengeRef.current;
+    if (c) {
+      c.sum += v;
+      c.count += 1;
+      if (performance.now() >= c.endAt) finalizeChallenge(c);
+    }
+  };
+
+  const finalizeChallenge = (c) => {
+    challengeRef.current = null;
+    setChallengeUI(null);
+    const finalAvg = c.count > 0 ? c.sum / c.count : 0;
+    const won = finalAvg <= c.targetDb;
+    setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward });
+    if (won) onChallengeWinRef.current?.(c.reward);
+  };
+
+  const startChallenge = () => {
+    const endAt = performance.now() + Math.max(0.5, challengeDraft.durationMin) * 60_000;
+    const c = { endAt, targetDb: challengeDraft.targetDb, reward: challengeDraft.reward, sum: 0, count: 0 };
+    challengeRef.current = c;
+    setChallengeUI({ endAt: c.endAt, targetDb: c.targetDb, reward: c.reward });
+    setChallengeResult(null);
+    setChallengeSetupOpen(false);
+  };
+
+  const cancelChallenge = () => {
+    challengeRef.current = null;
+    setChallengeUI(null);
+    setChallengeSetupOpen(false);
   };
 
   const stopMic = () => {
@@ -266,6 +322,8 @@ export default function DecibelMeter() {
     if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
     analyserRef.current = null;
     setActive(false);
+    // A challenge can't be fairly judged without samples coming in.
+    if (challengeRef.current) { challengeRef.current = null; setChallengeUI(null); }
   };
 
   const startMic = async () => {
@@ -304,6 +362,13 @@ export default function DecibelMeter() {
     if (canvasRef.current) ro.observe(canvasRef.current);
     return () => { clearInterval(id); ro.disconnect(); };
   }, []);
+
+  // The win/lose banner is a brief announcement, not a permanent readout.
+  useEffect(() => {
+    if (!challengeResult) return;
+    const id = setTimeout(() => setChallengeResult(null), 6000);
+    return () => clearTimeout(id);
+  }, [challengeResult]);
 
   return (
     <div className="card decibel-meter" tabIndex={-1}>
@@ -351,7 +416,7 @@ export default function DecibelMeter() {
             onClick={() => setAvgHidden(h => !h)}
             title={avgHidden ? "Click to show" : "Click to hide"}
           >
-            <span className={`decibel-value decibel-value--avg ${avgHidden ? "decibel-value--hidden" : ""}`}>
+            <span className={`decibel-value ${avgHidden ? "decibel-value--hidden" : ""}`}>
               {avg != null ? Math.round(avg) : "—"}
             </span>
             <span className={`decibel-unit ${avgHidden ? "decibel-value--hidden" : ""}`}>avg</span>
@@ -366,6 +431,24 @@ export default function DecibelMeter() {
               )}
             </div>
           )}
+
+          {challengeUI && (
+            <div
+              className="decibel-challenge-badge"
+              onClick={() => setChallengeSetupOpen(true)}
+              title="Noise Challenge in progress — click for details"
+            >
+              🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg
+            </div>
+          )}
+
+          {challengeResult && (
+            <div className={`decibel-challenge-result ${challengeResult.won ? "decibel-challenge-result--won" : ""}`}>
+              {challengeResult.won
+                ? `🎉 Challenge won! Average ${Math.round(challengeResult.avg)} ≤ ${challengeResult.targetDb} — +${challengeResult.reward} awarded`
+                : `Challenge ended — average ${Math.round(challengeResult.avg)} was over ${challengeResult.targetDb}`}
+            </div>
+          )}
         </div>
 
         <div className="decibel-controls">
@@ -376,6 +459,11 @@ export default function DecibelMeter() {
           >{active ? "■" : "🎙"}</button>
           <button className="decibel-btn" onClick={reset} title="Clear the graph">↺</button>
           <button className="decibel-btn" onClick={() => setSettingsOpen(true)} title="Calibration settings">⚙</button>
+          <button
+            className={`decibel-btn ${challengeUI ? "decibel-btn-active" : ""}`}
+            onClick={() => setChallengeSetupOpen(true)}
+            title={challengeUI ? "Noise Challenge in progress" : "Start a Noise Challenge"}
+          >★</button>
         </div>
       </div>
 
@@ -437,6 +525,68 @@ export default function DecibelMeter() {
               <button className="btn btn-ghost btn-sm" onClick={() => updateSettings(DEFAULT_SETTINGS)}>Reset to default</button>
               <button className="btn btn-primary btn-sm" onClick={() => setSettingsOpen(false)}>Done</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {challengeSetupOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setChallengeSetupOpen(false)}>
+          <div className="modal decibel-challenge-modal">
+            {challengeUI ? (
+              <>
+                <h2>Noise Challenge in progress</h2>
+                <p className="decibel-settings-hint">
+                  {formatCountdown(challengeUI.endAt)} left — keep the average at or under{" "}
+                  <strong>{challengeUI.targetDb}</strong> to win <strong>+{challengeUI.reward}</strong> for everyone.
+                </p>
+                <div className="decibel-settings-actions">
+                  <button className="btn btn-danger btn-sm" onClick={cancelChallenge}>Cancel challenge</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => setChallengeSetupOpen(false)}>Done</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2>Start Noise Challenge</h2>
+                <p className="decibel-settings-hint">
+                  Keep the class's average noise level under the target for the whole
+                  duration and everyone gets a reward.
+                </p>
+                <div className="decibel-settings-row">
+                  <label>Duration</label>
+                  <input
+                    type="number" min="0.5" max="120" step="0.5"
+                    value={challengeDraft.durationMin}
+                    onChange={e => setChallengeDraft(d => ({ ...d, durationMin: Math.max(0.5, parseFloat(e.target.value) || 5) }))}
+                  />
+                  <span>min</span>
+                </div>
+                <div className="decibel-settings-row">
+                  <label>Max average</label>
+                  <input
+                    type="number" min="0" max="100" step="1"
+                    value={challengeDraft.targetDb}
+                    onChange={e => setChallengeDraft(d => ({ ...d, targetDb: parseFloat(e.target.value) || 0 }))}
+                  />
+                  <span>dB</span>
+                </div>
+                <div className="decibel-settings-row">
+                  <label>Reward</label>
+                  <input
+                    type="number" min="1" max="100" step="1"
+                    value={challengeDraft.reward}
+                    onChange={e => setChallengeDraft(d => ({ ...d, reward: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                  />
+                  <span>gems each</span>
+                </div>
+                <div className="decibel-settings-actions">
+                  <button className="btn btn-ghost btn-sm" onClick={() => setChallengeSetupOpen(false)}>Cancel</button>
+                  <button className="btn btn-primary btn-sm" onClick={startChallenge} disabled={!active} title={!active ? "Start listening first" : undefined}>
+                    Start
+                  </button>
+                </div>
+                {!active && <p className="decibel-settings-hint decibel-settings-hint--warn">Start listening first — a challenge needs a live reading to judge.</p>}
+              </>
+            )}
           </div>
         </div>
       )}

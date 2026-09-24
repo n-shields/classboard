@@ -180,6 +180,13 @@ export default function App() {
   // Layout tree
   const [layout, setLayout] = useState(loadLayout);
 
+  // Bumped to force PeriodBar's (otherwise self-contained) student list
+  // open from outside it — see handleNoiseChallengeWin.
+  const [studentsOpenSignal, setStudentsOpenSignal] = useState(0);
+  // { amount, id } | null — a fresh id re-triggers StudentList's boost
+  // animation even if the amount happens to repeat.
+  const [gemsBoostAnimation, setGemsBoostAnimation] = useState(null);
+
   const layoutsRef           = useRef(loadLayouts());
   const periodLayoutTreesRef = useRef(loadPeriodLayoutTrees());
   const justSwitchedRef      = useRef(false);
@@ -601,6 +608,18 @@ export default function App() {
     const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
     savePeriod(periodKey, { gems, ...seed });
   }, [periodKey, savePeriod, periodData, currentNames]);
+  // A won Noise Challenge gives every currently-listed student the same
+  // flat reward — the same "everyone +N" idiom PeriodBar's own +/- shortcut
+  // already uses — then pops the (board-facing, simple) student list open
+  // so the win is actually visible, and hands it a fresh boost token so it
+  // can play a little animation on each gems value.
+  const handleNoiseChallengeWin = useCallback((rewardAmount) => {
+    const next = { ...currentGems };
+    for (const name of currentNames) next[name] = Math.max(0, (next[name] || 0) + rewardAmount);
+    handleGemsChange(next);
+    setStudentsOpenSignal(s => s + 1);
+    setGemsBoostAnimation({ amount: rewardAmount, id: Date.now() });
+  }, [currentGems, currentNames, handleGemsChange]);
   const handleJobsChange = useCallback((jobs) => {
     const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
     savePeriod(periodKey, { jobs, ...seed });
@@ -777,7 +796,7 @@ export default function App() {
         birthdays={currentBirthdays}
       />
     ),
-    decibel: <DecibelMeter />,
+    decibel: <DecibelMeter onChallengeWin={handleNoiseChallengeWin} />,
   };
 
   return (
@@ -811,6 +830,8 @@ export default function App() {
         periodLabel={displayPeriod?.label}
         layout={layout}
         onLayoutChange={handleLayoutChange}
+        openStudentsSignal={studentsOpenSignal}
+        gemsBoostAnimation={gemsBoostAnimation}
       />
       <TileLayout
         layout={layout}

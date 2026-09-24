@@ -41,8 +41,19 @@ export default function StudentList({
   simple = false,
   sortMode = "default",
   onSortModeChange,
+  boostAnimation = null,
 }) {
   const [draft, setDraft] = useState("");
+  // A Noise Challenge win (or anything else that wants to celebrate a
+  // reward) pulses every student's gems value at once, keyed by id so a
+  // repeat of the same amount still replays the animation.
+  const [boosted, setBoosted] = useState(false);
+  useEffect(() => {
+    if (!boostAnimation) return;
+    setBoosted(true);
+    const t = setTimeout(() => setBoosted(false), 1600);
+    return () => clearTimeout(t);
+  }, [boostAnimation?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [importOpen, setImportOpen] = useState(false);
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
@@ -537,9 +548,12 @@ export default function StudentList({
                     <div className="student-gems" title={gemsLabel}>
                       {simple ? (
                         <span
-                          className="student-gems-value"
+                          className={`student-gems-value ${boosted ? "student-gems-value--boost" : ""}`}
                           onClick={() => nameInputRefs.current[idx]?.focus()}
-                        >{gems[name] || 0}</span>
+                        >
+                          {gems[name] || 0}
+                          {boosted && <span className="student-gems-boost-badge">+{boostAnimation.amount}</span>}
+                        </span>
                       ) : (
                         <input
                           type="number"
