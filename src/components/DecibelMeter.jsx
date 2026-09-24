@@ -13,6 +13,8 @@ const SAMPLE_INTERVAL_MS = 150;
 const WINDOW_MS = 60_000; // how much history the graph scrolls through
 const MIN_SPAN = 10; // floor for the auto-scaled range, so a flat/quiet
                       // stretch doesn't get blown up into a jittery-looking band
+const THERMO_MAX = 100; // fixed full-scale for the live-value gauge — unlike
+                         // the graph, a thermometer's scale doesn't wander
 
 function readLevel(analyser, buffer) {
   analyser.getByteTimeDomainData(buffer);
@@ -37,9 +39,10 @@ export default function DecibelMeter() {
   // the current reading and the canvas actually need to re-render on change.
   const historyRef  = useRef([]);
 
-  const [active, setActive] = useState(false);
-  const [error,  setError]  = useState(null);
-  const [level,  setLevel]  = useState(0);
+  const [active,      setActive]      = useState(false);
+  const [error,       setError]       = useState(null);
+  const [level,       setLevel]       = useState(0);
+  const [transparent, setTransparent] = useState(false);
 
   const draw = () => {
     const canvas = canvasRef.current;
@@ -72,18 +75,34 @@ export default function DecibelMeter() {
 
     const x = (t) => ((t - windowStart) / WINDOW_MS) * w;
     const y = (v) => h - ((v - min) / (max - min)) * h;
-    const accent = getComputedStyle(canvas).getPropertyValue("--accent").trim() || "#5b8dee";
+    const cs = getComputedStyle(canvas);
+    const accent = cs.getPropertyValue("--accent").trim() || "#5b8dee";
+    const warn   = cs.getPropertyValue("--warn").trim() || "#facc15";
 
-    // Scale reference lines, labeled with the auto-scaled dB range they represent.
+    // Scale reference lines (top/bottom of the auto-scaled range).
     ctx.strokeStyle = "rgba(255,255,255,0.08)";
     ctx.fillStyle = "rgba(255,255,255,0.45)";
     ctx.font = "10px Segoe UI, sans-serif";
     ctx.textBaseline = "top";
-    [max, (max + min) / 2, min].forEach(v => {
+    [max, min].forEach(v => {
       const yy = y(v);
       ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke();
       ctx.fillText(`${Math.round(v)}`, 4, Math.min(yy + 2, h - 11));
     });
+
+    // Average of what's currently in view — a dashed line in its own color
+    // so it reads as a computed stat, not another scale gridline.
+    const avg = points.reduce((sum, p) => sum + p.v, 0) / points.length;
+    const avgY = y(avg);
+    ctx.save();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = warn;
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, avgY); ctx.lineTo(w, avgY); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = warn;
+    const avgLabel = `avg ${Math.round(avg)}`;
+    ctx.fillText(avgLabel, w - 4 - ctx.measureText(avgLabel).width, Math.min(avgY + 2, h - 11));
 
     ctx.beginPath();
     ctx.moveTo(x(points[0].t), h);
@@ -162,11 +181,27 @@ export default function DecibelMeter() {
   }, []);
 
   return (
-    <div className="card decibel-meter" tabIndex={-1}>
+    <div className={`card decibel-meter ${transparent ? "decibel-meter--transparent" : ""}`} tabIndex={-1}>
       <div className="card-body decibel-body">
-        <div className="decibel-readout">
+        <div
+          className="decibel-readout"
+          onClick={() => setTransparent(t => !t)}
+          title={transparent ? "Click to restore background" : "Click to make background transparent"}
+        >
           <span className="decibel-value">{active ? Math.round(level) : "—"}</span>
           <span className="decibel-unit">dB</span>
+        </div>
+
+        <div className="decibel-thermo-row">
+          <span className="decibel-thermo-label">0</span>
+          <div className="decibel-thermo">
+            <div className="decibel-thermo-gradient" />
+            <div
+              className="decibel-thermo-mask"
+              style={{ left: `${Math.max(0, Math.min(100, (active ? level : 0) / THERMO_MAX * 100))}%` }}
+            />
+          </div>
+          <span className="decibel-thermo-label">{THERMO_MAX}</span>
         </div>
 
         <div className="decibel-graph-wrap">

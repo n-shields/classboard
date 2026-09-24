@@ -13,6 +13,20 @@
   align-items: baseline;
   gap: 6px;
   flex-shrink: 0;
+  width: fit-content;
+  cursor: pointer;
+}
+
+/* A transparent tile has nothing of its own to hint that the readout is
+   still clickable, so give it a focus-ring-style affordance on hover. */
+.decibel-meter--transparent .decibel-readout:hover {
+  outline: 1px dashed var(--border);
+  outline-offset: 4px;
+}
+
+.decibel-meter--transparent {
+  background: transparent;
+  border-color: transparent;
 }
 
 .decibel-value {
@@ -26,6 +40,47 @@
   font-size: 0.85rem;
   color: var(--text-dim);
   font-weight: 600;
+}
+
+.decibel-thermo-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.decibel-thermo-label {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.decibel-thermo {
+  position: relative;
+  flex: 1;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+/* The gradient always spans the bar's full (fixed 0-100) scale — the mask
+   on top of it just reveals more of it as the live value climbs, so a
+   quiet reading shows a sliver of green rather than the whole gradient
+   squeezed into a tiny space. */
+.decibel-thermo-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, #4ade80 0%, #facc15 55%, #f87171 100%);
+}
+
+.decibel-thermo-mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--surface2);
+  transition: left 0.15s ease;
 }
 
 .decibel-graph-wrap {
