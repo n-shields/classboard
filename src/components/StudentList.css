@@ -161,9 +161,19 @@
   flex-wrap: wrap;
   gap: 6px;
   row-gap: 4px;
-  padding: 4px 2px;
+  padding: 4px 6px;
   border-radius: 4px;
   transition: background-color 0.15s ease;
+  /* Teacher-facing rows tint themselves with the student's own wheel color
+     (set as this var by the row's inline style); simple/board mode doesn't
+     set the var, so it falls back to transparent and this is a no-op there —
+     that row's own full-color highlight is set directly via backgroundColor,
+     which always wins over this regardless of specificity. */
+  background: color-mix(in srgb, var(--row-color, transparent) 24%, transparent);
+}
+
+.student-row--excluded {
+  background: color-mix(in srgb, var(--row-color, transparent) 9%, transparent);
 }
 
 .student-row--drag-over {

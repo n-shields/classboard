@@ -432,7 +432,15 @@ export default function StudentList({
                   <div
                     key={idx}
                     className={`student-row ${excluded && !simple ? "student-row--excluded" : ""} ${dragOverIndex === idx ? "student-row--drag-over" : ""}`}
-                    style={simple && activeIdx === idx ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined}
+                    style={
+                      simple
+                        ? (activeIdx === idx ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined)
+                        // Teacher-facing list: tint the whole row with the student's
+                        // own wheel color via a CSS variable (see .student-row in
+                        // StudentList.css) rather than setting backgroundColor
+                        // directly, so --drag-over can still out-specificity it.
+                        : { "--row-color": colors[name] || defaultColorFor(name) }
+                    }
                     onDragOver={draggableRow ? (e) => { e.preventDefault(); setDragOverIndex(idx); } : undefined}
                     onDragLeave={draggableRow ? () => setDragOverIndex(i => (i === idx ? null : i)) : undefined}
                     onDrop={draggableRow ? (e) => {
