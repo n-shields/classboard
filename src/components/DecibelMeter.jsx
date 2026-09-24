@@ -4,10 +4,9 @@ import "./DecibelMeter.css";
 // There's no way to get a calibrated, device-independent SPL reading out of
 // a browser mic — every device's gain/sensitivity differs — so this reports
 // a relative "dB" derived from the mic signal's own RMS level (dBFS) plus a
-// fixed offset chosen so a quiet room reads in the 30s-40s and normal
-// classroom talking in the 60s-70s, roughly like a real SPL meter would.
-// It's a good louder/quieter indicator, not a calibrated measurement.
-const REFERENCE_OFFSET = 100;
+// fixed offset, tuned by ear against an actual mic rather than assumed, so
+// it's a good louder/quieter indicator, not a calibrated measurement.
+const REFERENCE_OFFSET = 50;
 const FFT_SIZE = 1024;
 const SAMPLE_INTERVAL_MS = 150;
 const WINDOW_MS = 60_000; // how much history the graph scrolls through
