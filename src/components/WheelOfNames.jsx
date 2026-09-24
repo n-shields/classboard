@@ -1,13 +1,41 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import "./WheelOfNames.css";
 
+// Keyed by period label (like classboard_period_layout_trees etc.) so each
+// class can have its own spin/display timing and repeat behavior — a quick
+// homeroom pick shouldn't force the same pacing as a 5th-period raffle.
+// Periods with no settings of their own, or no period active at all, fall
+// back to a shared "__default__" bucket rather than one hardcoded default.
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
-function loadWheelSettings() {
-  try { return { spinDuration: 3, displayDuration: 3, avoidRepeat: false, ...JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}") }; }
-  catch (_) { return { spinDuration: 3, displayDuration: 3, avoidRepeat: false }; }
+const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false };
+function loadAllWheelSettings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}");
+    // One-time migration: this key used to hold a single flat settings
+    // object shared by every period, not a map keyed by period label —
+    // fold whatever was already there into the shared fallback bucket
+    // instead of just discarding it.
+    if (raw && typeof raw === "object" && "spinDuration" in raw) {
+      const migrated = { __default__: raw };
+      try { localStorage.setItem(WHEEL_SETTINGS_KEY, JSON.stringify(migrated)); } catch (_) {}
+      return migrated;
+    }
+    return raw;
+  } catch (_) { return {}; }
 }
-function saveWheelSettings(s) {
-  try { localStorage.setItem(WHEEL_SETTINGS_KEY, JSON.stringify(s)); } catch (_) {}
+// A period with no settings of its own inherits the shared __default__
+// bucket (which is also where a pre-migration flat setting ends up), so
+// going per-period doesn't reset everyone back to factory defaults — it
+// just means a period only diverges once someone actually changes it.
+function loadWheelSettings(periodLabel) {
+  const all = loadAllWheelSettings();
+  const own = all[periodLabel || "__default__"];
+  return { ...DEFAULT_WHEEL_SETTINGS, ...(own || all.__default__ || {}) };
+}
+function saveWheelSettings(periodLabel, s) {
+  const all = loadAllWheelSettings();
+  all[periodLabel || "__default__"] = s;
+  try { localStorage.setItem(WHEEL_SETTINGS_KEY, JSON.stringify(all)); } catch (_) {}
 }
 
 const DEFAULT_WHEEL_COLORS = [
@@ -34,7 +62,13 @@ export default function WheelOfNames({
   const [spinning,      setSpinning]      = useState(false);
   const [winner,        setWinner]        = useState(null);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
-  const [wheelSettings, setWheelSettings] = useState(loadWheelSettings);
+  const [wheelSettings, setWheelSettings] = useState(() => loadWheelSettings(periodLabel));
+
+  const updateWheelSettings = (patch) => {
+    const next = { ...wheelSettings, ...patch };
+    setWheelSettings(next);
+    saveWheelSettings(periodLabel, next);
+  };
 
   const activeNames = useMemo(
     () => names.filter(n => !excludedNames.includes(n)),
@@ -42,6 +76,15 @@ export default function WheelOfNames({
   );
 
   useEffect(() => { setWinner(null); }, [names]);
+
+  // Each period keeps its own settings and its own "don't repeat" memory —
+  // reload both whenever the active period changes (this component stays
+  // mounted across period switches, so state set on mount alone would stay
+  // stuck on whichever period was active first).
+  useEffect(() => {
+    setWheelSettings(loadWheelSettings(periodLabel));
+    lastWinnerRef.current = null;
+  }, [periodLabel]);
 
   const drawWheel = useCallback((rotation) => {
     const canvas = canvasRef.current;
@@ -281,20 +324,14 @@ export default function WheelOfNames({
               <input
                 type="number" min="0.5" max="20" step="0.5"
                 value={wheelSettings.spinDuration}
-                onChange={e => {
-                  const s = { ...wheelSettings, spinDuration: Math.max(0.5, parseFloat(e.target.value) || 3) };
-                  setWheelSettings(s); saveWheelSettings(s);
-                }}
+                onChange={e => updateWheelSettings({ spinDuration: Math.max(0.5, parseFloat(e.target.value) || 3) })}
               />
               <span>s</span>
               <label style={{ marginLeft: 12 }}>Show winner</label>
               <input
                 type="number" min="0.5" max="15" step="0.5"
                 value={wheelSettings.displayDuration}
-                onChange={e => {
-                  const s = { ...wheelSettings, displayDuration: Math.max(0.5, parseFloat(e.target.value) || 3) };
-                  setWheelSettings(s); saveWheelSettings(s);
-                }}
+                onChange={e => updateWheelSettings({ displayDuration: Math.max(0.5, parseFloat(e.target.value) || 3) })}
               />
               <span>s</span>
             </div>
@@ -303,10 +340,7 @@ export default function WheelOfNames({
               <input
                 type="checkbox"
                 checked={!!wheelSettings.avoidRepeat}
-                onChange={e => {
-                  const s = { ...wheelSettings, avoidRepeat: e.target.checked };
-                  setWheelSettings(s); saveWheelSettings(s);
-                }}
+                onChange={e => updateWheelSettings({ avoidRepeat: e.target.checked })}
               />
               Don't call the same name twice in a row
             </label>
