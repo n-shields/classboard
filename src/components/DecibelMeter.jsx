@@ -98,6 +98,7 @@ export default function DecibelMeter({ onChallengeWin }) {
   const [liveHidden,   setLiveHidden]   = useState(false);
   const [avgHidden,    setAvgHidden]    = useState(false);
   const [thermoHidden, setThermoHidden] = useState(false);
+  const [graphHidden,  setGraphHidden]  = useState(false);
   const [settings,     setSettingsState] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // tick() runs inside a long-lived setInterval started once in startMic —
@@ -394,15 +395,20 @@ export default function DecibelMeter({ onChallengeWin }) {
         </div>
 
         {/* Both numbers live on top of the time graph itself now, pinned to
-            its left and right edges — each toggles only itself, since they
-            now share one surface instead of each having its own graph to
-            click. */}
-        <div className="decibel-graph-wrap">
-          <canvas ref={canvasRef} className="decibel-canvas" />
+            its left and right edges — each toggles only itself. Clicking
+            the graph anywhere else toggles the plotted graph itself, so
+            every child that has its own click behavior has to stop the
+            click from also reaching this wrapper. */}
+        <div
+          className="decibel-graph-wrap"
+          onClick={() => setGraphHidden(h => !h)}
+          title={graphHidden ? "Click to show the graph" : "Click to hide the graph"}
+        >
+          <canvas ref={canvasRef} className={`decibel-canvas ${graphHidden ? "decibel-canvas--hidden" : ""}`} />
 
           <div
             className="decibel-graph-value decibel-graph-value--live"
-            onClick={() => setLiveHidden(h => !h)}
+            onClick={e => { e.stopPropagation(); setLiveHidden(h => !h); }}
             title={liveHidden ? "Click to show" : "Click to hide"}
           >
             <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
@@ -413,7 +419,7 @@ export default function DecibelMeter({ onChallengeWin }) {
 
           <div
             className="decibel-graph-value decibel-graph-value--avg"
-            onClick={() => setAvgHidden(h => !h)}
+            onClick={e => { e.stopPropagation(); setAvgHidden(h => !h); }}
             title={avgHidden ? "Click to show" : "Click to hide"}
           >
             <span className={`decibel-value ${avgHidden ? "decibel-value--hidden" : ""}`}>
@@ -427,7 +433,7 @@ export default function DecibelMeter({ onChallengeWin }) {
               {error ? (
                 <span className="decibel-error">{error}</span>
               ) : (
-                <span onClick={startMic} title="Start listening">🎙</span>
+                <span onClick={e => { e.stopPropagation(); startMic(); }} title="Start listening">🎙</span>
               )}
             </div>
           )}
@@ -435,7 +441,7 @@ export default function DecibelMeter({ onChallengeWin }) {
           {challengeUI && (
             <div
               className="decibel-challenge-badge"
-              onClick={() => setChallengeSetupOpen(true)}
+              onClick={e => { e.stopPropagation(); setChallengeSetupOpen(true); }}
               title="Noise Challenge in progress — click for details"
             >
               🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg

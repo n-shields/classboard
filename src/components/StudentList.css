@@ -26,10 +26,12 @@
 }
 
 .student-gems-label {
-  font-size: 0.78rem;
+  font-size: 1.2rem;
+  font-weight: 600;
   color: var(--text-dim);
   border-bottom: 1px dashed var(--border);
   cursor: pointer;
+  justify-self: center;
 }
 
 .student-gems-label:hover {
@@ -38,9 +40,12 @@
 }
 
 .student-gems-label-edit {
-  width: 90px;
+  width: 140px;
   padding: 1px 4px;
-  font-size: 0.78rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+  justify-self: center;
 }
 
 .student-import {
@@ -86,8 +91,12 @@
   flex-shrink: 0;
 }
 
+/* Grid, not flex, so the Gems label truly centers on the header regardless
+   of how wide the title or the wheel-count badge are — flex centering would
+   need those two to already be equal width, which they aren't. */
 .student-modal-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: baseline;
   gap: 10px;
   margin-bottom: 10px;
@@ -100,7 +109,7 @@
 .student-count {
   font-size: 0.78rem;
   color: var(--text-dim);
-  margin-left: auto;
+  justify-self: end;
   flex-shrink: 0;
 }
 
@@ -210,6 +219,16 @@
 .student-list--columns .student-gems-value,
 .student-list--columns .student-drag-handle {
   font-size: inherit;
+}
+
+/* The base .student-row's padding is a flat 4px/6px, which doesn't shrink
+   with --student-font-size — at the small end of the binary search that
+   fixed overhead was eating a disproportionate share of each row's height,
+   the actual reason a full class could still need scrolling even at the
+   smallest size the search allows. em units here scale with the row's own
+   (already-set-to-the-variable) font-size for free, no calc(var()) needed. */
+.student-list--columns .student-row {
+  padding: 0.3em 0.4em;
 }
 
 .student-list--columns .student-name-input {

@@ -144,7 +144,14 @@ export default function StudentList({
     };
     const compute = () => {
       if (!el.clientHeight) return; // not laid out yet — a pending resize will retry
-      let lo = 0.8, hi = 6;
+      // 0.8 used to be the floor outright — if a big enough roster didn't
+      // fit even there, it just used 0.8 and accepted a scrollbar, without
+      // ever checking whether some size below 0.8 (still readable) would
+      // actually have fit. Lowering the floor doesn't change anything for a
+      // class that already fit fine above it — the search still climbs as
+      // high as `hi` allows — it just gives large rosters somewhere left to
+      // go before giving up on avoiding the scrollbar.
+      let lo = 0.4, hi = 6;
       if (!fits(lo)) { el.style.setProperty("--student-font-size", `${lo}rem`); return; }
       for (let i = 0; i < 14; i++) {
         const mid = (lo + hi) / 2;
