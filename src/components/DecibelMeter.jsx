@@ -3,10 +3,21 @@ import "./DecibelMeter.css";
 
 // There's no way to get a calibrated, device-independent SPL reading out of
 // a browser mic — every device's gain/sensitivity differs — so this reports
-// a relative "dB" derived from the mic signal's own RMS level (dBFS) plus a
-// fixed offset, tuned by ear against an actual mic rather than assumed, so
-// it's a good louder/quieter indicator, not a calibrated measurement.
-const REFERENCE_OFFSET = 50;
+// a relative "dB" derived from the mic signal's own RMS level (dBFS) run
+// through a user-adjustable linear transform (multiplier * dBFS + offset,
+// i.e. y = mx + b — see the settings panel), rather than one baked-in
+// offset, so it can be tuned by ear against whatever mic is actually in the
+// room. It's a good louder/quieter indicator, not a calibrated measurement.
+const DEFAULT_SETTINGS = { multiplier: 1, offset: 50 };
+const DECIBEL_SETTINGS_KEY = "classboard_decibel_settings";
+function loadSettings() {
+  try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(DECIBEL_SETTINGS_KEY) || "{}") }; }
+  catch (_) { return { ...DEFAULT_SETTINGS }; }
+}
+function saveSettings(s) {
+  try { localStorage.setItem(DECIBEL_SETTINGS_KEY, JSON.stringify(s)); } catch (_) {}
+}
+
 const FFT_SIZE = 1024;
 const SAMPLE_INTERVAL_MS = 150;
 const WINDOW_MS = 60_000; // how much history the graph scrolls through
@@ -15,7 +26,7 @@ const MIN_SPAN = 10; // floor for the auto-scaled range, so a flat/quiet
 const THERMO_MAX = 100; // fixed full-scale for the live-value gauge — unlike
                          // the graph, a thermometer's scale doesn't wander
 
-function readLevel(analyser, buffer) {
+function readLevel(analyser, buffer, multiplier, offset) {
   analyser.getByteTimeDomainData(buffer);
   let sumSquares = 0;
   for (let i = 0; i < buffer.length; i++) {
@@ -24,7 +35,7 @@ function readLevel(analyser, buffer) {
   }
   const rms = Math.sqrt(sumSquares / buffer.length);
   const dBFS = 20 * Math.log10(rms || 1e-8);
-  return Math.max(0, Math.round((dBFS + REFERENCE_OFFSET) * 10) / 10);
+  return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
 }
 
 export default function DecibelMeter() {
@@ -38,12 +49,26 @@ export default function DecibelMeter() {
   // the current reading and the canvas actually need to re-render on change.
   const historyRef  = useRef([]);
 
-  const [active,     setActive]     = useState(false);
-  const [error,      setError]      = useState(null);
-  const [level,      setLevel]      = useState(0);
-  const [avg,        setAvg]        = useState(null);
-  const [liveHidden, setLiveHidden] = useState(false);
-  const [avgHidden,  setAvgHidden]  = useState(false);
+  const [active,       setActive]       = useState(false);
+  const [error,        setError]        = useState(null);
+  const [level,        setLevel]        = useState(0);
+  const [avg,          setAvg]          = useState(null);
+  const [liveHidden,   setLiveHidden]   = useState(false);
+  const [avgHidden,    setAvgHidden]    = useState(false);
+  const [settings,     setSettingsState] = useState(loadSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // tick() runs inside a long-lived setInterval started once in startMic —
+  // it needs whatever settings are current at sample time, not whichever
+  // were in effect when that interval was created, so it reads this ref
+  // rather than closing over the `settings` state directly.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  const updateSettings = (patch) => {
+    const next = { ...settings, ...patch };
+    setSettingsState(next);
+    saveSettings(next);
+  };
 
   const draw = () => {
     const canvas = canvasRef.current;
@@ -132,7 +157,8 @@ export default function DecibelMeter() {
   const tick = () => {
     const analyser = analyserRef.current, buffer = bufferRef.current;
     if (!analyser || !buffer) return;
-    const v = readLevel(analyser, buffer);
+    const { multiplier, offset } = settingsRef.current;
+    const v = readLevel(analyser, buffer, multiplier, offset);
     setLevel(v);
     historyRef.current.push({ t: performance.now(), v });
   };
@@ -242,8 +268,41 @@ export default function DecibelMeter() {
             title={active ? "Stop listening" : "Start listening"}
           >{active ? "■" : "🎙"}</button>
           <button className="decibel-btn" onClick={reset} title="Clear the graph">↺</button>
+          <button className="decibel-btn" onClick={() => setSettingsOpen(true)} title="Calibration settings">⚙</button>
         </div>
       </div>
+
+      {settingsOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSettingsOpen(false)}>
+          <div className="modal decibel-settings-modal">
+            <h2>Decibel calibration</h2>
+            <p className="decibel-settings-hint">
+              There's no way to get a truly calibrated reading from a browser mic, so tune
+              these by ear: <strong>Offset</strong> shifts the baseline (raise it if silence
+              isn't reading near 0), and <strong>Multiplier</strong> stretches the swing
+              between quiet and loud.
+            </p>
+            <div className="decibel-settings-row">
+              <label>Multiplier</label>
+              <input
+                type="number" min="0.1" max="10" step="0.1"
+                value={settings.multiplier}
+                onChange={e => updateSettings({ multiplier: Math.max(0.1, parseFloat(e.target.value) || 1) })}
+              />
+              <label>Offset</label>
+              <input
+                type="number" min="-200" max="200" step="1"
+                value={settings.offset}
+                onChange={e => updateSettings({ offset: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="decibel-settings-actions">
+              <button className="btn btn-ghost btn-sm" onClick={() => updateSettings(DEFAULT_SETTINGS)}>Reset to default</button>
+              <button className="btn btn-primary btn-sm" onClick={() => setSettingsOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

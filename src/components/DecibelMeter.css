@@ -185,3 +185,37 @@
   color: var(--danger);
   border-color: var(--danger);
 }
+
+.decibel-settings-modal {
+  min-width: 300px;
+  max-width: 360px;
+}
+
+.decibel-settings-hint {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.decibel-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.decibel-settings-row input[type="number"] {
+  width: 64px;
+  font-size: 0.85rem;
+  padding: 3px 6px;
+  text-align: center;
+}
+
+.decibel-settings-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
