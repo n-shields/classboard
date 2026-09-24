@@ -3,8 +3,8 @@ import "./WheelOfNames.css";
 
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
 function loadWheelSettings() {
-  try { return { spinDuration: 3, displayDuration: 3, ...JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}") }; }
-  catch (_) { return { spinDuration: 3, displayDuration: 3 }; }
+  try { return { spinDuration: 3, displayDuration: 3, avoidRepeat: false, ...JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}") }; }
+  catch (_) { return { spinDuration: 3, displayDuration: 3, avoidRepeat: false }; }
 }
 function saveWheelSettings(s) {
   try { localStorage.setItem(WHEEL_SETTINGS_KEY, JSON.stringify(s)); } catch (_) {}
@@ -24,13 +24,13 @@ export default function WheelOfNames({
   names, excludedNames = [], colors = {},
   periodLabel, collapsed, onToggle,
   wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
-  gemsLabel = "Gems",
 }) {
   const canvasRef = useRef(null);
   const animRef   = useRef(null);
   const rotationRef = useRef(0);
   const winnerRef = useRef(null);
   const measureCanvasRef = useRef(null);
+  const lastWinnerRef = useRef(null);
   const [spinning,      setSpinning]      = useState(false);
   const [winner,        setWinner]        = useState(null);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
@@ -151,11 +151,37 @@ export default function WheelOfNames({
     setSpinning(true);
     setWinner(null);
 
+    const n = activeNames.length;
+    const segAngle = (2 * Math.PI) / n;
+
+    // Pick the winner up front (rather than spinning to a random angle and
+    // reading off whoever that lands on) so a "no repeats" setting can just
+    // exclude last spin's winner from the pool here — there's always at
+    // least one other name to exclude to, since spinning at all requires 2+.
+    let eligible = activeNames.map((_, i) => i);
+    if (wheelSettings.avoidRepeat && lastWinnerRef.current) {
+      const filtered = eligible.filter(i => activeNames[i] !== lastWinnerRef.current);
+      if (filtered.length > 0) eligible = filtered;
+    }
+    const winnerIndex = eligible[Math.floor(Math.random() * eligible.length)];
+    const winnerName  = activeNames[winnerIndex];
+    // Land somewhere in the middle of the chosen segment, not flush against
+    // either edge, so it's visually unambiguous which wedge the pointer hit.
+    const frac = 0.1 + Math.random() * 0.8;
+
     const startRotation = rotationRef.current;
-    const totalSpin     = (3 + Math.random() * 2) * 2 * Math.PI + Math.random() * 2 * Math.PI;
-    const endRotation   = startRotation + totalSpin;
-    const duration      = (wheelSettings.spinDuration ?? 3) * 1000;
-    const startTime     = performance.now();
+    // See drawWheel: segment i sits under the (fixed, top) pointer when
+    // rotation ≡ -(i + frac) * segAngle (mod 2π). Pick a few full visual
+    // turns, then nudge by whatever's needed to land exactly on that target
+    // angle, so the wheel always spins forward and still stops on winnerIndex.
+    const targetMod  = (((-(winnerIndex + frac) * segAngle) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const baseTurns  = (3 + Math.floor(Math.random() * 3)) * 2 * Math.PI;
+    const currentMod = ((startRotation + baseTurns) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const adjustment = ((targetMod - currentMod) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const totalSpin  = baseTurns + adjustment;
+    const endRotation = startRotation + totalSpin;
+    const duration     = (wheelSettings.spinDuration ?? 3) * 1000;
+    const startTime    = performance.now();
 
     const animate = (now) => {
       const elapsed  = now - startTime;
@@ -169,14 +195,12 @@ export default function WheelOfNames({
       } else {
         rotationRef.current = endRotation;
         setSpinning(false);
-        const n          = activeNames.length;
-        const segAngle   = (2 * Math.PI) / n;
-        const normalized = ((-(endRotation % (2 * Math.PI))) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-        setWinner(activeNames[Math.floor(normalized / segAngle) % n]);
+        lastWinnerRef.current = winnerName;
+        setWinner(winnerName);
       }
     };
     animRef.current = requestAnimationFrame(animate);
-  }, [spinning, activeNames, drawWheel, wheelSettings.spinDuration]);
+  }, [spinning, activeNames, drawWheel, wheelSettings.spinDuration, wheelSettings.avoidRepeat]);
 
   useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current); }, []);
 
@@ -251,19 +275,6 @@ export default function WheelOfNames({
               )}
             </div>
 
-            <p className="wheel-settings-hint">
-              Manage students from the “👥 Students” button in the top bar, or press
-              {" "}<strong>Space</strong> to show/hide the list.
-            </p>
-            <p className="wheel-settings-hint">
-              With no text field focused: <strong>←</strong>/<strong>→</strong> and
-              {" "}<strong>↑</strong>/<strong>↓</strong> switch periods; <strong>+</strong>/
-              <strong>−</strong> give or take 1 {gemsLabel} from every student (10 with
-              {" "}<strong>Shift</strong> held). Hold +/− to repeat it 4 times a second — this
-              opens the student list and closes it again 2 seconds after you stop. Focus a
-              student's name first to affect just them.
-            </p>
-
             {/* Timing settings */}
             <div className="wheel-settings-row">
               <label>Spin time</label>
@@ -287,6 +298,18 @@ export default function WheelOfNames({
               />
               <span>s</span>
             </div>
+
+            <label className="wheel-settings-row">
+              <input
+                type="checkbox"
+                checked={!!wheelSettings.avoidRepeat}
+                onChange={e => {
+                  const s = { ...wheelSettings, avoidRepeat: e.target.checked };
+                  setWheelSettings(s); saveWheelSettings(s);
+                }}
+              />
+              Don't call the same name twice in a row
+            </label>
 
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
               <button className="btn btn-primary" onClick={() => setSettingsOpen(false)}>Done</button>

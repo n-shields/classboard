@@ -110,12 +110,6 @@
   flex-shrink: 0;
 }
 
-.wheel-settings-hint {
-  font-size: 0.82rem;
-  color: var(--text-dim);
-  margin: 0;
-}
-
 .wheel-settings-row {
   display: flex;
   align-items: center;

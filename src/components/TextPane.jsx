@@ -267,9 +267,23 @@ export default function TextPane({
 
   // The pane's own background, as opposed to execBackColor's text highlight —
   // per page, like fontSize, so switching tabs can carry its own color.
+  // Text pasted in from elsewhere (Word, Slides, a web page, ...) often
+  // brings its own inline background-color on the paragraphs/spans it's
+  // made of, which paints right over whatever this swatch sets on the pane
+  // itself — so setting (or clearing) the pane background also strips any
+  // inline background pasted content is carrying, on the way in.
   const setBgColor = (color) => {
     if (!activePage) return;
-    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, bgColor: color } : p)));
+    const editor = editorRef.current;
+    if (editor) {
+      editor.querySelectorAll("[style]").forEach(el => {
+        el.style.removeProperty("background-color");
+        el.style.removeProperty("background");
+        if (!el.getAttribute("style")) el.removeAttribute("style");
+      });
+    }
+    const html = editor ? (editor.innerHTML === "<br>" ? "" : editor.innerHTML) : activePage.html;
+    onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, bgColor: color, html } : p)));
   };
   const clearBgColor = () => setBgColor(undefined);
 

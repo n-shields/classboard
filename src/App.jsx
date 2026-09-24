@@ -755,7 +755,6 @@ export default function App() {
         onToggle={() => toggleCollapsed("wheel")}
         wheelColors={wheelTheme.wheelColors}
         wheelText={wheelTheme.wheelText}
-        gemsLabel={currentGemsLabel}
       />
     ),
     prize: (
