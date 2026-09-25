@@ -97,6 +97,12 @@ export default function DecibelMeter({ onChallengeWin }) {
   const streamRef   = useRef(null);
   const intervalRef = useRef(null); // the fast analyser-polling loop
   const commitIntervalRef = useRef(null); // the 250ms "land the window's peak" loop
+  // Whether *we* currently want the mic running — separate from the `active`
+  // state, which only updates on a render. Set true at the start of
+  // startMic, false at the start of stopMic; checked from the track's own
+  // onended handler (see startMic) to tell "the user/unmount asked for this"
+  // apart from "the mic died out from under us and should try to reconnect".
+  const wantActiveRef = useRef(false);
   // The loudest sample seen since the last commit — reset to 0 (readLevel's
   // own floor) each time commitPeak lands it as the actual reading.
   const peakRef = useRef(0);
@@ -306,6 +312,13 @@ export default function DecibelMeter({ onChallengeWin }) {
   const sampleFast = () => {
     const analyser = analyserRef.current, buffer = bufferRef.current;
     if (!analyser || !buffer) return;
+    // Browsers can suspend an AudioContext on their own — power-saving
+    // heuristics, a visibility change, etc. — without erroring or ending
+    // the track; the analyser just quietly keeps reporting stale/silent
+    // data forever. Nudge it back awake on every poll rather than needing
+    // anything to notice and ask — this is the most likely explanation for
+    // the meter going dead mid-session with nothing else obviously wrong.
+    if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume();
     const { multiplier, offset } = settingsRef.current;
     const v = readLevel(analyser, buffer, multiplier, offset);
     if (v > peakRef.current) peakRef.current = v;
@@ -356,6 +369,7 @@ export default function DecibelMeter({ onChallengeWin }) {
   };
 
   const stopMic = () => {
+    wantActiveRef.current = false;
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     if (commitIntervalRef.current) { clearInterval(commitIntervalRef.current); commitIntervalRef.current = null; }
     peakRef.current = 0;
@@ -369,6 +383,7 @@ export default function DecibelMeter({ onChallengeWin }) {
 
   const startMic = async () => {
     setError(null);
+    wantActiveRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -384,6 +399,27 @@ export default function DecibelMeter({ onChallengeWin }) {
       setActive(true);
       intervalRef.current = setInterval(sampleFast, FAST_SAMPLE_MS);
       commitIntervalRef.current = setInterval(commitPeak, PEAK_WINDOW_MS);
+
+      // The track can end on its own — device unplugged, the OS or another
+      // app reclaimed it, a Bluetooth mic dropping out, etc. — without
+      // getUserMedia or the analyser ever throwing; the meter just goes
+      // quietly dead. Notice that specifically and try to reconnect, rather
+      // than needing a full page reload to come back (this is the other
+      // likely explanation for "cuts out and won't come back").
+      const track = stream.getAudioTracks()[0];
+      if (track) {
+        track.onended = () => {
+          if (!wantActiveRef.current) return; // stopMic() (button click or unmount) already handled this
+          if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+          if (commitIntervalRef.current) { clearInterval(commitIntervalRef.current); commitIntervalRef.current = null; }
+          analyserRef.current = null;
+          if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch (_) {} audioCtxRef.current = null; }
+          streamRef.current = null;
+          setActive(false);
+          setError("Microphone connection was lost — reconnecting…");
+          setTimeout(() => { if (wantActiveRef.current) startMic(); }, 500);
+        };
+      }
     } catch (err) {
       setError(err.message || "Microphone access denied");
     }
