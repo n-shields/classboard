@@ -274,7 +274,7 @@ export default function TeacherView() {
           className="btn btn-ghost btn-sm teacher-view-header-btn"
           onClick={openBoardView}
           title="Open a synced board window to browse and edit another period's content"
-        >🖥 Board</button>
+        >🖥 Clone</button>
         <button
           className="btn btn-ghost btn-sm teacher-view-header-btn"
           onClick={() => setHotkeysEditorOpen(true)}
