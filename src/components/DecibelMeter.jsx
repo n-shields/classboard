@@ -55,7 +55,13 @@ const curveSx = (dbfs) => CURVE_MARGIN.left + (dbfs - CURVE_X_DOMAIN[0]) / (CURV
 const curveSy = (out)  => CURVE_MARGIN.top + CURVE_PLOT_H - (out - CURVE_Y_DOMAIN[0]) / (CURVE_Y_DOMAIN[1] - CURVE_Y_DOMAIN[0]) * CURVE_PLOT_H;
 
 const FFT_SIZE = 1024;
-const SAMPLE_INTERVAL_MS = 150;
+// The live reading is the loudest sample seen within each 250ms window, not
+// just whatever single sample happened to land on a tick — FAST_SAMPLE_MS is
+// how often the analyser is actually polled to catch that peak, well inside
+// PEAK_WINDOW_MS, which is the cadence the displayed value/history/challenge
+// tally actually update at.
+const FAST_SAMPLE_MS = 30;
+const PEAK_WINDOW_MS = 250;
 const MIN_SPAN = 10; // floor for the auto-scaled range, so a flat/quiet
                       // stretch doesn't get blown up into a jittery-looking band
 const THERMO_MAX = 100; // fixed full-scale for the live-value gauge — unlike
@@ -89,7 +95,11 @@ export default function DecibelMeter({ onChallengeWin }) {
   const analyserRef = useRef(null);
   const bufferRef   = useRef(null);
   const streamRef   = useRef(null);
-  const intervalRef = useRef(null);
+  const intervalRef = useRef(null); // the fast analyser-polling loop
+  const commitIntervalRef = useRef(null); // the 250ms "land the window's peak" loop
+  // The loudest sample seen since the last commit — reset to 0 (readLevel's
+  // own floor) each time commitPeak lands it as the actual reading.
+  const peakRef = useRef(0);
   // Kept as a ref (not state) since it's written many times a second — only
   // the current reading and the canvas actually need to re-render on change.
   const historyRef  = useRef([]);
@@ -290,14 +300,26 @@ export default function DecibelMeter({ onChallengeWin }) {
     ctx.stroke();
   };
 
-  // Just samples and records — the separate always-on draw interval below
-  // (which also has to keep running while the mic is off, so the graph
-  // still visibly scrolls old readings away) is what actually repaints.
-  const tick = () => {
+  // Polls far more often than the reading actually updates, purely to track
+  // the loudest sample within the current window — a brief spike shouldn't
+  // get missed just because it landed between two 250ms commits.
+  const sampleFast = () => {
     const analyser = analyserRef.current, buffer = bufferRef.current;
     if (!analyser || !buffer) return;
     const { multiplier, offset } = settingsRef.current;
     const v = readLevel(analyser, buffer, multiplier, offset);
+    if (v > peakRef.current) peakRef.current = v;
+  };
+
+  // Lands the window's peak as *the* reading — this, not sampleFast, is
+  // what actually updates the displayed value, the graph's history, and the
+  // challenge tally. The separate always-on draw interval below (which also
+  // has to keep running while the mic is off, so the graph still visibly
+  // scrolls old readings away) is what actually repaints from it.
+  const commitPeak = () => {
+    if (!analyserRef.current) return;
+    const v = peakRef.current;
+    peakRef.current = 0;
     setLevel(v);
     historyRef.current.push({ t: performance.now(), v });
 
@@ -335,6 +357,8 @@ export default function DecibelMeter({ onChallengeWin }) {
 
   const stopMic = () => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (commitIntervalRef.current) { clearInterval(commitIntervalRef.current); commitIntervalRef.current = null; }
+    peakRef.current = 0;
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
     analyserRef.current = null;
@@ -356,8 +380,10 @@ export default function DecibelMeter({ onChallengeWin }) {
       audioCtxRef.current = audioCtx;
       analyserRef.current = analyser;
       bufferRef.current = new Uint8Array(analyser.fftSize);
+      peakRef.current = 0;
       setActive(true);
-      intervalRef.current = setInterval(tick, SAMPLE_INTERVAL_MS);
+      intervalRef.current = setInterval(sampleFast, FAST_SAMPLE_MS);
+      commitIntervalRef.current = setInterval(commitPeak, PEAK_WINDOW_MS);
     } catch (err) {
       setError(err.message || "Microphone access denied");
     }
@@ -372,9 +398,10 @@ export default function DecibelMeter({ onChallengeWin }) {
   useEffect(() => { startMic(); return stopMic; }, []); // eslint-disable-line
 
   // Redraw (auto-scaled to whatever's still in the window) even while idle,
-  // so the graph keeps scrolling and old readings age out visually.
+  // so the graph keeps scrolling and old readings age out visually. No need
+  // to redraw any faster than the data itself actually changes (PEAK_WINDOW_MS).
   useEffect(() => {
-    const id = setInterval(draw, SAMPLE_INTERVAL_MS);
+    const id = setInterval(draw, PEAK_WINDOW_MS);
     const ro = new ResizeObserver(draw);
     if (canvasRef.current) ro.observe(canvasRef.current);
     return () => { clearInterval(id); ro.disconnect(); };
