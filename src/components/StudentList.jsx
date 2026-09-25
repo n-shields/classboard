@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { playClick, playDing } from "../data/sounds";
+import { playClick, playDing, isGemsSoundMuted, setGemsSoundMuted } from "../data/sounds";
 import { GEMS_REPEAT_MS } from "../data/gems";
 import "./StudentList.css";
 
@@ -56,6 +56,12 @@ export default function StudentList({
   }, [boostAnimation?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [importOpen, setImportOpen] = useState(false);
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
+  const [gemsMuted, setGemsMuted] = useState(isGemsSoundMuted);
+  const toggleGemsMuted = () => {
+    const next = !gemsMuted;
+    setGemsMuted(next);
+    setGemsSoundMuted(next);
+  };
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   // Simple mode: highlights a student's whole row in their own color while
@@ -400,24 +406,32 @@ export default function StudentList({
       <div className={`modal student-modal student-modal--full ${useColumns ? "student-modal--wide" : ""}`}>
         <div className="student-modal-header">
           <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
-          {editingGemsLabel ? (
-            <input
-              className="student-gems-label-edit"
-              autoFocus
-              defaultValue={gemsLabel}
-              onBlur={e => { onGemsLabelChange?.(e.target.value.trim() || "Gems"); setEditingGemsLabel(false); }}
-              onKeyDown={e => {
-                if (e.key === "Enter") e.currentTarget.blur();
-                if (e.key === "Escape") setEditingGemsLabel(false);
-              }}
-            />
-          ) : (
-            <span
-              className="student-gems-label"
-              onClick={() => setEditingGemsLabel(true)}
-              title="Click to rename this currency"
-            >{gemsLabel}</span>
-          )}
+          <div className="student-gems-label-group">
+            {editingGemsLabel ? (
+              <input
+                className="student-gems-label-edit"
+                autoFocus
+                defaultValue={gemsLabel}
+                onBlur={e => { onGemsLabelChange?.(e.target.value.trim() || "Gems"); setEditingGemsLabel(false); }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") setEditingGemsLabel(false);
+                }}
+              />
+            ) : (
+              <span
+                className="student-gems-label"
+                onClick={() => setEditingGemsLabel(true)}
+                title="Click to rename this currency"
+              >{gemsLabel}</span>
+            )}
+            <button
+              type="button"
+              className="student-mute-btn"
+              onClick={toggleGemsMuted}
+              title={gemsMuted ? "Unmute the point sound" : "Mute the point sound"}
+            >{gemsMuted ? "🔇" : "🔊"}</button>
+          </div>
           {!simple && names.length > 0 && (
             <span className="student-count">{activeCount} / {names.length} in wheel</span>
           )}

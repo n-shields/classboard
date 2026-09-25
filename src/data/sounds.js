@@ -29,11 +29,27 @@ function tone({ type, freqStart, freqEnd, duration, gain }) {
   } catch (_) {}
 }
 
+// Mutes just the two point-adjustment sounds below (playClick/playDing) —
+// the preset sound effects further down (assignable to hotkeys) are a
+// separate, deliberate choice each time, not tied to this. Read fresh on
+// every play rather than cached, since the two call sites (here and
+// PeriodBar's global +/- shortcut) aren't otherwise wired to react to a
+// change made from the student list's own mute button.
+const GEMS_MUTED_KEY = "classboard_gems_sound_muted";
+export function isGemsSoundMuted() {
+  try { return localStorage.getItem(GEMS_MUTED_KEY) === "1"; } catch (_) { return false; }
+}
+export function setGemsSoundMuted(muted) {
+  try { localStorage.setItem(GEMS_MUTED_KEY, muted ? "1" : "0"); } catch (_) {}
+}
+
 export function playClick() {
+  if (isGemsSoundMuted()) return;
   tone({ type: "square", freqStart: 220, freqEnd: 140, duration: 0.05, gain: 0.12 });
 }
 
 export function playDing() {
+  if (isGemsSoundMuted()) return;
   tone({ type: "sine", freqStart: 880, freqEnd: 1568, duration: 0.32, gain: 0.18 });
 }
 
