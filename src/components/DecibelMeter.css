@@ -47,9 +47,15 @@
   flex-shrink: 0;
 }
 
-.decibel-thermo {
+/* Un-clipped positioning context for the bar — the badge overlays this,
+   not the bar itself (see .decibel-thermo's own overflow: hidden below). */
+.decibel-thermo-track {
   position: relative;
   flex: 1;
+}
+
+.decibel-thermo {
+  position: relative;
   height: 12px;
   border-radius: 6px;
   overflow: hidden;
@@ -198,15 +204,16 @@
   opacity: 1 !important;
 }
 
-/* Countdown pill — top-center of the graph, out of the way of the live/avg
-   readouts pinned to its left edge and center. */
+/* Countdown pill — centered over the thermometer bar (a sibling of it, not
+   a child, since the bar itself clips to its own 12px height). */
 .decibel-challenge-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   font-size: 0.95rem;
   font-weight: 600;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.75);
   border: 1px solid var(--accent);
   border-radius: 999px;
   padding: 3px 10px;

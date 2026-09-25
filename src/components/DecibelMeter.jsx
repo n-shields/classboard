@@ -427,12 +427,28 @@ export default function DecibelMeter({ onChallengeWin }) {
           title={thermoHidden ? "Click to show" : "Click to hide"}
         >
           <span className="decibel-thermo-label">0</span>
-          <div className={`decibel-thermo ${thermoHidden ? "decibel-thermo--hidden" : ""}`}>
-            <div className="decibel-thermo-gradient" />
-            <div
-              className="decibel-thermo-mask"
-              style={{ left: `${Math.max(0, Math.min(100, (active ? level : 0) / THERMO_MAX * 100))}%` }}
-            />
+          {/* The bar itself clips its gradient/mask to its own rounded shape
+              (overflow: hidden), so the badge is a sibling of it rather than
+              a child — otherwise it'd get clipped to the bar's own 12px
+              height along with everything else in there. */}
+          <div className="decibel-thermo-track">
+            <div className={`decibel-thermo ${thermoHidden ? "decibel-thermo--hidden" : ""}`}>
+              <div className="decibel-thermo-gradient" />
+              <div
+                className="decibel-thermo-mask"
+                style={{ left: `${Math.max(0, Math.min(100, (active ? level : 0) / THERMO_MAX * 100))}%` }}
+              />
+            </div>
+
+            {challengeUI && (
+              <div
+                className="decibel-challenge-badge"
+                onClick={e => { e.stopPropagation(); setChallengeSetupOpen(true); }}
+                title="Noise Challenge in progress — click for details"
+              >
+                🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg
+              </div>
+            )}
           </div>
           <span className="decibel-thermo-label">{THERMO_MAX}</span>
         </div>
@@ -478,16 +494,6 @@ export default function DecibelMeter({ onChallengeWin }) {
               ) : (
                 <span onClick={e => { e.stopPropagation(); startMic(); }} title="Start listening">🎙</span>
               )}
-            </div>
-          )}
-
-          {challengeUI && (
-            <div
-              className="decibel-challenge-badge"
-              onClick={e => { e.stopPropagation(); setChallengeSetupOpen(true); }}
-              title="Noise Challenge in progress — click for details"
-            >
-              🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg
             </div>
           )}
 
