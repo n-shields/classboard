@@ -22,6 +22,9 @@ const DEFAULT_SETTINGS = {
   p1: { x: -50, y: 0 },
   p2: { x: 0, y: 50 },
   windowSeconds: 60,
+  avgWindowSeconds: 60, // independent of windowSeconds — the average can
+                         // run over a shorter/longer span than the graph
+                         // actually plots (e.g. "last 10s" vs. "last 5min")
 };
 const DECIBEL_SETTINGS_KEY = "classboard_decibel_settings";
 function loadSettings() {
@@ -200,15 +203,19 @@ export default function DecibelMeter({ onChallengeWin }) {
     if (!w || !h) return;
 
     // draw() is also called from the always-on interval below (created once
-    // on mount), so it needs the current window setting via the ref, not a
+    // on mount), so it needs the current window settings via the ref, not a
     // value closed over at that interval's creation time.
     const windowMs = settingsRef.current.windowSeconds * 1000;
+    const avgWindowMs = settingsRef.current.avgWindowSeconds * 1000;
     const now = performance.now();
     const windowStart = now - windowMs;
-    // Drop anything that's scrolled out of the window as we go, so the
-    // buffer doesn't grow forever across a long session.
+    // The average runs over its own independent span, which can be longer
+    // than what the graph actually plots (e.g. a 5-minute average behind a
+    // 60-second graph) — retain whichever span is longer so trimming for
+    // one doesn't quietly throw away history the other still needs, then
+    // filter each from that down to what it actually wants.
+    historyRef.current = historyRef.current.filter(p => p.t >= now - Math.max(windowMs, avgWindowMs));
     const points = historyRef.current.filter(p => p.t >= windowStart);
-    historyRef.current = points;
     if (points.length < 2) { setAvg(null); return; }
 
     let min = Infinity, max = -Infinity;
@@ -239,20 +246,29 @@ export default function DecibelMeter({ onChallengeWin }) {
       ctx.fillText(`${Math.round(v)}`, 4, Math.min(yy + 2, h - 11));
     });
 
-    // Average of what's currently in view — a dashed line in its own color
-    // so it reads as a computed stat, not another scale gridline. The
-    // number itself is pushed to state and shown as the big overlay on the
-    // graph instead of being labeled here too, which would risk overlapping
-    // that overlay whenever the average sits near the top of the range.
-    const avgValue = points.reduce((sum, p) => sum + p.v, 0) / points.length;
-    setAvg(avgValue);
-    const avgY = y(avgValue);
-    ctx.save();
-    ctx.setLineDash([4, 3]);
-    ctx.strokeStyle = warn;
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, avgY); ctx.lineTo(w, avgY); ctx.stroke();
-    ctx.restore();
+    // The average has its own window (see avgWindowMs above), independent
+    // of what the graph itself plots — a dashed line in its own color so it
+    // reads as a computed stat, not another scale gridline. The number
+    // itself is pushed to state and shown as the big overlay on the graph
+    // instead of being labeled here too, which would risk overlapping that
+    // overlay whenever it sits near the top of the range.
+    const avgPoints = historyRef.current.filter(p => p.t >= now - avgWindowMs);
+    if (avgPoints.length > 0) {
+      const avgValue = avgPoints.reduce((sum, p) => sum + p.v, 0) / avgPoints.length;
+      setAvg(avgValue);
+      // A longer average window can land outside the graph's own (shorter,
+      // auto-scaled) visible range — clamp so the line still sticks to
+      // whichever edge it overshot instead of drawing off-canvas.
+      const avgY = Math.max(0, Math.min(h, y(avgValue)));
+      ctx.save();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = warn;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, avgY); ctx.lineTo(w, avgY); ctx.stroke();
+      ctx.restore();
+    } else {
+      setAvg(null);
+    }
 
     ctx.beginPath();
     ctx.moveTo(x(points[0].t), h);
@@ -523,6 +539,16 @@ export default function DecibelMeter({ onChallengeWin }) {
                 type="number" min="10" max="600" step="5"
                 value={settings.windowSeconds}
                 onChange={e => updateSettings({ windowSeconds: Math.max(10, parseInt(e.target.value, 10) || 60) })}
+              />
+              <span>s</span>
+            </div>
+
+            <div className="decibel-settings-row">
+              <label>Average period</label>
+              <input
+                type="number" min="5" max="1800" step="5"
+                value={settings.avgWindowSeconds}
+                onChange={e => updateSettings({ avgWindowSeconds: Math.max(5, parseInt(e.target.value, 10) || 60) })}
               />
               <span>s</span>
             </div>
