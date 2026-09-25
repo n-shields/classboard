@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { playTick } from "../data/sounds";
 import "./WheelOfNames.css";
 
 // Keyed by period label (like classboard_period_layout_trees etc.) so each
@@ -7,7 +8,7 @@ import "./WheelOfNames.css";
 // Periods with no settings of their own, or no period active at all, fall
 // back to a shared "__default__" bucket rather than one hardcoded default.
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
-const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false };
+const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false };
 function loadAllWheelSettings() {
   try {
     const raw = JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}");
@@ -59,6 +60,7 @@ export default function WheelOfNames({
   const winnerRef = useRef(null);
   const measureCanvasRef = useRef(null);
   const lastWinnerRef = useRef(null);
+  const lastTickSegRef = useRef(null); // which segment the pointer was over last frame, for the optional spinning tick
   const [spinning,      setSpinning]      = useState(false);
   const [winner,        setWinner]        = useState(null);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
@@ -225,6 +227,15 @@ export default function WheelOfNames({
     const endRotation = startRotation + totalSpin;
     const duration     = (wheelSettings.spinDuration ?? 3) * 1000;
     const startTime    = performance.now();
+    // Same "which segment is under the fixed pointer" math the final winner
+    // uses, just evaluated every frame instead of once at the end — a tick
+    // plays each time it changes, so the sound naturally speeds up and slows
+    // down along with the wheel's own easing instead of on a fixed timer.
+    const segmentAt = (rotation) => {
+      const normalized = (((-rotation) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      return Math.floor(normalized / segAngle) % n;
+    };
+    lastTickSegRef.current = segmentAt(startRotation);
 
     const animate = (now) => {
       const elapsed  = now - startTime;
@@ -232,6 +243,14 @@ export default function WheelOfNames({
       const cur      = startRotation + totalSpin * easeOut(progress);
       rotationRef.current = cur;
       drawWheel(cur);
+
+      if (wheelSettings.spinSound) {
+        const seg = segmentAt(cur);
+        if (seg !== lastTickSegRef.current) {
+          lastTickSegRef.current = seg;
+          playTick();
+        }
+      }
 
       if (progress < 1) {
         animRef.current = requestAnimationFrame(animate);
@@ -243,7 +262,7 @@ export default function WheelOfNames({
       }
     };
     animRef.current = requestAnimationFrame(animate);
-  }, [spinning, activeNames, drawWheel, wheelSettings.spinDuration, wheelSettings.avoidRepeat]);
+  }, [spinning, activeNames, drawWheel, wheelSettings.spinDuration, wheelSettings.avoidRepeat, wheelSettings.spinSound]);
 
   useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current); }, []);
 
@@ -343,6 +362,15 @@ export default function WheelOfNames({
                 onChange={e => updateWheelSettings({ avoidRepeat: e.target.checked })}
               />
               Don't call the same name twice in a row
+            </label>
+
+            <label className="wheel-settings-row">
+              <input
+                type="checkbox"
+                checked={!!wheelSettings.spinSound}
+                onChange={e => updateWheelSettings({ spinSound: e.target.checked })}
+              />
+              Play a ticking sound while it spins
             </label>
 
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>

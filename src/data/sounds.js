@@ -63,6 +63,14 @@ function noiseBurst({ duration, gain, filterFreq, filterQ = 1, filterType = "ban
   } catch (_) {}
 }
 
+// A short, dry tick — a flapper clicking past a peg — used for the wheel's
+// optional spinning sound as it crosses each segment. Tighter/higher than
+// playClap's noise so a run of rapid repeats at full spin speed reads as
+// distinct ticks rather than smearing into mush.
+export function playTick() {
+  noiseBurst({ duration: 0.02, gain: 0.22, filterFreq: 3200, filterQ: 2.2 });
+}
+
 // Three closely-spaced, slightly detuned noise bursts read as one clap
 // rather than a single flat pop.
 export function playClap() {
