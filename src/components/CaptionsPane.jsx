@@ -24,6 +24,18 @@ function saveSettings(s) {
 // transcript of the class period.
 const MAX_SEGMENTS = 8;
 
+// SpeechRecognition's error codes (https://wicg.github.io/speech-api/#speechreco-error)
+// are terse single words — shown as-is, "network" reads like a stray debug
+// string rather than something a teacher can act on.
+const ERROR_MESSAGES = {
+  network: "Can't reach the speech recognition service — check the internet connection (some school networks block it).",
+  "audio-capture": "No microphone found.",
+  "not-allowed": "Microphone access denied.",
+  "service-not-allowed": "The browser blocked speech recognition — check its site permissions.",
+  "language-not-supported": "That language isn't supported for captions.",
+  "bad-grammar": "Speech recognition failed to start.",
+};
+
 const LANGUAGES = [
   { code: "en-US", label: "English (US)" },
   { code: "en-GB", label: "English (UK)" },
@@ -93,13 +105,14 @@ export default function CaptionsPane() {
 
     recognition.onerror = (e) => {
       if (e.error === "no-speech" || e.error === "aborted") return; // not fatal — onend will restart it
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        setError("Microphone access denied");
-        activeRef.current = false;
-        setActive(false);
-        return;
-      }
-      setError(e.error);
+      // Everything else is worth stopping for rather than silently retrying
+      // every 250ms (which, for something persistent like a blocked
+      // network, just means it spends the rest of class re-failing and
+      // showing nothing useful) — the person can hit start again once
+      // whatever it was is actually fixed.
+      setError(ERROR_MESSAGES[e.error] || `Captions stopped (${e.error})`);
+      activeRef.current = false;
+      setActive(false);
     };
 
     // Chrome stops recognition after a stretch of silence even in
