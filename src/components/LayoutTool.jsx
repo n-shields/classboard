@@ -6,7 +6,7 @@ import "./LayoutTool.css";
 const TILE_LABELS = {
   date: "Clock", clock: "Timer", notes: "Notes", text: "Board",
   camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders",
-  decibel: "Decibel",
+  decibel: "Decibel", captions: "Captions",
 };
 
 export default function LayoutTool({ layout, onLayoutChange, onClose }) {

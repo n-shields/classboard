@@ -100,9 +100,12 @@ export default function StudentList({
     [names, excludedNames],
   );
   const activeCount = activeNames.length;
-  // Simple mode (the board-facing quick view) always lays out in 2 columns
-  // so a full class fits without scrolling as far.
+  // Simple mode (the board-facing quick view) lays out in a grid so a full
+  // class fits without scrolling as far — but for a small roster, splitting
+  // into 2 columns just makes each one narrower for no benefit; below 10
+  // students it stays a single column instead.
   const useColumns = simple;
+  const numColumns = simple && names.length >= 10 ? 2 : 1;
 
   // Default order is the raw (draggable) `names` array; the other modes
   // derive a display order but leave `names` itself untouched, so every
@@ -140,7 +143,18 @@ export default function StudentList({
     if (!el) return;
     const fits = (remSize) => {
       el.style.setProperty("--student-font-size", `${remSize}rem`);
-      return el.scrollHeight <= el.clientHeight + 1;
+      if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) return false;
+      // The row itself wraps rather than overflowing horizontally, but a
+      // text <input> doesn't wrap its own content — a long name can clip
+      // silently inside a name/job field's fixed flex-basis without ever
+      // growing the row (and so the list) wide enough for the outer check
+      // above to notice. An input's own scrollWidth still reflects its
+      // full unclipped text, so check each one directly.
+      const inputs = el.querySelectorAll(".student-name-input, .student-job-input");
+      for (const input of inputs) {
+        if (input.scrollWidth > input.clientWidth + 1) return false;
+      }
+      return true;
     };
     const compute = () => {
       if (!el.clientHeight) return; // not laid out yet — a pending resize will retry
@@ -439,9 +453,14 @@ export default function StudentList({
               ref={listRef}
               className={`student-list ${useColumns ? "student-list--columns" : ""}`}
               // grid-auto-flow: column needs an explicit row-track count to
-              // know when to wrap into the second column — without it,
-              // every row would stack in the first column only.
-              style={useColumns ? { gridTemplateRows: `repeat(${Math.max(1, Math.ceil(sortedEntries.length / 2))}, max-content)` } : undefined}
+              // know when to wrap into the next column — without it, every
+              // row would stack in the first column only. Column count
+              // itself is set here too (numColumns), not fixed in CSS, so a
+              // small roster can collapse to a single column.
+              style={useColumns ? {
+                gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
+                gridTemplateRows: `repeat(${Math.max(1, Math.ceil(sortedEntries.length / numColumns))}, max-content)`,
+              } : undefined}
             >
               {sortedEntries.map(({ name, idx }) => {
                 const excluded = excludedNames.includes(name);

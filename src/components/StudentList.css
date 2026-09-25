@@ -138,17 +138,17 @@
 }
 
 .student-list--columns {
-  /* A real grid (not CSS multi-column) with an explicit row count — the
-     row count is set inline from JS (Math.ceil(count / 2)), which is what
+  /* A real grid (not CSS multi-column) with an explicit row *and* column
+     count, both set inline from JS (numColumns — 1 below 10 students, else
+     2 — and Math.ceil(count / numColumns)). The explicit row count is what
      makes overflow behave like ordinary vertical overflow (measurable via
      scrollHeight, for the font-size binary search, and safely scrollable)
      instead of multi-column's "just add another column" response to a
      bounded height, which is what silently clipped students off-screen
      before (see the earlier fix). grid-auto-flow: column still fills top-
-     to-bottom in the first column before the second, matching how the old
+     to-bottom in the first column before the next, matching how the old
      multi-column layout read. */
   display: grid;
-  grid-template-columns: 1fr 1fr;
   grid-auto-flow: column;
   /* Both scale with --student-font-size (via calc, since row-gap/column-gap
      aren't themselves set on an element whose own font-size is the scaled
@@ -161,6 +161,7 @@
   min-height: 0;
   max-height: none;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .student-row {
@@ -231,12 +232,16 @@
   padding: 0.3em 0.4em;
 }
 
-.student-list--columns .student-name-input {
-  padding: 0.25em 0.5em;
-}
-
+.student-list--columns .student-name-input,
 .student-list--columns .student-job-input {
+  /* Both were a flat 90px/70px (flex-basis/min-width), which stayed tiny
+     next to the font once it grew large — scaling them with the same
+     variable means the binary search's own per-input clipping check (see
+     StudentList.jsx) rarely has to reject a size just because these two
+     fields didn't ask for enough room to begin with. */
   padding: 0.25em 0.5em;
+  flex-basis: 6em;
+  min-width: 4em;
 }
 
 .student-list--columns .student-gems-value {

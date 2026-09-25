@@ -1,4 +1,4 @@
-export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel'];
+export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel', 'captions'];
 
 const HIDDEN_TILES_KEY = 'classboard_hidden_tiles';
 
@@ -75,7 +75,7 @@ export const DEFAULT_LAYOUT = {
     },
     b: {
       dir: 'v', ratio: 0.38,
-      a: 'notes',
+      a: { dir: 'v', ratio: 0.5, a: 'notes', b: 'captions' },
       b: { dir: 'v', ratio: 0.34, a: 'wheel', b: { dir: 'v', ratio: 0.5, a: 'prize', b: 'decibel' } },
     },
   },
@@ -85,6 +85,7 @@ export const DEFAULT_LAYOUT = {
 const NEW_TILE_PLACEMENT = {
   reminders: { near: 'prize', side: 'bottom' },
   decibel: { near: 'prize', side: 'bottom' },
+  captions: { near: 'notes', side: 'bottom' },
 };
 
 /** Remove a leaf by ID; returns null if the leaf was the only node */
