@@ -588,7 +588,7 @@ export default function StudentList({
                     <div className="student-gems" title={gemsLabel}>
                       {simple ? (
                         <span
-                          className={`student-gems-value ${boosted ? "student-gems-value--boost" : ""}`}
+                          className={`student-gems-value ${boosted ? (boostAnimation.amount < 0 ? "student-gems-value--boost student-gems-value--penalty" : "student-gems-value--boost") : ""}`}
                           onClick={() => nameInputRefs.current[idx]?.focus()}
                         >
                           {gems[name] || 0}
@@ -598,7 +598,7 @@ export default function StudentList({
                             // just update the text of the same element in place
                             // and the CSS pop animation (already finished/held
                             // via `forwards`) would never restart mid-burst.
-                            <span key={boostAnimation.id} className="student-gems-boost-badge">+{boostAnimation.amount}</span>
+                            <span key={boostAnimation.id} className="student-gems-boost-badge">{boostAnimation.amount < 0 ? `−${-boostAnimation.amount}` : `+${boostAnimation.amount}`}</span>
                           )}
                         </span>
                       ) : (

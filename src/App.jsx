@@ -182,7 +182,7 @@ export default function App() {
   const [layout, setLayout] = useState(loadLayout);
 
   // Bumped to force PeriodBar's (otherwise self-contained) student list
-  // open from outside it — see handleNoiseChallengeWin.
+  // open from outside it — see handleNoiseChallengeResult.
   const [studentsOpenSignal, setStudentsOpenSignal] = useState(0);
   // { amount, id } | null — a fresh id re-triggers StudentList's boost
   // animation even if the amount happens to repeat.
@@ -625,8 +625,11 @@ export default function App() {
   // re-renders after each write, so reading it fresh inside the next
   // already-scheduled tick's closure would just see the pre-burst value
   // again and again instead of building on the previous tick.
-  const handleNoiseChallengeWin = useCallback((rewardAmount) => {
-    const steps = Math.max(1, Math.round(rewardAmount));
+  // A Noise Challenge's outcome — positive on a win (the reward), negative
+  // on a loss (the cost) — ticked onto every student one gem at a time.
+  const handleNoiseChallengeResult = useCallback((amount) => {
+    const sign = amount < 0 ? -1 : 1;
+    const steps = Math.max(1, Math.round(Math.abs(amount)));
     const stepMs = Math.max(40, Math.min(300, 3000 / steps));
     const startGems = currentGems;
     const names = currentNames;
@@ -636,9 +639,9 @@ export default function App() {
     const applyStep = () => {
       applied += 1;
       const next = { ...startGems };
-      for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + applied);
+      for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + sign * applied);
       handleGemsChange(next);
-      setGemsBoostAnimation({ amount: 1, id: `${Date.now()}-${applied}` });
+      setGemsBoostAnimation({ amount: sign, id: `${Date.now()}-${applied}` });
       if (applied < steps) setTimeout(applyStep, stepMs);
     };
     applyStep();
@@ -819,7 +822,7 @@ export default function App() {
         birthdays={currentBirthdays}
       />
     ),
-    decibel: <DecibelMeter onChallengeWin={handleNoiseChallengeWin} />,
+    decibel: <DecibelMeter onChallengeResult={handleNoiseChallengeResult} />,
     captions: <CaptionsPane />,
   };
 

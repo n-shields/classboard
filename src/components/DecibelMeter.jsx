@@ -17,7 +17,9 @@ import "./DecibelMeter.css";
 // to some other pair on reload).
 const CURVE_X_DOMAIN = [-80, 0]; // raw dBFS a mic signal can produce
 const CURVE_Y_DOMAIN = [0, 100]; // displayed dB, matches THERMO_MAX below
-const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5 };
+// reward is given to everyone on a win, cost taken from everyone on a loss
+// (0 = no penalty); autoRepeat starts the next round as soon as one ends.
+const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, autoRepeat: false };
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
   p1: { x: -50, y: 0 },
@@ -93,7 +95,7 @@ function readLevel(analyser, buffer, multiplier, offset) {
   return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
 }
 
-export default function DecibelMeter({ onChallengeWin }) {
+export default function DecibelMeter({ onChallengeResult }) {
   const canvasRef   = useRef(null);
   const curveSvgRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -135,14 +137,14 @@ export default function DecibelMeter({ onChallengeWin }) {
   // render when something a person actually looks at changes. challengeUI
   // mirrors just the static parts (deadline/target/reward) for rendering the
   // countdown; challengeResult is the brief win/lose banner shown once it ends.
-  const challengeRef = useRef(null); // { endAt, targetDb, reward, sum, count } | null
-  const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward } | null
-  const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward } | null
+  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, reward, cost, autoRepeat, sum, count } | null
+  const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward, cost, autoRepeat } | null
+  const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward, cost, repeating } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
-  // tick() also needs the latest onChallengeWin without re-subscribing —
+  // tick() also needs the latest onChallengeResult without re-subscribing —
   // same stale-closure concern as settingsRef.
-  const onChallengeWinRef = useRef(onChallengeWin);
-  useEffect(() => { onChallengeWinRef.current = onChallengeWin; }, [onChallengeWin]);
+  const onChallengeResultRef = useRef(onChallengeResult);
+  useEffect(() => { onChallengeResultRef.current = onChallengeResult; }, [onChallengeResult]);
 
   // Always merges into the latest settings (functional update), so a save
   // from one control can never clobber a field another control just changed.
@@ -357,16 +359,25 @@ export default function DecibelMeter({ onChallengeWin }) {
     setChallengeUI(null);
     const finalAvg = c.count > 0 ? c.sum / c.count : 0;
     const won = finalAvg <= c.targetDb;
-    setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward });
-    if (won) onChallengeWinRef.current?.(c.reward);
+    const delta = won ? c.reward : -c.cost;
+    setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
+    if (delta !== 0) onChallengeResultRef.current?.(delta);
+    // Next round runs on the same terms it just finished with (not whatever
+    // the setup form has since been edited to) — only reached while the mic
+    // is still live, since commitPeak is what calls finalizeChallenge.
+    if (c.autoRepeat) beginChallenge(c, { keepResult: true });
+  };
+
+  const beginChallenge = ({ durationMin, targetDb, reward, cost, autoRepeat }, { keepResult = false } = {}) => {
+    const endAt = performance.now() + Math.max(0.5, durationMin) * 60_000;
+    const c = { endAt, durationMin, targetDb, reward, cost, autoRepeat, sum: 0, count: 0 };
+    challengeRef.current = c;
+    setChallengeUI({ endAt, targetDb, reward, cost, autoRepeat });
+    if (!keepResult) setChallengeResult(null);
   };
 
   const startChallenge = () => {
-    const endAt = performance.now() + Math.max(0.5, challengeDraft.durationMin) * 60_000;
-    const c = { endAt, targetDb: challengeDraft.targetDb, reward: challengeDraft.reward, sum: 0, count: 0 };
-    challengeRef.current = c;
-    setChallengeUI({ endAt: c.endAt, targetDb: c.targetDb, reward: c.reward });
-    setChallengeResult(null);
+    beginChallenge(challengeDraft);
     setChallengeSetupOpen(false);
   };
 
@@ -490,7 +501,13 @@ export default function DecibelMeter({ onChallengeWin }) {
                 onClick={e => { e.stopPropagation(); setChallengeSetupOpen(true); }}
                 title="Noise Challenge in progress — click for details"
               >
-                🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg
+                🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg{challengeUI.autoRepeat && " · 🔁"}
+                <button
+                  className="decibel-challenge-cancel"
+                  onClick={e => { e.stopPropagation(); cancelChallenge(); }}
+                  title="Cancel challenge"
+                  aria-label="Cancel challenge"
+                >✕</button>
               </div>
             )}
           </div>
@@ -545,7 +562,8 @@ export default function DecibelMeter({ onChallengeWin }) {
             <div className={`decibel-challenge-result ${challengeResult.won ? "decibel-challenge-result--won" : ""}`}>
               {challengeResult.won
                 ? `🎉 Challenge won! Average ${Math.round(challengeResult.avg)} ≤ ${challengeResult.targetDb} — +${challengeResult.reward} awarded`
-                : `Challenge ended — average ${Math.round(challengeResult.avg)} was over ${challengeResult.targetDb}`}
+                : `Challenge lost — average ${Math.round(challengeResult.avg)} was over ${challengeResult.targetDb}${challengeResult.cost > 0 ? ` — −${challengeResult.cost} taken` : ""}`}
+              {challengeResult.repeating && " · next round started"}
             </div>
           )}
         </div>
@@ -646,7 +664,9 @@ export default function DecibelMeter({ onChallengeWin }) {
                 <h2>Noise Challenge in progress</h2>
                 <p className="decibel-settings-hint">
                   {formatCountdown(challengeUI.endAt)} left — keep the average at or under{" "}
-                  <strong>{challengeUI.targetDb}</strong> to win <strong>+{challengeUI.reward}</strong> for everyone.
+                  <strong>{challengeUI.targetDb}</strong> to win <strong>+{challengeUI.reward}</strong> for everyone
+                  {challengeUI.cost > 0 && <> (or lose <strong>−{challengeUI.cost}</strong> if it's over)</>}.
+                  {challengeUI.autoRepeat && " Repeats automatically until cancelled."}
                 </p>
                 <div className="decibel-settings-actions">
                   <button className="btn btn-danger btn-sm" onClick={cancelChallenge}>Cancel challenge</button>
@@ -658,7 +678,7 @@ export default function DecibelMeter({ onChallengeWin }) {
                 <h2>Start Noise Challenge</h2>
                 <p className="decibel-settings-hint">
                   Keep the class's average noise level under the target for the whole
-                  duration and everyone gets a reward.
+                  duration and everyone gets the reward — go over and everyone pays the cost.
                 </p>
                 <div className="decibel-settings-row">
                   <label>Duration</label>
@@ -687,6 +707,23 @@ export default function DecibelMeter({ onChallengeWin }) {
                   />
                   <span>gems each</span>
                 </div>
+                <div className="decibel-settings-row">
+                  <label>Cost</label>
+                  <input
+                    type="number" min="0" max="100" step="1"
+                    value={challengeDraft.cost}
+                    onChange={e => setChallengeDraft(d => ({ ...d, cost: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                  />
+                  <span>gems each if lost</span>
+                </div>
+                <label className="decibel-settings-check">
+                  <input
+                    type="checkbox"
+                    checked={challengeDraft.autoRepeat}
+                    onChange={e => setChallengeDraft(d => ({ ...d, autoRepeat: e.target.checked }))}
+                  />
+                  Auto-repeat — start a new round as soon as one ends
+                </label>
                 <div className="decibel-settings-actions">
                   <button className="btn btn-ghost btn-sm" onClick={() => setChallengeSetupOpen(false)}>Cancel</button>
                   <button className="btn btn-primary btn-sm" onClick={startChallenge} disabled={!active} title={!active ? "Start listening first" : undefined}>

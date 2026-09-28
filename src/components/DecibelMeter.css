@@ -216,9 +216,38 @@
   background: rgba(0, 0, 0, 0.75);
   border: 1px solid var(--accent);
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 3px 4px 3px 10px;
   cursor: pointer;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.decibel-challenge-cancel {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.decibel-challenge-cancel:hover { filter: brightness(1.15); }
+
+.decibel-settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  margin: 4px 0 12px;
+  cursor: pointer;
 }
 
 .decibel-challenge-result {

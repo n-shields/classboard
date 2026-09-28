@@ -378,6 +378,12 @@
   100% { transform: scale(1); }
 }
 
+/* A Noise Challenge loss ticks gems down with the same pulse, in red. */
+.student-gems-value--penalty,
+.student-gems-value--penalty .student-gems-boost-badge {
+  color: var(--danger);
+}
+
 .student-gems-boost-badge {
   position: absolute;
   left: 50%;
