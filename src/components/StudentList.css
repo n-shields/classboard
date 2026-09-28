@@ -204,6 +204,13 @@
   background: color-mix(in srgb, var(--row-color, transparent) 9%, transparent);
 }
 
+/* The row being edited shows the student's actual color, not the muted
+   tint — teacher-facing list only (the board view's rows highlight via
+   their own inline backgroundColor), and never over a drag-over target. */
+.student-list:not(.student-list--columns) .student-row:focus-within:not(.student-row--drag-over) {
+  background: var(--row-color, transparent);
+}
+
 .student-row--drag-over {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   outline: 1px dashed var(--accent);
