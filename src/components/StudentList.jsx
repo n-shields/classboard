@@ -150,8 +150,10 @@ export default function StudentList({
     const fits = (remSize) => {
       el.style.setProperty("--student-font-size", `${remSize}rem`);
       if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) return false;
-      // The row itself wraps rather than overflowing horizontally, but a
-      // text <input> doesn't wrap its own content — a long name can clip
+      // Rows are kept to a single line (flex-wrap: nowrap — see
+      // .student-list--columns .student-row), so a row too wide for its
+      // column widens the grid past the list and fails the check above. A
+      // text <input> can still shrink, though — a long name can clip
       // silently inside a name/job field's fixed flex-basis without ever
       // growing the row (and so the list) wide enough for the outer check
       // above to notice. An input's own scrollWidth still reflects its

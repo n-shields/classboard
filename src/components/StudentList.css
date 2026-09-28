@@ -231,7 +231,11 @@
   font-size: var(--student-font-size, 0.95rem);
   padding: 0.3em 0.25em;
   gap: 0.5em;
-  row-gap: 0.3em;
+  /* Name, points and job always share one line on the board — never wrap
+     to a second. A row that can't fit at the current size overflows (or
+     clips a name/job input) instead, which the font-size binary search in
+     StudentList.jsx already rejects, so it just settles on a smaller size. */
+  flex-wrap: nowrap;
 }
 
 .student-list--columns .student-row input,
