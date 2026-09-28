@@ -18,8 +18,6 @@ import { playChallengeWin, playChallengeLose } from "../data/sounds";
 // to some other pair on reload).
 const CURVE_X_DOMAIN = [-80, 0]; // raw dBFS a mic signal can produce
 const CURVE_Y_DOMAIN = [0, 100]; // displayed dB, matches THERMO_MAX below
-// reward is given to everyone on a win, cost taken from everyone on a loss
-// (0 = no penalty); autoRepeat starts the next round as soon as one ends.
 // During a challenge the pane's background tints from green (average well
 // under target) to red (average at or over it) — CHALLENGE_TINT_SPAN is how
 // many dB below the target counts as "fully green".
@@ -30,7 +28,10 @@ function challengeTint(avg, targetDb) {
   return `hsla(${hue}, 75%, 45%, 0.35)`;
 }
 
-const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, autoRepeat: false };
+// reward is given to everyone on a win, cost taken from everyone on a loss
+// (0 = no penalty); celebrateSec is how long the points take to count on
+// (0 = all at once); autoRepeat starts the next round as soon as one ends.
+const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, celebrateSec: 5, autoRepeat: false };
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
   p1: { x: -50, y: 0 },
@@ -148,7 +149,7 @@ export default function DecibelMeter({ onChallengeResult }) {
   // render when something a person actually looks at changes. challengeUI
   // mirrors just the static parts (deadline/target/reward) for rendering the
   // countdown; challengeResult is the brief win/lose banner shown once it ends.
-  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, reward, cost, autoRepeat, sum, count } | null
+  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, reward, cost, celebrateSec, autoRepeat, sum, count } | null
   const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward, cost, autoRepeat } | null
   const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward, cost, repeating } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
@@ -379,16 +380,16 @@ export default function DecibelMeter({ onChallengeResult }) {
     const delta = won ? c.reward : -c.cost;
     if (won) playChallengeWin(); else playChallengeLose();
     setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
-    if (delta !== 0) onChallengeResultRef.current?.(delta);
+    if (delta !== 0) onChallengeResultRef.current?.(delta, c.celebrateSec * 1000);
     // Next round runs on the same terms it just finished with (not whatever
     // the setup form has since been edited to) — only reached while the mic
     // is still live, since commitPeak is what calls finalizeChallenge.
     if (c.autoRepeat) beginChallenge(c, { keepResult: true });
   };
 
-  const beginChallenge = ({ durationMin, targetDb, reward, cost, autoRepeat }, { keepResult = false } = {}) => {
+  const beginChallenge = ({ durationMin, targetDb, reward, cost, celebrateSec, autoRepeat }, { keepResult = false } = {}) => {
     const endAt = performance.now() + Math.max(0.5, durationMin) * 60_000;
-    const c = { endAt, durationMin, targetDb, reward, cost, autoRepeat, sum: 0, count: 0 };
+    const c = { endAt, durationMin, targetDb, reward, cost, celebrateSec, autoRepeat, sum: 0, count: 0 };
     challengeRef.current = c;
     setChallengeUI({ endAt, targetDb, reward, cost, autoRepeat });
     setChallengeAvg(null);
@@ -753,6 +754,19 @@ export default function DecibelMeter({ onChallengeResult }) {
                     onChange={e => setChallengeDraft(d => ({ ...d, cost: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
                   />
                   <span>gems each if lost</span>
+                </div>
+                <div className="decibel-settings-row">
+                  <label>Count-up</label>
+                  <input
+                    type="number" min="0" max="5" step="0.5"
+                    value={challengeDraft.celebrateSec}
+                    onChange={e => {
+                      const v = parseFloat(e.target.value);
+                      setChallengeDraft(d => ({ ...d, celebrateSec: Math.max(0, Math.min(5, Number.isFinite(v) ? v : 0)) }));
+                    }}
+                    title="How long the reward/cost takes to count onto the points — 0 applies it all at once"
+                  />
+                  <span>sec (0 = instant)</span>
                 </div>
                 <label className="decibel-settings-check">
                   <input
