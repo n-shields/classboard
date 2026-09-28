@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import "./DecibelMeter.css";
+import { playChallengeWin, playChallengeLose } from "../data/sounds";
 
 // There's no way to get a calibrated, device-independent SPL reading out of
 // a browser mic — every device's gain/sensitivity differs — so this reports
@@ -360,6 +361,7 @@ export default function DecibelMeter({ onChallengeResult }) {
     const finalAvg = c.count > 0 ? c.sum / c.count : 0;
     const won = finalAvg <= c.targetDb;
     const delta = won ? c.reward : -c.cost;
+    if (won) playChallengeWin(); else playChallengeLose();
     setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
     if (delta !== 0) onChallengeResultRef.current?.(delta);
     // Next round runs on the same terms it just finished with (not whatever

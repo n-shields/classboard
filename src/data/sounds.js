@@ -198,3 +198,68 @@ export function playWhistle() {
     osc.stop(t + 0.45);
   } catch (_) {}
 }
+
+// Noise Challenge outcome stings — played once when a challenge ends,
+// regardless of the gems mute (like the hotkey presets, they're an
+// announcement, not per-point feedback).
+
+// A win: a quick rising major arpeggio (C-E-G) landing on a held high C,
+// triangle waves for a bright but soft, toy-trumpet-ish fanfare.
+export function playChallengeWin() {
+  try {
+    const ctx = getCtx();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    [
+      { freq: 523.25, at: 0,    dur: 0.14 },
+      { freq: 659.25, at: 0.12, dur: 0.14 },
+      { freq: 783.99, at: 0.24, dur: 0.14 },
+      { freq: 1046.5, at: 0.36, dur: 0.7  },
+    ].forEach(({ freq, at, dur }) => {
+      const osc = ctx.createOscillator();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, t0 + at);
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0.0001, t0 + at);
+      gainNode.gain.exponentialRampToValueAtTime(0.3, t0 + at + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      osc.connect(gainNode).connect(ctx.destination);
+      osc.start(t0 + at);
+      osc.stop(t0 + at + dur);
+    });
+  } catch (_) {}
+}
+
+// A loss: the classic "sad trombone" — three descending notes then a
+// longer, sagging fourth, sawtooth through a low-pass for a brassy but
+// not harsh tone.
+export function playChallengeLose() {
+  try {
+    const ctx = getCtx();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1200, t0);
+    filter.connect(ctx.destination);
+    [
+      { freq: 293.66, at: 0,    dur: 0.3, sag: 1 },
+      { freq: 277.18, at: 0.32, dur: 0.3, sag: 1 },
+      { freq: 261.63, at: 0.64, dur: 0.3, sag: 1 },
+      { freq: 246.94, at: 0.96, dur: 0.9, sag: 0.94 },
+    ].forEach(({ freq, at, dur, sag }) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(freq, t0 + at);
+      if (sag !== 1) osc.frequency.exponentialRampToValueAtTime(freq * sag, t0 + at + dur);
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(0.0001, t0 + at);
+      gainNode.gain.exponentialRampToValueAtTime(0.2, t0 + at + 0.03);
+      gainNode.gain.setValueAtTime(0.2, t0 + at + dur - 0.08);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      osc.connect(gainNode).connect(filter);
+      osc.start(t0 + at);
+      osc.stop(t0 + at + dur);
+    });
+  } catch (_) {}
+}

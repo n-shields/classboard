@@ -17,7 +17,11 @@ import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGr
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import { saveBoardViewBounds } from "./data/teacherView";
+import { playClick, playDing } from "./data/sounds";
 import "./App.css";
+
+// How long a Noise Challenge's reward/cost takes to count onto the gems.
+const NOISE_CHALLENGE_COUNT_MS = 5000;
 
 const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
 const PERIOD_LAYOUT_TREES_KEY = "classboard_period_layout_trees";
@@ -609,15 +613,17 @@ export default function App() {
     const seed = periodKey && !periodData[periodKey]?.names ? { names: currentNames } : {};
     savePeriod(periodKey, { gems, ...seed });
   }, [periodKey, savePeriod, periodData, currentNames]);
-  // A won Noise Challenge gives every currently-listed student the same
-  // flat reward — the same "everyone +N" idiom PeriodBar's own +/- shortcut
-  // already uses — then pops the (board-facing, simple) student list open
-  // so the win is actually visible. Rather than jumping straight to the
-  // final total, it lands the reward as `rewardAmount` separate +1 ticks
-  // (each its own gems write, each with a fresh boost token so StudentList
-  // replays its "+1" pop every time), spaced out to land in ~3s total —
-  // capped per-step so a reward of 1 or 2 doesn't crawl, and floored so a
-  // huge reward doesn't spam faster than the pop animation can read.
+  // A Noise Challenge result gives (or, on a loss, takes from) every
+  // currently-listed student the same flat amount — the same "everyone +N"
+  // idiom PeriodBar's own +/- shortcut already uses — then pops the
+  // (board-facing, simple) student list open so the result is actually
+  // visible. Rather than jumping straight to the final total, it lands the
+  // amount as that many separate ±1 ticks (each its own gems write, each
+  // with a fresh boost token so StudentList replays its "+1"/"−1" pop
+  // every time, with the same ding/click as a manual
+  // adjustment), spaced so the whole count always takes 5s: the first tick
+  // lands immediately and the last right at the 5s mark, however big the
+  // amount is.
   //
   // Each tick computes from the gems snapshot taken when the burst started
   // plus however many of its own ticks have landed so far, rather than
@@ -625,12 +631,10 @@ export default function App() {
   // re-renders after each write, so reading it fresh inside the next
   // already-scheduled tick's closure would just see the pre-burst value
   // again and again instead of building on the previous tick.
-  // A Noise Challenge's outcome — positive on a win (the reward), negative
-  // on a loss (the cost) — ticked onto every student one gem at a time.
   const handleNoiseChallengeResult = useCallback((amount) => {
     const sign = amount < 0 ? -1 : 1;
     const steps = Math.max(1, Math.round(Math.abs(amount)));
-    const stepMs = Math.max(40, Math.min(300, 3000 / steps));
+    const stepMs = steps > 1 ? NOISE_CHALLENGE_COUNT_MS / (steps - 1) : 0;
     const startGems = currentGems;
     const names = currentNames;
     setStudentsOpenSignal(s => s + 1);
@@ -642,6 +646,7 @@ export default function App() {
       for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + sign * applied);
       handleGemsChange(next);
       setGemsBoostAnimation({ amount: sign, id: `${Date.now()}-${applied}` });
+      if (sign > 0) playDing(); else playClick();
       if (applied < steps) setTimeout(applyStep, stepMs);
     };
     applyStep();
