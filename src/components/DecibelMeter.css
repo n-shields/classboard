@@ -1,5 +1,9 @@
 .decibel-meter {
   height: 100%;
+  /* The Noise Challenge green→red tint is an inset box-shadow (so it sits
+     over the themed background without replacing it) — eased so it drifts
+     rather than flickering at every 250ms reading. */
+  transition: box-shadow 1s ease;
 }
 
 .decibel-body {

@@ -20,6 +20,16 @@ const CURVE_X_DOMAIN = [-80, 0]; // raw dBFS a mic signal can produce
 const CURVE_Y_DOMAIN = [0, 100]; // displayed dB, matches THERMO_MAX below
 // reward is given to everyone on a win, cost taken from everyone on a loss
 // (0 = no penalty); autoRepeat starts the next round as soon as one ends.
+// During a challenge the pane's background tints from green (average well
+// under target) to red (average at or over it) — CHALLENGE_TINT_SPAN is how
+// many dB below the target counts as "fully green".
+const CHALLENGE_TINT_SPAN = 20;
+function challengeTint(avg, targetDb) {
+  const closeness = Math.max(0, Math.min(1, 1 - (targetDb - avg) / CHALLENGE_TINT_SPAN));
+  const hue = 120 * (1 - closeness); // 120 = green → 0 = red
+  return `hsla(${hue}, 75%, 45%, 0.35)`;
+}
+
 const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, autoRepeat: false };
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
@@ -142,6 +152,10 @@ export default function DecibelMeter({ onChallengeResult }) {
   const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward, cost, autoRepeat } | null
   const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward, cost, repeating } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
+  // The running challenge's own average (sum/count since it started) — what
+  // it's actually judged on, so it's what the avg overlay shows and what
+  // drives the background tint while a challenge is on.
+  const [challengeAvg, setChallengeAvg] = useState(null);
   // tick() also needs the latest onChallengeResult without re-subscribing —
   // same stale-closure concern as settingsRef.
   const onChallengeResultRef = useRef(onChallengeResult);
@@ -351,6 +365,7 @@ export default function DecibelMeter({ onChallengeResult }) {
     if (c) {
       c.sum += v;
       c.count += 1;
+      setChallengeAvg(c.sum / c.count);
       if (performance.now() >= c.endAt) finalizeChallenge(c);
     }
   };
@@ -358,6 +373,7 @@ export default function DecibelMeter({ onChallengeResult }) {
   const finalizeChallenge = (c) => {
     challengeRef.current = null;
     setChallengeUI(null);
+    setChallengeAvg(null);
     const finalAvg = c.count > 0 ? c.sum / c.count : 0;
     const won = finalAvg <= c.targetDb;
     const delta = won ? c.reward : -c.cost;
@@ -375,17 +391,28 @@ export default function DecibelMeter({ onChallengeResult }) {
     const c = { endAt, durationMin, targetDb, reward, cost, autoRepeat, sum: 0, count: 0 };
     challengeRef.current = c;
     setChallengeUI({ endAt, targetDb, reward, cost, autoRepeat });
+    setChallengeAvg(null);
+    // Every round starts from a clean slate — clear the history too, so the
+    // graph and its dashed average line don't carry over pre-challenge noise.
+    reset();
     if (!keepResult) setChallengeResult(null);
   };
 
-  const startChallenge = () => {
-    beginChallenge(challengeDraft);
+  // Starting a challenge wakes the mic if it was paused — only bails if the
+  // mic genuinely can't start (denied/unavailable; startMic shows why).
+  const startChallenge = async () => {
     setChallengeSetupOpen(false);
+    if (!analyserRef.current) {
+      await startMic();
+      if (!analyserRef.current) return;
+    }
+    beginChallenge(challengeDraft);
   };
 
   const cancelChallenge = () => {
     challengeRef.current = null;
     setChallengeUI(null);
+    setChallengeAvg(null);
     setChallengeSetupOpen(false);
   };
 
@@ -399,7 +426,7 @@ export default function DecibelMeter({ onChallengeResult }) {
     analyserRef.current = null;
     setActive(false);
     // A challenge can't be fairly judged without samples coming in.
-    if (challengeRef.current) { challengeRef.current = null; setChallengeUI(null); }
+    if (challengeRef.current) { challengeRef.current = null; setChallengeUI(null); setChallengeAvg(null); }
   };
 
   const startMic = async () => {
@@ -472,7 +499,13 @@ export default function DecibelMeter({ onChallengeResult }) {
   }, [challengeResult]);
 
   return (
-    <div className="card decibel-meter" tabIndex={-1}>
+    <div
+      className="card decibel-meter"
+      tabIndex={-1}
+      style={challengeUI && challengeAvg != null
+        ? { boxShadow: `inset 0 0 0 100vmax ${challengeTint(challengeAvg, challengeUI.targetDb)}` }
+        : undefined}
+    >
       <div className="card-body decibel-body">
         {/* A slim, always-in-place strip — its own colored fill toggles
             invisible on click (the bar's outline and 0/100 labels stay put
@@ -545,7 +578,10 @@ export default function DecibelMeter({ onChallengeResult }) {
             title={avgHidden ? "Click to show" : "Click to hide"}
           >
             <span className={`decibel-value ${avgHidden ? "decibel-value--hidden" : ""}`}>
-              {avg != null ? Math.round(avg) : "—"}
+              {(() => {
+                const shown = challengeUI ? challengeAvg : avg;
+                return shown != null ? Math.round(shown) : "—";
+              })()}
             </span>
             <span className={`decibel-unit ${avgHidden ? "decibel-value--hidden" : ""}`}>avg</span>
           </div>
@@ -728,11 +764,11 @@ export default function DecibelMeter({ onChallengeResult }) {
                 </label>
                 <div className="decibel-settings-actions">
                   <button className="btn btn-ghost btn-sm" onClick={() => setChallengeSetupOpen(false)}>Cancel</button>
-                  <button className="btn btn-primary btn-sm" onClick={startChallenge} disabled={!active} title={!active ? "Start listening first" : undefined}>
+                  <button className="btn btn-primary btn-sm" onClick={startChallenge}>
                     Start
                   </button>
                 </div>
-                {!active && <p className="decibel-settings-hint decibel-settings-hint--warn">Start listening first — a challenge needs a live reading to judge.</p>}
+                {!active && <p className="decibel-settings-hint decibel-settings-hint--warn">The microphone is paused — it'll start listening when the challenge starts.</p>}
               </>
             )}
           </div>
