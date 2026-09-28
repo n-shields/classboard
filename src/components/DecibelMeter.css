@@ -217,7 +217,10 @@
   transform: translate(-50%, -50%);
   font-size: 0.95rem;
   font-weight: 600;
-  background: rgba(0, 0, 0, 0.75);
+  /* Theme colors, not a fixed black — on the light themes a dark pill
+     left the (dark) theme text unreadable. */
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 999px;
   padding: 3px 4px 3px 10px;
@@ -262,14 +265,18 @@
   font-size: 1rem;
   font-weight: 600;
   text-align: center;
-  background: rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
 }
 .decibel-challenge-result--won {
   border-color: var(--success);
-  color: var(--success);
+  /* The light themes don't override --success, so its bright green alone
+     washes out on a pale surface — mixing in the theme's own text color
+     keeps it green but readable on both light and dark themes. */
+  color: color-mix(in srgb, var(--success) 55%, var(--text));
 }
 
 .decibel-settings-modal,

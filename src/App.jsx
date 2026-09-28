@@ -619,10 +619,10 @@ export default function App() {
   // amount as that many separate ±1 ticks (each its own gems write, each
   // with a fresh boost token so StudentList replays its "+1"/"−1" pop
   // every time, with the same ding/click as a manual
-  // adjustment), spaced so the whole count takes `durationMs` (the
-  // challenge's own count-up setting, 0–5s): the first tick lands
-  // immediately and the last right at that mark, however big the amount
-  // is. A duration of 0 lands the whole amount as a single step instead.
+  // adjustment, unless the challenge has sound turned off), spaced so the
+  // whole count takes `durationMs`: the first tick lands immediately and
+  // the last right at that mark, however big the amount is. A duration of 0
+  // lands the whole amount as a single step instead.
   //
   // Each tick computes from the gems snapshot taken when the burst started
   // plus however many of its own ticks have landed so far, rather than
@@ -630,7 +630,7 @@ export default function App() {
   // re-renders after each write, so reading it fresh inside the next
   // already-scheduled tick's closure would just see the pre-burst value
   // again and again instead of building on the previous tick.
-  const handleNoiseChallengeResult = useCallback((amount, durationMs = 5000) => {
+  const handleNoiseChallengeResult = useCallback((amount, durationMs = 2000, playSound = true) => {
     const sign = amount < 0 ? -1 : 1;
     const total = Math.max(1, Math.round(Math.abs(amount)));
     // Instant: one step worth the whole amount, rather than N ticks at 0ms.
@@ -648,7 +648,7 @@ export default function App() {
       for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + sign * applied * perStep);
       handleGemsChange(next);
       setGemsBoostAnimation({ amount: sign * perStep, id: `${Date.now()}-${applied}` });
-      if (sign > 0) playDing(); else playClick();
+      if (playSound) { if (sign > 0) playDing(); else playClick(); }
       if (applied < steps) setTimeout(applyStep, stepMs);
     };
     applyStep();

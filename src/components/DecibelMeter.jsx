@@ -29,9 +29,11 @@ function challengeTint(avg, targetDb) {
 }
 
 // reward is given to everyone on a win, cost taken from everyone on a loss
-// (0 = no penalty); celebrateSec is how long the points take to count on
-// (0 = all at once); autoRepeat starts the next round as soon as one ends.
-const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, celebrateSec: 5, autoRepeat: false };
+// (0 = no penalty); playSound plays the win/lose sting (and the per-point
+// ticks) at the end; autoRepeat starts the next round as soon as one ends.
+const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, playSound: true, autoRepeat: false };
+// How long a challenge's reward/cost takes to count onto the points.
+const CHALLENGE_COUNT_MS = 2000;
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
   p1: { x: -50, y: 0 },
@@ -149,7 +151,7 @@ export default function DecibelMeter({ onChallengeResult }) {
   // render when something a person actually looks at changes. challengeUI
   // mirrors just the static parts (deadline/target/reward) for rendering the
   // countdown; challengeResult is the brief win/lose banner shown once it ends.
-  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, reward, cost, celebrateSec, autoRepeat, sum, count } | null
+  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, reward, cost, playSound, autoRepeat, sum, count } | null
   const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward, cost, autoRepeat } | null
   const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward, cost, repeating } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
@@ -248,7 +250,12 @@ export default function DecibelMeter({ onChallengeResult }) {
     // on mount), so it needs the current window settings via the ref, not a
     // value closed over at that interval's creation time.
     const windowMs = settingsRef.current.windowSeconds * 1000;
-    const avgWindowMs = settingsRef.current.avgWindowSeconds * 1000;
+    // While a challenge runs, the average spans the whole challenge (its
+    // history was cleared when it began) rather than the usual setting, so
+    // the dashed line matches the number the challenge is judged on.
+    const avgWindowMs = challengeRef.current
+      ? challengeRef.current.durationMin * 60_000
+      : settingsRef.current.avgWindowSeconds * 1000;
     const now = performance.now();
     const windowStart = now - windowMs;
     // The average runs over its own independent span, which can be longer
@@ -378,18 +385,18 @@ export default function DecibelMeter({ onChallengeResult }) {
     const finalAvg = c.count > 0 ? c.sum / c.count : 0;
     const won = finalAvg <= c.targetDb;
     const delta = won ? c.reward : -c.cost;
-    if (won) playChallengeWin(); else playChallengeLose();
+    if (c.playSound) { if (won) playChallengeWin(); else playChallengeLose(); }
     setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
-    if (delta !== 0) onChallengeResultRef.current?.(delta, c.celebrateSec * 1000);
+    if (delta !== 0) onChallengeResultRef.current?.(delta, CHALLENGE_COUNT_MS, c.playSound);
     // Next round runs on the same terms it just finished with (not whatever
     // the setup form has since been edited to) — only reached while the mic
     // is still live, since commitPeak is what calls finalizeChallenge.
     if (c.autoRepeat) beginChallenge(c, { keepResult: true });
   };
 
-  const beginChallenge = ({ durationMin, targetDb, reward, cost, celebrateSec, autoRepeat }, { keepResult = false } = {}) => {
+  const beginChallenge = ({ durationMin, targetDb, reward, cost, playSound, autoRepeat }, { keepResult = false } = {}) => {
     const endAt = performance.now() + Math.max(0.5, durationMin) * 60_000;
-    const c = { endAt, durationMin, targetDb, reward, cost, celebrateSec, autoRepeat, sum: 0, count: 0 };
+    const c = { endAt, durationMin, targetDb, reward, cost, playSound, autoRepeat, sum: 0, count: 0 };
     challengeRef.current = c;
     setChallengeUI({ endAt, targetDb, reward, cost, autoRepeat });
     setChallengeAvg(null);
@@ -715,10 +722,6 @@ export default function DecibelMeter({ onChallengeResult }) {
             ) : (
               <>
                 <h2>Start Noise Challenge</h2>
-                <p className="decibel-settings-hint">
-                  Keep the class's average noise level under the target for the whole
-                  duration and everyone gets the reward — go over and everyone pays the cost.
-                </p>
                 <div className="decibel-settings-row">
                   <label>Duration</label>
                   <input
@@ -755,19 +758,14 @@ export default function DecibelMeter({ onChallengeResult }) {
                   />
                   <span>gems each if lost</span>
                 </div>
-                <div className="decibel-settings-row">
-                  <label>Count-up</label>
+                <label className="decibel-settings-check">
                   <input
-                    type="number" min="0" max="5" step="0.5"
-                    value={challengeDraft.celebrateSec}
-                    onChange={e => {
-                      const v = parseFloat(e.target.value);
-                      setChallengeDraft(d => ({ ...d, celebrateSec: Math.max(0, Math.min(5, Number.isFinite(v) ? v : 0)) }));
-                    }}
-                    title="How long the reward/cost takes to count onto the points — 0 applies it all at once"
+                    type="checkbox"
+                    checked={challengeDraft.playSound}
+                    onChange={e => setChallengeDraft(d => ({ ...d, playSound: e.target.checked }))}
                   />
-                  <span>sec (0 = instant)</span>
-                </div>
+                  Play sound at end
+                </label>
                 <label className="decibel-settings-check">
                   <input
                     type="checkbox"
