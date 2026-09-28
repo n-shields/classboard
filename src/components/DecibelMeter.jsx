@@ -17,6 +17,7 @@ import "./DecibelMeter.css";
 // to some other pair on reload).
 const CURVE_X_DOMAIN = [-80, 0]; // raw dBFS a mic signal can produce
 const CURVE_Y_DOMAIN = [0, 100]; // displayed dB, matches THERMO_MAX below
+const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5 };
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
   p1: { x: -50, y: 0 },
@@ -25,11 +26,17 @@ const DEFAULT_SETTINGS = {
   avgWindowSeconds: 60, // independent of windowSeconds — the average can
                          // run over a shorter/longer span than the graph
                          // actually plots (e.g. "last 10s" vs. "last 5min")
+  // Which readouts are toggled invisible, and the Noise Challenge setup's
+  // last-used values — persisted alongside the calibration so they survive
+  // the pane being remounted (redocked/moved) and ride along in Export.
+  liveHidden: false, avgHidden: false, thermoHidden: false, graphHidden: false,
+  challengeDraft: DEFAULT_CHALLENGE_DRAFT,
 };
 const DECIBEL_SETTINGS_KEY = "classboard_decibel_settings";
 function loadSettings() {
   try {
     const raw = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(DECIBEL_SETTINGS_KEY) || "{}") };
+    raw.challengeDraft = { ...DEFAULT_CHALLENGE_DRAFT, ...raw.challengeDraft };
     if (!raw.p1 || !raw.p2) {
       // Predates the curve editor — derive two on-line points from the flat
       // multiplier/offset that already existed, so a returning user's own
@@ -86,8 +93,6 @@ function readLevel(analyser, buffer, multiplier, offset) {
   return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
 }
 
-const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5 };
-
 export default function DecibelMeter({ onChallengeWin }) {
   const canvasRef   = useRef(null);
   const curveSvgRef = useRef(null);
@@ -114,11 +119,8 @@ export default function DecibelMeter({ onChallengeWin }) {
   const [error,        setError]        = useState(null);
   const [level,        setLevel]        = useState(0);
   const [avg,          setAvg]          = useState(null);
-  const [liveHidden,   setLiveHidden]   = useState(false);
-  const [avgHidden,    setAvgHidden]    = useState(false);
-  const [thermoHidden, setThermoHidden] = useState(false);
-  const [graphHidden,  setGraphHidden]  = useState(false);
   const [settings,     setSettingsState] = useState(loadSettings);
+  const { liveHidden, avgHidden, thermoHidden, graphHidden, challengeDraft } = settings;
   const [settingsOpen, setSettingsOpen] = useState(false);
   // tick() runs inside a long-lived setInterval started once in startMic —
   // it needs whatever settings are current at sample time, not whichever
@@ -137,17 +139,23 @@ export default function DecibelMeter({ onChallengeWin }) {
   const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward } | null
   const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
-  const [challengeDraft, setChallengeDraft] = useState(DEFAULT_CHALLENGE_DRAFT);
   // tick() also needs the latest onChallengeWin without re-subscribing —
   // same stale-closure concern as settingsRef.
   const onChallengeWinRef = useRef(onChallengeWin);
   useEffect(() => { onChallengeWinRef.current = onChallengeWin; }, [onChallengeWin]);
 
+  // Always merges into the latest settings (functional update), so a save
+  // from one control can never clobber a field another control just changed.
+  // `patch` may be an object or a function of the current settings.
   const updateSettings = (patch) => {
-    const next = { ...settings, ...patch };
-    setSettingsState(next);
-    saveSettings(next);
+    setSettingsState(s => {
+      const next = { ...s, ...(typeof patch === "function" ? patch(s) : patch) };
+      saveSettings(next);
+      return next;
+    });
   };
+  const toggleSetting = (key) => updateSettings(s => ({ [key]: !s[key] }));
+  const setChallengeDraft = (fn) => updateSettings(s => ({ challengeDraft: fn(s.challengeDraft) }));
 
   // Maps a pointer event's screen position to a (dBFS, displayed-dB) point
   // in the curve editor's own data space, via the SVG's screen CTM — this
@@ -202,7 +210,7 @@ export default function DecibelMeter({ onChallengeWin }) {
       if (p2.x === p1.x) return;
       const multiplier = (p2.y - p1.y) / (p2.x - p1.x);
       const offset = p1.y - multiplier * p1.x;
-      saveSettings({ multiplier, offset, p1, p2 });
+      updateSettings({ multiplier, offset, p1, p2 });
     };
     target.addEventListener("pointermove", onMove);
     target.addEventListener("pointerup", onUp);
@@ -459,7 +467,7 @@ export default function DecibelMeter({ onChallengeWin }) {
             it used to be. */}
         <div
           className="decibel-thermo-row"
-          onClick={() => setThermoHidden(h => !h)}
+          onClick={() => toggleSetting("thermoHidden")}
           title={thermoHidden ? "Click to show" : "Click to hide"}
         >
           <span className="decibel-thermo-label">0</span>
@@ -496,14 +504,14 @@ export default function DecibelMeter({ onChallengeWin }) {
             click from also reaching this wrapper. */}
         <div
           className="decibel-graph-wrap"
-          onClick={() => setGraphHidden(h => !h)}
+          onClick={() => toggleSetting("graphHidden")}
           title={graphHidden ? "Click to show the graph" : "Click to hide the graph"}
         >
           <canvas ref={canvasRef} className={`decibel-canvas ${graphHidden ? "decibel-canvas--hidden" : ""}`} />
 
           <div
             className="decibel-graph-value decibel-graph-value--live"
-            onClick={e => { e.stopPropagation(); setLiveHidden(h => !h); }}
+            onClick={e => { e.stopPropagation(); toggleSetting("liveHidden"); }}
             title={liveHidden ? "Click to show" : "Click to hide"}
           >
             <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
@@ -514,7 +522,7 @@ export default function DecibelMeter({ onChallengeWin }) {
 
           <div
             className="decibel-graph-value decibel-graph-value--avg"
-            onClick={e => { e.stopPropagation(); setAvgHidden(h => !h); }}
+            onClick={e => { e.stopPropagation(); toggleSetting("avgHidden"); }}
             title={avgHidden ? "Click to show" : "Click to hide"}
           >
             <span className={`decibel-value ${avgHidden ? "decibel-value--hidden" : ""}`}>
