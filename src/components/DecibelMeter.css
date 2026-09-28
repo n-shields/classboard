@@ -199,15 +199,6 @@
   border-color: var(--danger);
 }
 
-.decibel-btn-active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  /* This one button is a live status indicator, not just a launcher, so it
-     stays visible even before the tile's hover reveals the rest. */
-  opacity: 1 !important;
-}
-
 /* Countdown pill — centered over the thermometer bar (a sibling of it, not
    a child, since the bar itself clips to its own 12px height). */
 .decibel-challenge-badge {

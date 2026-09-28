@@ -623,7 +623,7 @@ export default function DecibelMeter({ onChallengeResult }) {
           <button className="decibel-btn" onClick={reset} title="Clear the graph">↺</button>
           <button className="decibel-btn" onClick={() => setSettingsOpen(true)} title="Calibration settings">⚙</button>
           <button
-            className={`decibel-btn ${challengeUI ? "decibel-btn-active" : ""}`}
+            className="decibel-btn"
             onClick={() => setChallengeSetupOpen(true)}
             title={challengeUI ? "Noise Challenge in progress" : "Start a Noise Challenge"}
           >★</button>
