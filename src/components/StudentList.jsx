@@ -432,30 +432,50 @@ export default function StudentList({
     if (toAdd.length) onNamesChange([...names, ...toAdd]);
   };
 
+  // Click-to-rename points label — shown in the modal header on the board
+  // view, and as the points column's heading in the teacher-facing list.
+  const gemsLabelEditor = editingGemsLabel ? (
+    <input
+      className="student-gems-label-edit"
+      autoFocus
+      defaultValue={gemsLabel}
+      onBlur={e => { onGemsLabelChange?.(e.target.value.trim() || "Gems"); setEditingGemsLabel(false); }}
+      onKeyDown={e => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") setEditingGemsLabel(false);
+      }}
+    />
+  ) : (
+    <span
+      className="student-gems-label"
+      onClick={() => setEditingGemsLabel(true)}
+      title="Click to rename this currency"
+    >{gemsLabel}</span>
+  );
+
+  // Teacher-facing list: every row (and the heading row) shares one set of
+  // grid columns via subgrid, so the headings line up with the fields
+  // beneath them however wide the points label or birthday field renders.
+  // The drag-handle column only exists in default (draggable) order.
+  const listDraggable = sortMode === "default";
+  const teacherColumns = [
+    listDraggable && "auto",       // drag handle
+    "auto",                        // wheel
+    "minmax(90px, 1fr)",           // name
+    "auto",                        // birthday
+    "auto",                        // color
+    "auto",                        // points
+    "minmax(70px, 1fr)",           // job
+    "auto",                        // remove
+  ].filter(Boolean).join(" ");
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose?.()}>
       <div className={`modal student-modal student-modal--full ${useColumns ? "student-modal--wide" : ""}`}>
         <div className="student-modal-header">
           <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
           <div className="student-gems-label-group">
-            {editingGemsLabel ? (
-              <input
-                className="student-gems-label-edit"
-                autoFocus
-                defaultValue={gemsLabel}
-                onBlur={e => { onGemsLabelChange?.(e.target.value.trim() || "Gems"); setEditingGemsLabel(false); }}
-                onKeyDown={e => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  if (e.key === "Escape") setEditingGemsLabel(false);
-                }}
-              />
-            ) : (
-              <span
-                className="student-gems-label"
-                onClick={() => setEditingGemsLabel(true)}
-                title="Click to rename this currency"
-              >{gemsLabel}</span>
-            )}
+            {simple && gemsLabelEditor}
             <button
               type="button"
               className="student-mute-btn"
@@ -505,11 +525,23 @@ export default function StudentList({
               style={useColumns ? {
                 gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
                 gridTemplateRows: `repeat(${Math.max(1, Math.ceil(sortedEntries.length / numColumns))}, max-content)`,
-              } : undefined}
+              } : { gridTemplateColumns: teacherColumns }}
             >
+              {!simple && (
+                <div className="student-list-head">
+                  {listDraggable && <span />}
+                  <span>Wheel</span>
+                  <span>Name</span>
+                  <span>Birthday</span>
+                  <span>Color</span>
+                  <span className="student-list-head-points">{gemsLabelEditor}</span>
+                  <span>Job</span>
+                  <span />
+                </div>
+              )}
               {sortedEntries.map(({ name, idx }) => {
                 const excluded = excludedNames.includes(name);
-                const draggableRow = sortMode === "default";
+                const draggableRow = listDraggable;
                 return (
                   <div
                     key={idx}

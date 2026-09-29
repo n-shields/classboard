@@ -155,6 +155,68 @@
   margin-bottom: 8px;
 }
 
+/* Teacher-facing list: a grid whose columns (set inline — see
+   teacherColumns in StudentList.jsx) are shared by the heading row and
+   every student row through subgrid, so headings stay aligned with the
+   fields under them. */
+.student-list:not(.student-list--columns) {
+  display: grid;
+  align-content: start;
+  column-gap: 6px;
+}
+.student-list:not(.student-list--columns) > .student-row,
+.student-list-head {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+}
+.student-list:not(.student-list--columns) .student-name-input,
+.student-list:not(.student-list--columns) .student-job-input {
+  min-width: 0;
+  width: 100%;
+}
+/* Small fixed-size fields sit centered under headings wider than they are. */
+.student-list:not(.student-list--columns) .student-drag-handle,
+.student-list:not(.student-list--columns) .student-wheel-toggle,
+.student-list:not(.student-list--columns) .student-color-input,
+.student-list:not(.student-list--columns) .student-gems,
+.student-list:not(.student-list--columns) .student-remove {
+  justify-self: center;
+}
+
+.student-list-head {
+  position: sticky;
+  top: -5px; /* the list's own top padding */
+  z-index: 1;
+  padding: 2px 6px 4px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.student-list-head > span {
+  text-align: center;
+}
+.student-list-head > span:nth-last-child(6),
+.student-list-head > span:nth-last-child(2) {
+  text-align: left; /* Name, Job — over left-aligned text fields */
+}
+/* The points label, restyled as a heading while it sits in the column. */
+.student-list-head-points .student-gems-label {
+  font-size: inherit;
+  font-weight: inherit;
+}
+.student-list-head-points .student-gems-label-edit {
+  width: 8em;
+  font-size: 0.8rem;
+  text-transform: none;
+}
+
 .student-list--columns {
   /* A real grid (not CSS multi-column) with an explicit row *and* column
      count, both set inline from JS (numColumns — 1 below 10 students, else
