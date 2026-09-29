@@ -97,7 +97,16 @@ function formatCountdown(endAt) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function readLevel(analyser, buffer, multiplier, offset) {
+// Auto-calibrate: records the quietest and loudest raw (dBFS) readings
+// seen while it runs, then fits the line so the quietest maps to
+// CAL_QUIET_DB and the loudest to CAL_LOUD_DB — roughly a quiet classroom
+// and a loud one. Needs at least CAL_MIN_RANGE of raw swing to be
+// meaningful (otherwise the line would come out absurdly steep).
+const CAL_QUIET_DB = 30;
+const CAL_LOUD_DB = 85;
+const CAL_MIN_RANGE = 6;
+
+function readDbfs(analyser, buffer) {
   analyser.getByteTimeDomainData(buffer);
   let sumSquares = 0;
   for (let i = 0; i < buffer.length; i++) {
@@ -105,7 +114,10 @@ function readLevel(analyser, buffer, multiplier, offset) {
     sumSquares += norm * norm;
   }
   const rms = Math.sqrt(sumSquares / buffer.length);
-  const dBFS = 20 * Math.log10(rms || 1e-8);
+  return 20 * Math.log10(rms || 1e-8);
+}
+
+function toLevel(dBFS, multiplier, offset) {
   return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
 }
 
@@ -130,9 +142,16 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
   const clearRepeatTimer = () => {
     if (repeatTimerRef.current) { clearTimeout(repeatTimerRef.current); repeatTimerRef.current = null; }
   };
-  // The loudest sample seen since the last commit — reset to 0 (readLevel's
+  // The loudest sample seen since the last commit — reset to 0 (toLevel's
   // own floor) each time commitPeak lands it as the actual reading.
   const peakRef = useRef(0);
+  // Same idea in raw dBFS, only tracked while auto-calibrating — each
+  // committed window's loudest raw sample feeds the calibration's min/max
+  // (so a single 30ms dropout between words can't pass for "quiet").
+  const rawPeakRef = useRef(-Infinity);
+  const calRef = useRef(null); // { min, max } raw dBFS while auto-calibrating | null
+  const [calibration, setCalibration] = useState(null); // { min, max } | null — mirrors calRef for display
+  const [calMessage, setCalMessage] = useState(null);
   // Kept as a ref (not state) since it's written many times a second — only
   // the current reading and the canvas actually need to re-render on change.
   const historyRef  = useRef([]);
@@ -359,8 +378,10 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     // the meter going dead mid-session with nothing else obviously wrong.
     if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume();
     const { multiplier, offset } = settingsRef.current;
-    const v = readLevel(analyser, buffer, multiplier, offset);
+    const raw = readDbfs(analyser, buffer);
+    const v = toLevel(raw, multiplier, offset);
     if (v > peakRef.current) peakRef.current = v;
+    if (calRef.current && raw > rawPeakRef.current) rawPeakRef.current = raw;
   };
 
   // Lands the window's peak as *the* reading — this, not sampleFast, is
@@ -374,6 +395,15 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     peakRef.current = 0;
     setLevel(v);
     historyRef.current.push({ t: performance.now(), v });
+
+    const cal = calRef.current;
+    if (cal && rawPeakRef.current > -Infinity) {
+      const raw = Math.max(CURVE_X_DOMAIN[0], Math.min(CURVE_X_DOMAIN[1], rawPeakRef.current));
+      cal.min = Math.min(cal.min, raw);
+      cal.max = Math.max(cal.max, raw);
+      setCalibration({ min: cal.min, max: cal.max });
+    }
+    rawPeakRef.current = -Infinity;
 
     const c = challengeRef.current;
     if (c) {
@@ -439,8 +469,48 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     setChallengeSetupOpen(false);
   };
 
+  const startCalibration = async () => {
+    setCalMessage(null);
+    if (!analyserRef.current) {
+      await startMic();
+      if (!analyserRef.current) return;
+    }
+    calRef.current = { min: Infinity, max: -Infinity };
+    rawPeakRef.current = -Infinity;
+    setCalibration({ min: Infinity, max: -Infinity });
+  };
+
+  const cancelCalibration = () => {
+    calRef.current = null;
+    setCalibration(null);
+  };
+
+  const finishCalibration = () => {
+    const cal = calRef.current;
+    cancelCalibration();
+    if (!cal || !(cal.max - cal.min >= CAL_MIN_RANGE)) {
+      setCalMessage("Not enough difference between quiet and loud — try again with both.");
+      return;
+    }
+    const p1 = { x: Math.round(cal.min), y: CAL_QUIET_DB };
+    const p2 = { x: Math.round(cal.max), y: CAL_LOUD_DB };
+    const multiplier = (p2.y - p1.y) / (p2.x - p1.x);
+    const offset = p1.y - multiplier * p1.x;
+    updateSettings({ multiplier, offset, p1, p2 });
+    setCalMessage(`Calibrated: raw ${p1.x} → ${CAL_QUIET_DB}, raw ${p2.x} → ${CAL_LOUD_DB}.`);
+  };
+
+  // Leaving the settings window abandons an unfinished calibration rather
+  // than leaving it silently running where nothing shows it.
+  const closeSettings = () => {
+    cancelCalibration();
+    setCalMessage(null);
+    setSettingsOpen(false);
+  };
+
   const stopMic = () => {
     wantActiveRef.current = false;
+    cancelCalibration();
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     if (commitIntervalRef.current) { clearInterval(commitIntervalRef.current); commitIntervalRef.current = null; }
     peakRef.current = 0;
@@ -647,7 +717,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
       </div>
 
       {settingsOpen && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSettingsOpen(false)}>
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeSettings()}>
           <div className="modal decibel-settings-modal">
             <h2>Decibel calibration</h2>
             <p className="decibel-settings-hint">
@@ -690,6 +760,25 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
               y = {settings.multiplier.toFixed(2)}x {settings.offset >= 0 ? "+" : "−"} {Math.abs(settings.offset).toFixed(1)}
             </div>
 
+            <div className="decibel-calibrate">
+              <button
+                className={`btn btn-sm ${calibration ? "btn-danger" : "btn-ghost"}`}
+                onClick={calibration ? finishCalibration : startCalibration}
+                title={calibration
+                  ? "Stop listening and fit the line to the quietest/loudest levels heard"
+                  : "Listen for the room's quietest and loudest levels, then press again to apply"}
+              >
+                {calibration ? "■ Stop & apply" : "Auto-calibrate"}
+              </button>
+              {calibration && (
+                <span className="decibel-calibrate-status">
+                  Listening… quiet {Number.isFinite(calibration.min) ? Math.round(calibration.min) : "—"}
+                  {" · "}loud {Number.isFinite(calibration.max) ? Math.round(calibration.max) : "—"} raw
+                </span>
+              )}
+              {!calibration && calMessage && <span className="decibel-calibrate-status">{calMessage}</span>}
+            </div>
+
             <div className="decibel-settings-row">
               <label>Graph window</label>
               <input
@@ -712,7 +801,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
 
             <div className="decibel-settings-actions">
               <button className="btn btn-ghost btn-sm" onClick={() => updateSettings(DEFAULT_SETTINGS)}>Reset to default</button>
-              <button className="btn btn-primary btn-sm" onClick={() => setSettingsOpen(false)}>Done</button>
+              <button className="btn btn-primary btn-sm" onClick={closeSettings}>Done</button>
             </div>
           </div>
         </div>

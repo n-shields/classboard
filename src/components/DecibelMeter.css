@@ -346,6 +346,21 @@
   cursor: grabbing;
 }
 
+.decibel-calibrate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.decibel-calibrate-status {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .decibel-curve-formula {
   text-align: center;
   font-variant-numeric: tabular-nums;
