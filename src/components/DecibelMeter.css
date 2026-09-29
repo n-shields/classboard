@@ -346,6 +346,63 @@
   cursor: grabbing;
 }
 
+/* The 0–3 levels partition editor: four colored bands across 0–100 with a
+   draggable handle on each boundary (its value labeled underneath). */
+.level-bar {
+  position: relative;
+  height: 26px;
+  margin: 14px 6px 24px;
+}
+
+.level-bar-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+.level-bar-seg:first-child { border-radius: 6px 0 0 6px; }
+.level-bar-seg:nth-child(4) { border-radius: 0 6px 6px 0; }
+
+.level-bar-handle {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 10px;
+  margin-left: -5px;
+  border-radius: 4px;
+  background: var(--text);
+  border: 2px solid var(--surface);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.level-bar-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.level-bar-handle-value {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.decibel-level-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
 .decibel-calibrate {
   display: flex;
   align-items: center;

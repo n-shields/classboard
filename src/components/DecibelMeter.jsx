@@ -31,7 +31,22 @@ function challengeTint(avg, targetDb) {
 // reward is given to everyone on a win, cost taken from everyone on a loss
 // (0 = no penalty); playSound plays the win/lose sting (and the per-point
 // ticks) at the end; autoRepeat starts the next round as soon as one ends.
-const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, reward: 5, cost: 0, playSound: true, autoRepeat: false };
+// targetDb is the max average on the 0–100 scale; targetLevel the max
+// level (0–3) used instead when the meter is showing levels.
+const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, targetLevel: 1, reward: 5, cost: 0, playSound: true, autoRepeat: false };
+
+// Optional 0–3 "levels" display (a common classroom noise scale): the 0–100
+// reading is partitioned by three ascending thresholds — below the first is
+// level 0, at/above the last is level 3 — each drawn in its own color.
+const LEVEL_COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"]; // green, yellow, orange, red
+const DEFAULT_LEVEL_THRESHOLDS = [25, 50, 75];
+function levelOf(v, thresholds) {
+  return thresholds.filter(t => v >= t).length;
+}
+// The 0–100 value a level tops out just below (level 3 runs to the end).
+function levelUpperBound(level, thresholds) {
+  return level < thresholds.length ? thresholds[level] : 100;
+}
 // How long a challenge's reward/cost takes to count onto the points.
 const CHALLENGE_COUNT_MS = 2000;
 const DEFAULT_SETTINGS = {
@@ -47,12 +62,16 @@ const DEFAULT_SETTINGS = {
   // the pane being remounted (redocked/moved) and ride along in Export.
   liveHidden: false, avgHidden: false, thermoHidden: false, graphHidden: false,
   challengeDraft: DEFAULT_CHALLENGE_DRAFT,
+  scale: "100", // "100" (0–100) | "levels" (0–3)
+  levelThresholds: DEFAULT_LEVEL_THRESHOLDS,
 };
 const DECIBEL_SETTINGS_KEY = "classboard_decibel_settings";
 function loadSettings() {
   try {
     const raw = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(DECIBEL_SETTINGS_KEY) || "{}") };
     raw.challengeDraft = { ...DEFAULT_CHALLENGE_DRAFT, ...raw.challengeDraft };
+    const t = raw.levelThresholds;
+    if (!Array.isArray(t) || t.length !== 3 || !(t[0] < t[1] && t[1] < t[2])) raw.levelThresholds = DEFAULT_LEVEL_THRESHOLDS;
     if (!raw.p1 || !raw.p2) {
       // Predates the curve editor — derive two on-line points from the flat
       // multiplier/offset that already existed, so a returning user's own
@@ -121,6 +140,79 @@ function toLevel(dBFS, multiplier, offset) {
   return Math.max(0, Math.min(THERMO_MAX, Math.round((dBFS * multiplier + offset) * 10) / 10));
 }
 
+// A 0–100 bar split into the four level bands, with a draggable handle on
+// each of the three boundaries (each confined between its neighbors, so the
+// order can't flip). Arrow keys nudge a focused handle by 1.
+function LevelPartitionBar({ thresholds, onChange }) {
+  const trackRef = useRef(null);
+  const limitsFor = (i) => [
+    (i === 0 ? 0 : thresholds[i - 1]) + 1,
+    (i === thresholds.length - 1 ? 100 : thresholds[i + 1]) - 1,
+  ];
+  const setAt = (i, v) => {
+    const [lo, hi] = limitsFor(i);
+    const next = thresholds.slice();
+    next[i] = Math.max(lo, Math.min(hi, Math.round(v)));
+    if (next[i] !== thresholds[i]) onChange(next);
+  };
+  const startDrag = (i) => (e) => {
+    e.preventDefault();
+    const target = e.currentTarget; // see startCurveDrag on why this is grabbed up front
+    target.setPointerCapture(e.pointerId);
+    target.focus();
+    // Neighbors stay put for this gesture, so the limits and the base array
+    // can be captured once rather than re-read on every move.
+    const [lo, hi] = limitsFor(i);
+    const base = thresholds.slice();
+    const onMove = (ev) => {
+      const rect = trackRef.current.getBoundingClientRect();
+      const v = Math.round((ev.clientX - rect.left) / rect.width * 100);
+      const next = base.slice();
+      next[i] = Math.max(lo, Math.min(hi, v));
+      onChange(next);
+    };
+    const onUp = () => {
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", onUp);
+    };
+    target.addEventListener("pointermove", onMove);
+    target.addEventListener("pointerup", onUp);
+  };
+  const bounds = [0, ...thresholds, 100];
+  return (
+    <div className="level-bar" ref={trackRef}>
+      {LEVEL_COLORS.map((color, lvl) => (
+        <div
+          key={lvl}
+          className="level-bar-seg"
+          style={{ left: `${bounds[lvl]}%`, width: `${bounds[lvl + 1] - bounds[lvl]}%`, background: color }}
+        >{lvl}</div>
+      ))}
+      {thresholds.map((t, i) => (
+        <div
+          key={i}
+          className="level-bar-handle"
+          style={{ left: `${t}%` }}
+          role="slider"
+          tabIndex={0}
+          aria-label={`Start of level ${i + 1}`}
+          aria-valuemin={limitsFor(i)[0]}
+          aria-valuemax={limitsFor(i)[1]}
+          aria-valuenow={t}
+          title={`Level ${i + 1} starts at ${t}`}
+          onPointerDown={startDrag(i)}
+          onKeyDown={e => {
+            if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); setAt(i, t - 1); }
+            if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); setAt(i, t + 1); }
+          }}
+        >
+          <span className="level-bar-handle-value">{t}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }) {
   const canvasRef   = useRef(null);
   const curveSvgRef = useRef(null);
@@ -162,6 +254,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
   const [avg,          setAvg]          = useState(null);
   const [settings,     setSettingsState] = useState(loadSettings);
   const { liveHidden, avgHidden, thermoHidden, graphHidden, challengeDraft } = settings;
+  const levelsMode = settings.scale === "levels";
+  const thresholds = settings.levelThresholds;
+  // A 0–100 reading as displayed: rounded, or its 0–3 level (and color).
+  const fmtValue = (v) => (levelsMode ? levelOf(v, thresholds) : Math.round(v));
+  const valueColor = (v) => (levelsMode && v != null ? LEVEL_COLORS[levelOf(v, thresholds)] : undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // tick() runs inside a long-lived setInterval started once in startMic —
   // it needs whatever settings are current at sample time, not whichever
@@ -176,9 +273,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
   // render when something a person actually looks at changes. challengeUI
   // mirrors just the static parts (deadline/target/reward) for rendering the
   // countdown; challengeResult is the brief win/lose banner shown once it ends.
-  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, reward, cost, playSound, autoRepeat, sum, count } | null
-  const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, reward, cost, autoRepeat } | null
-  const [challengeResult, setChallengeResult] = useState(null); // { won, avg, targetDb, reward, cost, repeating } | null
+  // targetLevel/thresholds are set (and targetDb is that level's upper
+  // bound) only for a challenge started while showing levels; null otherwise.
+  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, targetLevel, thresholds, reward, cost, playSound, autoRepeat, sum, count } | null
+  const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, targetLevel, reward, cost, autoRepeat } | null
+  const [challengeResult, setChallengeResult] = useState(null); // { won, avg, avgLevel, targetDb, targetLevel, reward, cost, repeating } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
   // The running challenge's own average (sum/count since it started) — what
   // it's actually judged on, so it's what the avg overlay shows and what
@@ -320,6 +419,21 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
       ctx.fillText(`${Math.round(v)}`, 4, Math.min(yy + 2, h - 11));
     });
 
+    // Showing levels: a faint dotted line, in the next level's color, at
+    // each boundary that falls inside the graph's current range.
+    if (settingsRef.current.scale === "levels") {
+      settingsRef.current.levelThresholds.forEach((t, i) => {
+        if (t <= min || t >= max) return;
+        const yy = y(t);
+        ctx.save();
+        ctx.strokeStyle = LEVEL_COLORS[i + 1];
+        ctx.globalAlpha = 0.55;
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke();
+        ctx.restore();
+      });
+    }
+
     // The average has its own window (see avgWindowMs above), independent
     // of what the graph itself plots — a dashed line in its own color so it
     // reads as a computed stat, not another scale gridline. The number
@@ -419,10 +533,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     setChallengeUI(null);
     setChallengeAvg(null);
     const finalAvg = c.count > 0 ? c.sum / c.count : 0;
-    const won = finalAvg <= c.targetDb;
+    const avgLevel = c.targetLevel != null ? levelOf(finalAvg, c.thresholds) : null;
+    const won = c.targetLevel != null ? avgLevel <= c.targetLevel : finalAvg <= c.targetDb;
     const delta = won ? c.reward : -c.cost;
     if (c.playSound) { if (won) playChallengeWin(); else playChallengeLose(); }
-    setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
+    setChallengeResult({ won, avg: finalAvg, avgLevel, targetDb: c.targetDb, targetLevel: c.targetLevel, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
     if (delta !== 0) onChallengeResultRef.current?.(delta, CHALLENGE_COUNT_MS, c.playSound);
     // Next round runs on the same terms it just finished with (not whatever
     // the setup form has since been edited to), but only once this round's
@@ -437,11 +552,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     }
   };
 
-  const beginChallenge = ({ durationMin, targetDb, reward, cost, playSound, autoRepeat }, { keepResult = false } = {}) => {
+  const beginChallenge = ({ durationMin, targetDb, targetLevel = null, thresholds = null, reward, cost, playSound, autoRepeat }, { keepResult = false } = {}) => {
     const endAt = performance.now() + Math.max(0.5, durationMin) * 60_000;
-    const c = { endAt, durationMin, targetDb, reward, cost, playSound, autoRepeat, sum: 0, count: 0 };
+    const c = { endAt, durationMin, targetDb, targetLevel, thresholds, reward, cost, playSound, autoRepeat, sum: 0, count: 0 };
     challengeRef.current = c;
-    setChallengeUI({ endAt, targetDb, reward, cost, autoRepeat });
+    setChallengeUI({ endAt, targetDb, targetLevel, reward, cost, autoRepeat });
     setChallengeAvg(null);
     // Every round starts from a clean slate — clear the history too, so the
     // graph and its dashed average line don't carry over pre-challenge noise.
@@ -458,7 +573,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
       await startMic();
       if (!analyserRef.current) return;
     }
-    beginChallenge(challengeDraft);
+    // Showing levels: the target is a level, judged against the partition
+    // as it stands right now (auto-repeat rounds keep these same terms).
+    beginChallenge(levelsMode
+      ? { ...challengeDraft, targetLevel: challengeDraft.targetLevel, thresholds: thresholds.slice(), targetDb: levelUpperBound(challengeDraft.targetLevel, thresholds) }
+      : { ...challengeDraft, targetLevel: null, thresholds: null });
   };
 
   const cancelChallenge = () => {
@@ -617,7 +736,17 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
               height along with everything else in there. */}
           <div className="decibel-thermo-track">
             <div className={`decibel-thermo ${thermoHidden ? "decibel-thermo--hidden" : ""}`}>
-              <div className="decibel-thermo-gradient" />
+              <div
+                className="decibel-thermo-gradient"
+                // Showing levels: hard-edged bands at the thresholds instead
+                // of the smooth 0–100 gradient.
+                style={levelsMode ? {
+                  background: `linear-gradient(to right, ${LEVEL_COLORS.map((c, i) => {
+                    const b = [0, ...thresholds, 100];
+                    return `${c} ${b[i]}% ${b[i + 1]}%`;
+                  }).join(", ")})`,
+                } : undefined}
+              />
               <div
                 className="decibel-thermo-mask"
                 style={{ left: `${Math.max(0, Math.min(100, (active ? level : 0) / THERMO_MAX * 100))}%` }}
@@ -630,7 +759,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                 onClick={e => { e.stopPropagation(); setChallengeSetupOpen(true); }}
                 title="Noise Challenge in progress — click for details"
               >
-                🎯 {formatCountdown(challengeUI.endAt)} · ≤{challengeUI.targetDb} avg{challengeUI.autoRepeat && " · 🔁"}
+                🎯 {formatCountdown(challengeUI.endAt)} · {challengeUI.targetLevel != null ? `≤ level ${challengeUI.targetLevel}` : `≤${challengeUI.targetDb} avg`}{challengeUI.autoRepeat && " · 🔁"}
                 <button
                   className="decibel-challenge-cancel"
                   onClick={e => { e.stopPropagation(); cancelChallenge(); }}
@@ -640,7 +769,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
               </div>
             )}
           </div>
-          <span className="decibel-thermo-label">{THERMO_MAX}</span>
+          <span className="decibel-thermo-label">{levelsMode ? LEVEL_COLORS.length - 1 : THERMO_MAX}</span>
         </div>
 
         {/* Both numbers live on top of the time graph itself now, pinned to
@@ -660,8 +789,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
             onClick={e => { e.stopPropagation(); toggleSetting("liveHidden"); }}
             title={liveHidden ? "Click to show" : "Click to hide"}
           >
-            <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
-              {active ? Math.round(level) : "—"}
+            <span
+              className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}
+              style={{ color: active ? valueColor(level) : undefined }}
+            >
+              {active ? fmtValue(level) : "—"}
             </span>
             <span className={`decibel-unit ${liveHidden ? "decibel-value--hidden" : ""}`}>now</span>
           </div>
@@ -671,12 +803,17 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
             onClick={e => { e.stopPropagation(); toggleSetting("avgHidden"); }}
             title={avgHidden ? "Click to show" : "Click to hide"}
           >
-            <span className={`decibel-value ${avgHidden ? "decibel-value--hidden" : ""}`}>
-              {(() => {
-                const shown = challengeUI ? challengeAvg : avg;
-                return shown != null ? Math.round(shown) : "—";
-              })()}
-            </span>
+            {(() => {
+              const shown = challengeUI ? challengeAvg : avg;
+              return (
+                <span
+                  className={`decibel-value ${avgHidden ? "decibel-value--hidden" : ""}`}
+                  style={{ color: valueColor(shown) }}
+                >
+                  {shown != null ? fmtValue(shown) : "—"}
+                </span>
+              );
+            })()}
             <span className={`decibel-unit ${avgHidden ? "decibel-value--hidden" : ""}`}>avg</span>
           </div>
 
@@ -692,9 +829,15 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
 
           {challengeResult && (
             <div className={`decibel-challenge-result ${challengeResult.won ? "decibel-challenge-result--won" : ""}`}>
-              {challengeResult.won
-                ? `🎉 Challenge won! Average ${Math.round(challengeResult.avg)} ≤ ${challengeResult.targetDb} — +${challengeResult.reward} awarded`
-                : `Challenge lost — average ${Math.round(challengeResult.avg)} was over ${challengeResult.targetDb}${challengeResult.cost > 0 ? ` — −${challengeResult.cost} taken` : ""}`}
+              {(() => {
+                const r = challengeResult;
+                const byLevel = r.targetLevel != null;
+                const avgText = byLevel ? `average level ${r.avgLevel}` : `average ${Math.round(r.avg)}`;
+                const target = byLevel ? r.targetLevel : r.targetDb;
+                return r.won
+                  ? `🎉 Challenge won! ${avgText[0].toUpperCase()}${avgText.slice(1)} ≤ ${target} — +${r.reward} awarded`
+                  : `Challenge lost — ${avgText} was over ${target}${r.cost > 0 ? ` — −${r.cost} taken` : ""}`;
+              })()}
               {challengeResult.repeating && " · next round coming up"}
             </div>
           )}
@@ -780,6 +923,20 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
             </div>
 
             <div className="decibel-settings-row">
+              <label>Display</label>
+              <select value={settings.scale} onChange={e => updateSettings({ scale: e.target.value })}>
+                <option value="100">0–100</option>
+                <option value="levels">0–3 levels</option>
+              </select>
+            </div>
+            {levelsMode && (
+              <LevelPartitionBar
+                thresholds={thresholds}
+                onChange={next => updateSettings({ levelThresholds: next })}
+              />
+            )}
+
+            <div className="decibel-settings-row">
               <label>Graph window</label>
               <input
                 type="number" min="10" max="600" step="5"
@@ -815,7 +972,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                 <h2>Noise Challenge in progress</h2>
                 <p className="decibel-settings-hint">
                   {formatCountdown(challengeUI.endAt)} left — keep the average at or under{" "}
-                  <strong>{challengeUI.targetDb}</strong> to win <strong>+{challengeUI.reward}</strong> for everyone
+                  <strong>{challengeUI.targetLevel != null ? `level ${challengeUI.targetLevel}` : challengeUI.targetDb}</strong> to win <strong>+{challengeUI.reward}</strong> for everyone
                   {challengeUI.cost > 0 && <> (or lose <strong>−{challengeUI.cost}</strong> if it's over)</>}.
                   {challengeUI.autoRepeat && " Repeats automatically until cancelled."}
                 </p>
@@ -836,15 +993,28 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                   />
                   <span>min</span>
                 </div>
-                <div className="decibel-settings-row">
-                  <label>Max average</label>
-                  <input
-                    type="number" min="0" max="100" step="1"
-                    value={challengeDraft.targetDb}
-                    onChange={e => setChallengeDraft(d => ({ ...d, targetDb: parseFloat(e.target.value) || 0 }))}
-                  />
-                  <span>/ 100</span>
-                </div>
+                {levelsMode ? (
+                  <div className="decibel-settings-row">
+                    <label>Max average level</label>
+                    <select
+                      value={challengeDraft.targetLevel}
+                      onChange={e => setChallengeDraft(d => ({ ...d, targetLevel: parseInt(e.target.value, 10) }))}
+                    >
+                      {LEVEL_COLORS.map((_, lvl) => <option key={lvl} value={lvl}>{lvl}</option>)}
+                    </select>
+                    <span className="decibel-level-swatch" style={{ background: LEVEL_COLORS[challengeDraft.targetLevel] }} />
+                  </div>
+                ) : (
+                  <div className="decibel-settings-row">
+                    <label>Max average</label>
+                    <input
+                      type="number" min="0" max="100" step="1"
+                      value={challengeDraft.targetDb}
+                      onChange={e => setChallengeDraft(d => ({ ...d, targetDb: parseFloat(e.target.value) || 0 }))}
+                    />
+                    <span>/ 100</span>
+                  </div>
+                )}
                 <div className="decibel-settings-row">
                   <label>Reward</label>
                   <input
