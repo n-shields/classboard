@@ -35,6 +35,10 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const bars = migrateBars(data);
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
+  // Drag-to-reorder in the edit modal (by the ⋮⋮ handle, same idiom as the
+  // student list) — reorders the draft only, so Cancel still discards it.
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const overlayMouseDown = useRef(false);
   const barsRef = useRef(bars);
   barsRef.current = bars;
@@ -83,6 +87,17 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const removeDraft = (i) => {
     setDraft(d => d.filter((_, idx) => idx !== i));
   };
+
+  const moveDraft = (from, to) => {
+    if (from === to) return;
+    setDraft(d => {
+      const next = d.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+  const endDrag = () => { setDragIndex(null); setDragOverIndex(null); };
 
   const saveEdit = () => {
     const cleaned = draft
@@ -150,7 +165,26 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
             <h2>Edit Goals</h2>
             <div className="pw-edit-list">
               {draft.map((bar, i) => (
-                <div key={bar.id} className="pw-edit-row">
+                <div
+                  key={bar.id}
+                  className={`pw-edit-row ${dragOverIndex === i ? "pw-edit-row--drag-over" : ""}`}
+                  onDragOver={dragIndex !== null ? (e) => { e.preventDefault(); setDragOverIndex(i); } : undefined}
+                  onDragLeave={() => setDragOverIndex(o => (o === i ? null : o))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragIndex !== null) moveDraft(dragIndex, i);
+                    endDrag();
+                  }}
+                >
+                  {draft.length > 1 && (
+                    <span
+                      className="pw-drag-handle"
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setDragIndex(i); }}
+                      onDragEnd={endDrag}
+                      title="Drag to reorder"
+                    >⋮⋮</span>
+                  )}
                   <input
                     className="pw-edit-color"
                     type="color"
