@@ -35,15 +35,35 @@ function challengeTint(avg, targetDb) {
 // level (0–3) used instead when the meter is showing levels.
 const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, targetLevel: 1, reward: 5, cost: 0, playSound: true, autoRepeat: false };
 
-// Optional 0–3 "levels" display (a common classroom noise scale): the 0–100
-// reading is partitioned by three ascending thresholds — below the first is
-// level 0, at/above the last is level 3 — each drawn in its own color.
-const LEVEL_COLORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"]; // green, yellow, orange, red
-const DEFAULT_LEVEL_THRESHOLDS = [25, 50, 75];
+// Optional "levels" display (common classroom noise scales — 0–3, 0–5 or
+// 0–10): the 0–100 reading is partitioned by N ascending thresholds — below
+// the first is level 0, at/above the last is level N — each drawn in its own
+// color. Each scale keeps its own thresholds (0–3's under the original
+// levelThresholds key, so older saved settings carry over).
+const LEVEL_SCALES = { levels: 3, levels5: 5, levels10: 10 }; // settings.scale → top level
+const levelThresholdsKey = (max) => (max === 3 ? "levelThresholds" : `levelThresholds${max}`);
+// An even split of 0–100 into max+1 bands (0–3 → 25/50/75).
+const defaultLevelThresholds = (max) => Array.from({ length: max }, (_, i) => Math.round(100 * (i + 1) / (max + 1)));
+const validLevelThresholds = (t, max) =>
+  Array.isArray(t) && t.length === max && t.every((v, i) => v > 0 && v < 100 && (i === 0 || v > t[i - 1]));
+// Green → yellow → orange → red: exactly those four for 0–3, blended evenly
+// along the same path for the longer scales.
+const LEVEL_ANCHORS = ["#22c55e", "#eab308", "#f97316", "#ef4444"];
+function levelColors(max) {
+  if (max === LEVEL_ANCHORS.length - 1) return LEVEL_ANCHORS;
+  const rgb = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  return Array.from({ length: max + 1 }, (_, lvl) => {
+    const pos = lvl / max * (LEVEL_ANCHORS.length - 1);
+    const k = Math.min(LEVEL_ANCHORS.length - 2, Math.floor(pos));
+    const f = pos - k;
+    const [a, b] = [rgb(LEVEL_ANCHORS[k]), rgb(LEVEL_ANCHORS[k + 1])];
+    return `rgb(${a.map((c, i) => Math.round(c + (b[i] - c) * f)).join(", ")})`;
+  });
+}
 function levelOf(v, thresholds) {
   return thresholds.filter(t => v >= t).length;
 }
-// The 0–100 value a level tops out just below (level 3 runs to the end).
+// The 0–100 value a level tops out just below (the top level runs to the end).
 function levelUpperBound(level, thresholds) {
   return level < thresholds.length ? thresholds[level] : 100;
 }
@@ -62,16 +82,19 @@ const DEFAULT_SETTINGS = {
   // the pane being remounted (redocked/moved) and ride along in Export.
   liveHidden: false, avgHidden: false, thermoHidden: false, graphHidden: false,
   challengeDraft: DEFAULT_CHALLENGE_DRAFT,
-  scale: "100", // "100" (0–100) | "levels" (0–3)
-  levelThresholds: DEFAULT_LEVEL_THRESHOLDS,
+  scale: "100", // "100" (0–100) | a LEVEL_SCALES key ("levels" = 0–3, "levels5", "levels10")
+  ...Object.fromEntries(Object.values(LEVEL_SCALES).map(max => [levelThresholdsKey(max), defaultLevelThresholds(max)])),
 };
 const DECIBEL_SETTINGS_KEY = "classboard_decibel_settings";
 function loadSettings() {
   try {
     const raw = { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(DECIBEL_SETTINGS_KEY) || "{}") };
     raw.challengeDraft = { ...DEFAULT_CHALLENGE_DRAFT, ...raw.challengeDraft };
-    const t = raw.levelThresholds;
-    if (!Array.isArray(t) || t.length !== 3 || !(t[0] < t[1] && t[1] < t[2])) raw.levelThresholds = DEFAULT_LEVEL_THRESHOLDS;
+    for (const max of Object.values(LEVEL_SCALES)) {
+      const key = levelThresholdsKey(max);
+      if (!validLevelThresholds(raw[key], max)) raw[key] = defaultLevelThresholds(max);
+    }
+    if (raw.scale !== "100" && !LEVEL_SCALES[raw.scale]) raw.scale = "100";
     if (!raw.p1 || !raw.p2) {
       // Predates the curve editor — derive two on-line points from the flat
       // multiplier/offset that already existed, so a returning user's own
@@ -143,7 +166,7 @@ function toLevel(dBFS, multiplier, offset) {
 // A 0–100 bar split into the four level bands, with a draggable handle on
 // each of the three boundaries (each confined between its neighbors, so the
 // order can't flip). Arrow keys nudge a focused handle by 1.
-function LevelPartitionBar({ thresholds, onChange }) {
+function LevelPartitionBar({ thresholds, colors, onChange }) {
   const trackRef = useRef(null);
   const limitsFor = (i) => [
     (i === 0 ? 0 : thresholds[i - 1]) + 1,
@@ -181,10 +204,10 @@ function LevelPartitionBar({ thresholds, onChange }) {
   const bounds = [0, ...thresholds, 100];
   return (
     <div className="level-bar" ref={trackRef}>
-      {LEVEL_COLORS.map((color, lvl) => (
+      {colors.map((color, lvl) => (
         <div
           key={lvl}
-          className="level-bar-seg"
+          className={`level-bar-seg ${lvl === 0 ? "level-bar-seg--first" : ""} ${lvl === colors.length - 1 ? "level-bar-seg--last" : ""}`}
           style={{ left: `${bounds[lvl]}%`, width: `${bounds[lvl + 1] - bounds[lvl]}%`, background: color }}
         >{lvl}</div>
       ))}
@@ -254,11 +277,16 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
   const [avg,          setAvg]          = useState(null);
   const [settings,     setSettingsState] = useState(loadSettings);
   const { liveHidden, avgHidden, thermoHidden, graphHidden, challengeDraft } = settings;
-  const levelsMode = settings.scale === "levels";
-  const thresholds = settings.levelThresholds;
+  const levelMax = LEVEL_SCALES[settings.scale] ?? null;
+  const levelsMode = levelMax != null;
+  const thresholds = levelsMode ? settings[levelThresholdsKey(levelMax)] : null;
+  const colors = levelsMode ? levelColors(levelMax) : null;
+  // The challenge target level, kept within the current scale (a draft saved
+  // as, say, level 7 on 0–10 reads as 3 once switched to 0–3).
+  const draftTargetLevel = levelsMode ? Math.min(challengeDraft.targetLevel, levelMax) : null;
   // A 0–100 reading as displayed: rounded, or its 0–3 level (and color).
   const fmtValue = (v) => (levelsMode ? levelOf(v, thresholds) : Math.round(v));
-  const valueColor = (v) => (levelsMode && v != null ? LEVEL_COLORS[levelOf(v, thresholds)] : undefined);
+  const valueColor = (v) => (levelsMode && v != null ? colors[levelOf(v, thresholds)] : undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
   // tick() runs inside a long-lived setInterval started once in startMic —
   // it needs whatever settings are current at sample time, not whichever
@@ -421,12 +449,14 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
 
     // Showing levels: a faint dotted line, in the next level's color, at
     // each boundary that falls inside the graph's current range.
-    if (settingsRef.current.scale === "levels") {
-      settingsRef.current.levelThresholds.forEach((t, i) => {
+    const drawMax = LEVEL_SCALES[settingsRef.current.scale];
+    if (drawMax) {
+      const lineColors = levelColors(drawMax);
+      settingsRef.current[levelThresholdsKey(drawMax)].forEach((t, i) => {
         if (t <= min || t >= max) return;
         const yy = y(t);
         ctx.save();
-        ctx.strokeStyle = LEVEL_COLORS[i + 1];
+        ctx.strokeStyle = lineColors[i + 1];
         ctx.globalAlpha = 0.55;
         ctx.setLineDash([2, 4]);
         ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke();
@@ -576,7 +606,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     // Showing levels: the target is a level, judged against the partition
     // as it stands right now (auto-repeat rounds keep these same terms).
     beginChallenge(levelsMode
-      ? { ...challengeDraft, targetLevel: challengeDraft.targetLevel, thresholds: thresholds.slice(), targetDb: levelUpperBound(challengeDraft.targetLevel, thresholds) }
+      ? { ...challengeDraft, targetLevel: draftTargetLevel, thresholds: thresholds.slice(), targetDb: levelUpperBound(draftTargetLevel, thresholds) }
       : { ...challengeDraft, targetLevel: null, thresholds: null });
   };
 
@@ -741,7 +771,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                 // Showing levels: hard-edged bands at the thresholds instead
                 // of the smooth 0–100 gradient.
                 style={levelsMode ? {
-                  background: `linear-gradient(to right, ${LEVEL_COLORS.map((c, i) => {
+                  background: `linear-gradient(to right, ${colors.map((c, i) => {
                     const b = [0, ...thresholds, 100];
                     return `${c} ${b[i]}% ${b[i + 1]}%`;
                   }).join(", ")})`,
@@ -769,7 +799,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
               </div>
             )}
           </div>
-          <span className="decibel-thermo-label">{levelsMode ? LEVEL_COLORS.length - 1 : THERMO_MAX}</span>
+          <span className="decibel-thermo-label">{levelsMode ? levelMax : THERMO_MAX}</span>
         </div>
 
         {/* Both numbers live on top of the time graph itself now, pinned to
@@ -927,12 +957,15 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
               <select value={settings.scale} onChange={e => updateSettings({ scale: e.target.value })}>
                 <option value="100">0–100</option>
                 <option value="levels">0–3 levels</option>
+                <option value="levels5">0–5 levels</option>
+                <option value="levels10">0–10 levels</option>
               </select>
             </div>
             {levelsMode && (
               <LevelPartitionBar
                 thresholds={thresholds}
-                onChange={next => updateSettings({ levelThresholds: next })}
+                colors={colors}
+                onChange={next => updateSettings({ [levelThresholdsKey(levelMax)]: next })}
               />
             )}
 
@@ -997,12 +1030,12 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                   <div className="decibel-settings-row">
                     <label>Max average level</label>
                     <select
-                      value={challengeDraft.targetLevel}
+                      value={draftTargetLevel}
                       onChange={e => setChallengeDraft(d => ({ ...d, targetLevel: parseInt(e.target.value, 10) }))}
                     >
-                      {LEVEL_COLORS.map((_, lvl) => <option key={lvl} value={lvl}>{lvl}</option>)}
+                      {colors.map((_, lvl) => <option key={lvl} value={lvl}>{lvl}</option>)}
                     </select>
-                    <span className="decibel-level-swatch" style={{ background: LEVEL_COLORS[challengeDraft.targetLevel] }} />
+                    <span className="decibel-level-swatch" style={{ background: colors[draftTargetLevel] }} />
                   </div>
                 ) : (
                   <div className="decibel-settings-row">

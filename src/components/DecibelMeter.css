@@ -346,7 +346,7 @@
   cursor: grabbing;
 }
 
-/* The 0–3 levels partition editor: four colored bands across 0–100 with a
+/* The levels partition editor: four colored bands across 0–100 with a
    draggable handle on each boundary (its value labeled underneath). */
 .level-bar {
   position: relative;
@@ -365,8 +365,8 @@
   color: rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
-.level-bar-seg:first-child { border-radius: 6px 0 0 6px; }
-.level-bar-seg:nth-child(4) { border-radius: 0 6px 6px 0; }
+.level-bar-seg--first { border-radius: 6px 0 0 6px; }
+.level-bar-seg--last { border-radius: 0 6px 6px 0; }
 
 .level-bar-handle {
   position: absolute;
