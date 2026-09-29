@@ -248,10 +248,17 @@ export default function StudentList({
     onColorsChange?.(next);
   };
 
+  // Read through a ref (and advanced on each write) rather than the `gems`
+  // prop directly: a held-key repeat interval keeps calling the adjustGems
+  // it captured at keydown, whose `gems` would otherwise stay frozen at the
+  // pre-hold value, so every repeat would land the same total again.
+  const gemsRef = useRef(gems);
+  useEffect(() => { gemsRef.current = gems; }, [gems]);
   const adjustGems = (name, delta) => {
-    const current = gems[name] || 0;
-    const next = Math.max(0, current + delta);
-    onGemsChange?.({ ...gems, [name]: next });
+    const current = gemsRef.current[name] || 0;
+    const next = { ...gemsRef.current, [name]: Math.max(0, current + delta) };
+    gemsRef.current = next;
+    onGemsChange?.(next);
     if (delta > 0) playDing(); else if (delta < 0) playClick();
   };
 
@@ -274,6 +281,28 @@ export default function StudentList({
     heldTimersRef.current.clear();
   };
   useEffect(() => stopAllHeldKeys, []);
+
+  // +/- (Shift for ±10) on a student's name or points field adjusts just
+  // that student — the global all-students shortcut is blocked while any
+  // field has focus, so this doesn't double up. Returns whether it handled
+  // the key.
+  const handleGemsKeyDown = (name, e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    const magnitude = e.shiftKey ? 10 : 1;
+    const delta = e.code === "Equal" || e.key === "+" || e.key === "=" ? magnitude
+      : e.code === "Minus" || e.key === "-" || e.key === "_" ? -magnitude : 0;
+    if (!delta) return false;
+    e.preventDefault();
+    // Keyed by the physical key, not e.key — Shift changing mid-hold
+    // changes e.key (e.g. "-" <-> "_") without its own keydown/keyup pair,
+    // which would otherwise orphan the interval under a key its matching
+    // keyup no longer reports.
+    const holdKey = e.code || e.key;
+    if (e.repeat || heldTimersRef.current.has(holdKey)) return true; // we drive our own repeat, not the browser's
+    adjustGems(name, delta);
+    heldTimersRef.current.set(holdKey, setInterval(() => adjustGems(name, delta), GEMS_REPEAT_MS));
+    return true;
+  };
 
   const setJob = (name, value) => {
     const next = { ...jobs };
@@ -484,7 +513,7 @@ export default function StudentList({
                 return (
                   <div
                     key={idx}
-                    className={`student-row ${excluded && !simple ? "student-row--excluded" : ""} ${dragOverIndex === idx ? "student-row--drag-over" : ""}`}
+                    className={`student-row ${dragOverIndex === idx ? "student-row--drag-over" : ""}`}
                     style={
                       simple
                         ? (activeIdx === idx ? { backgroundColor: colors[name] || defaultColorFor(name) } : undefined)
@@ -532,26 +561,7 @@ export default function StudentList({
                       onBlur={e => { cleanup(e); if (simple) setActiveIdx(null); stopAllHeldKeys(); }}
                       onKeyDown={e => {
                         if (e.key === "Enter") { e.currentTarget.blur(); return; }
-                        // With this name field focused, +/- adjust just this
-                        // student — the global shortcut (all students) is blocked
-                        // while any field has focus, so this doesn't double up.
-                        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-                          const magnitude = e.shiftKey ? 10 : 1;
-                          const delta = e.code === "Equal" || e.key === "+" || e.key === "=" ? magnitude
-                            : e.code === "Minus" || e.key === "-" || e.key === "_" ? -magnitude : 0;
-                          if (delta) {
-                            e.preventDefault();
-                            // Keyed by the physical key, not e.key — Shift
-                            // changing mid-hold changes e.key (e.g. "-" <-> "_")
-                            // without its own keydown/keyup pair, which would
-                            // otherwise orphan the interval under a key its
-                            // matching keyup no longer reports.
-                            const holdKey = e.code || e.key;
-                            if (e.repeat || heldTimersRef.current.has(holdKey)) return; // we drive our own repeat, not the browser's
-                            adjustGems(name, delta);
-                            heldTimersRef.current.set(holdKey, setInterval(() => adjustGems(name, delta), GEMS_REPEAT_MS));
-                          }
-                        }
+                        handleGemsKeyDown(name, e);
                       }}
                       onKeyUp={e => stopHeldKey(e.code || e.key)}
                       onDoubleClick={simple ? () => colorInputRefs.current[idx]?.click() : undefined}
@@ -611,7 +621,12 @@ export default function StudentList({
                           value={gems[name] || 0}
                           onChange={e => setGems(name, e.target.value)}
                           onFocus={e => e.target.select()}
-                          onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") { e.currentTarget.blur(); return; }
+                            handleGemsKeyDown(name, e);
+                          }}
+                          onKeyUp={e => stopHeldKey(e.code || e.key)}
+                          onBlur={stopAllHeldKeys}
                         />
                       )}
                     </div>
