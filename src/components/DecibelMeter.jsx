@@ -17,7 +17,7 @@ import { playChallengeWin, playChallengeLose } from "../data/sounds";
 // pairs, so persisting the points themselves keeps the handles from jumping
 // to some other pair on reload).
 const CURVE_X_DOMAIN = [-80, 0]; // raw dBFS a mic signal can produce
-const CURVE_Y_DOMAIN = [0, 100]; // displayed dB, matches THERMO_MAX below
+const CURVE_Y_DOMAIN = [0, 100]; // displayed 0–100 noise level, matches THERMO_MAX below
 // During a challenge the pane's background tints from green (average well
 // under target) to red (average at or over it) — CHALLENGE_TINT_SPAN is how
 // many dB below the target counts as "fully green".
@@ -98,12 +98,11 @@ function formatCountdown(endAt) {
 }
 
 // Auto-calibrate: records the quietest and loudest raw (dBFS) readings
-// seen while it runs, then fits the line so the quietest maps to
-// CAL_QUIET_DB and the loudest to CAL_LOUD_DB — roughly a quiet classroom
-// and a loud one. Needs at least CAL_MIN_RANGE of raw swing to be
+// seen while it runs, then fits the line so the quietest maps to the
+// bottom of the 0–100 scale and the loudest to the top. Needs at least CAL_MIN_RANGE of raw swing to be
 // meaningful (otherwise the line would come out absurdly steep).
-const CAL_QUIET_DB = 30;
-const CAL_LOUD_DB = 85;
+const CAL_QUIET = CURVE_Y_DOMAIN[0];
+const CAL_LOUD = CURVE_Y_DOMAIN[1];
 const CAL_MIN_RANGE = 6;
 
 function readDbfs(analyser, buffer) {
@@ -118,7 +117,8 @@ function readDbfs(analyser, buffer) {
 }
 
 function toLevel(dBFS, multiplier, offset) {
-  return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
+  // Clamped to the meter's 0–100 scale at both ends.
+  return Math.max(0, Math.min(THERMO_MAX, Math.round((dBFS * multiplier + offset) * 10) / 10));
 }
 
 export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }) {
@@ -492,12 +492,12 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
       setCalMessage("Not enough difference between quiet and loud — try again with both.");
       return;
     }
-    const p1 = { x: Math.round(cal.min), y: CAL_QUIET_DB };
-    const p2 = { x: Math.round(cal.max), y: CAL_LOUD_DB };
+    const p1 = { x: Math.round(cal.min), y: CAL_QUIET };
+    const p2 = { x: Math.round(cal.max), y: CAL_LOUD };
     const multiplier = (p2.y - p1.y) / (p2.x - p1.x);
     const offset = p1.y - multiplier * p1.x;
     updateSettings({ multiplier, offset, p1, p2 });
-    setCalMessage(`Calibrated: raw ${p1.x} → ${CAL_QUIET_DB}, raw ${p2.x} → ${CAL_LOUD_DB}.`);
+    setCalMessage(`Calibrated: raw ${p1.x} → ${CAL_QUIET}, raw ${p2.x} → ${CAL_LOUD}.`);
   };
 
   // Leaving the settings window abandons an unfinished calibration rather
@@ -663,7 +663,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
             <span className={`decibel-value ${liveHidden ? "decibel-value--hidden" : ""}`}>
               {active ? Math.round(level) : "—"}
             </span>
-            <span className={`decibel-unit ${liveHidden ? "decibel-value--hidden" : ""}`}>dB</span>
+            <span className={`decibel-unit ${liveHidden ? "decibel-value--hidden" : ""}`}>now</span>
           </div>
 
           <div
@@ -719,7 +719,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
       {settingsOpen && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeSettings()}>
           <div className="modal decibel-settings-modal">
-            <h2>Decibel calibration</h2>
+            <h2>Noise meter calibration</h2>
             <p className="decibel-settings-hint">
               There's no way to get a truly calibrated reading from a browser mic, so tune
               this by ear: drag either end of the line to map the mic's raw input (x) onto
@@ -843,7 +843,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                     value={challengeDraft.targetDb}
                     onChange={e => setChallengeDraft(d => ({ ...d, targetDb: parseFloat(e.target.value) || 0 }))}
                   />
-                  <span>dB</span>
+                  <span>/ 100</span>
                 </div>
                 <div className="decibel-settings-row">
                   <label>Reward</label>

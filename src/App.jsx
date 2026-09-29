@@ -30,7 +30,7 @@ function loadPeriodLayoutTrees() {
 }
 
 const DEFAULT_COLLAPSED = { date: false, clock: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
-const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Decibel", captions: "Captions" };
+const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Noise", captions: "Captions" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
