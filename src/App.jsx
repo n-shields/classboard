@@ -829,7 +829,7 @@ export default function App() {
         birthdays={currentBirthdays}
       />
     ),
-    decibel: <DecibelMeter onChallengeResult={handleNoiseChallengeResult} />,
+    decibel: <DecibelMeter onChallengeResult={handleNoiseChallengeResult} pointsLabel={currentGemsLabel} />,
     captions: <CaptionsPane />,
   };
 

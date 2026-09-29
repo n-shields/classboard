@@ -109,7 +109,7 @@ function readLevel(analyser, buffer, multiplier, offset) {
   return Math.max(0, Math.round((dBFS * multiplier + offset) * 10) / 10);
 }
 
-export default function DecibelMeter({ onChallengeResult }) {
+export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }) {
   const canvasRef   = useRef(null);
   const curveSvgRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -124,6 +124,12 @@ export default function DecibelMeter({ onChallengeResult }) {
   // onended handler (see startMic) to tell "the user/unmount asked for this"
   // apart from "the mic died out from under us and should try to reconnect".
   const wantActiveRef = useRef(false);
+  // An auto-repeat round waiting for the previous round's points to finish
+  // counting on — cleared by cancel, a manual start, or the mic stopping.
+  const repeatTimerRef = useRef(null);
+  const clearRepeatTimer = () => {
+    if (repeatTimerRef.current) { clearTimeout(repeatTimerRef.current); repeatTimerRef.current = null; }
+  };
   // The loudest sample seen since the last commit — reset to 0 (readLevel's
   // own floor) each time commitPeak lands it as the actual reading.
   const peakRef = useRef(0);
@@ -389,9 +395,16 @@ export default function DecibelMeter({ onChallengeResult }) {
     setChallengeResult({ won, avg: finalAvg, targetDb: c.targetDb, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
     if (delta !== 0) onChallengeResultRef.current?.(delta, CHALLENGE_COUNT_MS, c.playSound);
     // Next round runs on the same terms it just finished with (not whatever
-    // the setup form has since been edited to) — only reached while the mic
-    // is still live, since commitPeak is what calls finalizeChallenge.
-    if (c.autoRepeat) beginChallenge(c, { keepResult: true });
+    // the setup form has since been edited to), but only once this round's
+    // points have finished counting on (plus a short beat), and only if the
+    // mic is still live by then.
+    if (c.autoRepeat) {
+      const wait = delta !== 0 ? CHALLENGE_COUNT_MS + 500 : 0;
+      repeatTimerRef.current = setTimeout(() => {
+        repeatTimerRef.current = null;
+        if (analyserRef.current) beginChallenge(c, { keepResult: true });
+      }, wait);
+    }
   };
 
   const beginChallenge = ({ durationMin, targetDb, reward, cost, playSound, autoRepeat }, { keepResult = false } = {}) => {
@@ -409,6 +422,7 @@ export default function DecibelMeter({ onChallengeResult }) {
   // Starting a challenge wakes the mic if it was paused — only bails if the
   // mic genuinely can't start (denied/unavailable; startMic shows why).
   const startChallenge = async () => {
+    clearRepeatTimer();
     setChallengeSetupOpen(false);
     if (!analyserRef.current) {
       await startMic();
@@ -418,6 +432,7 @@ export default function DecibelMeter({ onChallengeResult }) {
   };
 
   const cancelChallenge = () => {
+    clearRepeatTimer();
     challengeRef.current = null;
     setChallengeUI(null);
     setChallengeAvg(null);
@@ -434,6 +449,7 @@ export default function DecibelMeter({ onChallengeResult }) {
     analyserRef.current = null;
     setActive(false);
     // A challenge can't be fairly judged without samples coming in.
+    clearRepeatTimer();
     if (challengeRef.current) { challengeRef.current = null; setChallengeUI(null); setChallengeAvg(null); }
   };
 
@@ -609,7 +625,7 @@ export default function DecibelMeter({ onChallengeResult }) {
               {challengeResult.won
                 ? `🎉 Challenge won! Average ${Math.round(challengeResult.avg)} ≤ ${challengeResult.targetDb} — +${challengeResult.reward} awarded`
                 : `Challenge lost — average ${Math.round(challengeResult.avg)} was over ${challengeResult.targetDb}${challengeResult.cost > 0 ? ` — −${challengeResult.cost} taken` : ""}`}
-              {challengeResult.repeating && " · next round started"}
+              {challengeResult.repeating && " · next round coming up"}
             </div>
           )}
         </div>
@@ -747,7 +763,7 @@ export default function DecibelMeter({ onChallengeResult }) {
                     value={challengeDraft.reward}
                     onChange={e => setChallengeDraft(d => ({ ...d, reward: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
                   />
-                  <span>gems each</span>
+                  <span>{pointsLabel} each</span>
                 </div>
                 <div className="decibel-settings-row">
                   <label>Cost</label>
@@ -756,7 +772,7 @@ export default function DecibelMeter({ onChallengeResult }) {
                     value={challengeDraft.cost}
                     onChange={e => setChallengeDraft(d => ({ ...d, cost: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
                   />
-                  <span>gems each if lost</span>
+                  <span>{pointsLabel} each if lost</span>
                 </div>
                 <label className="decibel-settings-check">
                   <input

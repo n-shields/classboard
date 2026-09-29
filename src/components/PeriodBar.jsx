@@ -15,6 +15,9 @@ import { GEMS_REPEAT_MS } from "../data/gems";
 import { collectData, doExport } from "../data/exportData";
 import "./PeriodBar.css";
 
+// How long the student list stays up after a Noise Challenge result opens it.
+const STUDENTS_AUTO_CLOSE_MS = 10_000;
+
 export default function PeriodBar({
   schedules, onSchedulesChange,
   scheduleType, onScheduleTypeChange,
@@ -71,12 +74,43 @@ export default function PeriodBar({
   // toggle force it open — currently just a won Noise Challenge. Skips the
   // very first run so the initial value of the signal (however it's seeded)
   // never force-opens the list on mount.
+  //
+  // A list opened this way closes itself again after STUDENTS_AUTO_CLOSE_MS
+  // (the celebration is a brief announcement), unless someone starts using
+  // it first — a click inside it, or a +/- adjustment — or it was already
+  // open on its own before the signal arrived, in which case it's left
+  // alone. A repeat signal while still auto-opened restarts the countdown.
   const openStudentsSignalRef = useRef(openStudentsSignal);
+  const studentsOpenRef = useRef(studentsOpen);
+  useEffect(() => { studentsOpenRef.current = studentsOpen; }, [studentsOpen]);
+  const autoCloseTimerRef = useRef(null);
+  const cancelStudentsAutoClose = () => {
+    if (autoCloseTimerRef.current) { clearTimeout(autoCloseTimerRef.current); autoCloseTimerRef.current = null; }
+  };
   useEffect(() => {
     if (openStudentsSignalRef.current === openStudentsSignal) return;
     openStudentsSignalRef.current = openStudentsSignal;
+    const openedByUser = studentsOpenRef.current && !autoCloseTimerRef.current;
+    if (!openedByUser) {
+      cancelStudentsAutoClose();
+      autoCloseTimerRef.current = setTimeout(() => {
+        autoCloseTimerRef.current = null;
+        setStudentsOpen(false);
+      }, STUDENTS_AUTO_CLOSE_MS);
+    }
     setStudentsOpen(true);
   }, [openStudentsSignal]);
+  // Closed by hand (or any other path) — nothing left to auto-close.
+  useEffect(() => { if (!studentsOpen) cancelStudentsAutoClose(); }, [studentsOpen]);
+  useEffect(() => {
+    if (!studentsOpen) return;
+    const onPointerDown = (e) => {
+      if (autoCloseTimerRef.current && e.target.closest?.(".student-modal")) cancelStudentsAutoClose();
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => window.removeEventListener("pointerdown", onPointerDown, true);
+  }, [studentsOpen]);
+  useEffect(() => cancelStudentsAutoClose, []);
 
   // Reload a folder picked in an earlier session. Only `queryPermission` is
   // called here (never `requestPermission`, which can prompt and needs a
@@ -219,6 +253,8 @@ export default function PeriodBar({
       for (const name of namesRef.current) next[name] = Math.max(0, (next[name] || 0) + delta);
       handler(next);
       if (delta > 0) playDing(); else playClick();
+      // A deliberate adjustment means someone's using the list now.
+      if (autoCloseTimerRef.current) { clearTimeout(autoCloseTimerRef.current); autoCloseTimerRef.current = null; }
       setStudentsOpen(true);
     };
     // Tracks each held key's own repeat interval independently (not just the
