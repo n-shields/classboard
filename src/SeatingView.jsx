@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import SeatingChart from "./components/SeatingChart";
-import { loadSchedules, resolveActivePeriodIndex, loadActivePeriod } from "./data/schedules";
+import { loadSchedules, resolveActivePeriod, loadActivePeriod } from "./data/schedules";
 import { loadPeriodData } from "./data/periodData";
 import { applyTheme } from "./data/themes";
 import { saveSeatingViewBounds } from "./data/teacherView";
@@ -14,7 +14,7 @@ function loadGlobalTheme() {
 
 // A popup window for the seating chart, so it no longer has to take over
 // whichever main-board tile happens to be largest. Mirrors the main board's
-// currently-active period (see data/schedules.js: resolveActivePeriodIndex)
+// currently-active period (see data/schedules.js: resolveActivePeriod)
 // by re-reading localStorage, the same way Teacher View does.
 export default function SeatingView() {
   const [schedules, setSchedules]     = useState(loadSchedules);
@@ -38,8 +38,7 @@ export default function SeatingView() {
   }, []);
 
   const periods = schedules[scheduleType] || [];
-  const currentIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
-  const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
+  const currentPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   const currentNames = periodKey ? (periodData[periodKey]?.names ?? []) : [];

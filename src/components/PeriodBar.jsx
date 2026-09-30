@@ -5,6 +5,7 @@ import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS, hasDarkText } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
+import { periodsNotInSchedule } from "../data/schedules";
 import { playClick, playDing } from "../data/sounds";
 import { loadSoundHotkeys, soundById } from "../data/soundHotkeys";
 import {
@@ -22,6 +23,7 @@ export default function PeriodBar({
   scheduleDays, onScheduleDaysChange,
   periodNames, onPeriodNamesChange,
   currentPeriodIndex, nextPeriodIndex, onPeriodSelect,
+  offSchedulePeriodLabel, onOffSchedulePeriodSelect,
   autoMode, onAutoModeChange,
   currentTheme, onThemeChange,
   onImport,
@@ -571,6 +573,18 @@ export default function PeriodBar({
             </button>
           );
         })}
+        {/* Periods from other schedules that aren't on today's — still
+            selectable (to reach their boards), grayed out at the end. */}
+        {periodsNotInSchedule(schedules, scheduleType).map(p => (
+          <button
+            key={`off-${p.label}`}
+            className={`btn btn-sm period-btn period-btn-off ${p.label === offSchedulePeriodLabel ? "period-btn-active" : "btn-ghost"}`}
+            onClick={() => onOffSchedulePeriodSelect?.(p)}
+            title="Not in today's schedule"
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {editorOpen && (

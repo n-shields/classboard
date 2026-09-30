@@ -5,7 +5,7 @@ import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
 import HotkeysEditor from "./components/HotkeysEditor";
-import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriodIndex } from "./data/schedules";
+import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
@@ -91,8 +91,7 @@ export default function TeacherView() {
   // Everything else (roster, reminders, notes) follows whichever period is
   // active on the main board — auto-detected in Auto mode, or the
   // manually-pinned period otherwise.
-  const currentIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
-  const currentPeriod = currentIndex >= 0 ? periods[currentIndex] : null;
+  const currentPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   const currentNames     = periodKey ? (periodData[periodKey]?.names        ?? []) : [];

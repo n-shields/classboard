@@ -154,6 +154,11 @@ export default function App() {
   }, []);
 
   const [currentPeriodIndex, setCurrentPeriodIndex] = useState(-1);
+  // A period picked from the sidebar's grayed-out extras — one that's in
+  // another schedule but not today's, so it has no index in `periods`.
+  // Shown (pinned, Auto off) in place of today's periods until another
+  // period is picked or Auto comes back on.
+  const [offSchedulePick, setOffSchedulePeriod] = useState(null);
   const [nextPeriodIndex, setNextPeriodIndex]       = useState(-1);
   const [autoMode, setAutoMode]             = useState(true);
 
@@ -198,7 +203,9 @@ export default function App() {
   const currentPeriod = currentPeriodIndex >= 0 ? periods[currentPeriodIndex] : null;
   const nextPeriod    = nextPeriodIndex    >= 0 ? periods[nextPeriodIndex]    : null;
   // Fall back to period 0 when nothing is active and nothing is upcoming
-  const displayPeriod = currentPeriod || nextPeriod || (periods.length > 0 ? periods[0] : null);
+  // Auto mode always follows the clock, so a leftover pick is ignored there.
+  const offSchedulePeriod = autoMode ? null : offSchedulePick;
+  const displayPeriod = offSchedulePeriod || currentPeriod || nextPeriod || (periods.length > 0 ? periods[0] : null);
   const periodKey     = displayPeriod ? displayPeriod.label : null;
 
   // Clock always uses auto-detected period
@@ -325,8 +332,8 @@ export default function App() {
   // Let popup windows (Teacher View, seating chart) mirror whichever period
   // is active here, instead of independently time-detecting their own.
   useEffect(() => {
-    saveActivePeriod(autoMode, currentPeriod?.label ?? null);
-  }, [autoMode, currentPeriod]);
+    saveActivePeriod(autoMode, (offSchedulePeriod ?? currentPeriod)?.label ?? null);
+  }, [autoMode, currentPeriod, offSchedulePeriod]);
 
   // ── Per-period layout: restore on period change ──────────────────────────
   useEffect(() => {
@@ -733,6 +740,7 @@ export default function App() {
         setCurrentPeriodIndex(idx);
         setNextPeriodIndex(detectNextPeriod(newPeriods));
         setAutoMode(false);
+        setOffSchedulePeriod(null);
       }
     }
     setScheduleType(type);
@@ -749,6 +757,7 @@ export default function App() {
       const idx = newPeriods.findIndex(p => p.label === periodKey);
       setCurrentPeriodIndex(idx);
       setNextPeriodIndex(idx >= 0 ? detectNextPeriod(newPeriods) : -1);
+      if (idx >= 0) setOffSchedulePeriod(null); // now part of today's schedule
     }
   }, [autoMode, periodKey, scheduleType]);
   const handleScheduleDaysChange = useCallback((d) => { setScheduleDays(d); saveScheduleDays(d); }, []);
@@ -861,7 +870,14 @@ export default function App() {
         periodNames={periodNames}       onPeriodNamesChange={handlePeriodNamesChange}
         currentPeriodIndex={currentPeriodIndex}
         nextPeriodIndex={nextPeriodIndex}
+        offSchedulePeriodLabel={offSchedulePeriod?.label ?? null}
+        onOffSchedulePeriodSelect={p => {
+          setOffSchedulePeriod(p);
+          setCurrentPeriodIndex(-1);
+          setAutoMode(false);
+        }}
         onPeriodSelect={idx => {
+          setOffSchedulePeriod(null);
           setCurrentPeriodIndex(idx);
           setNextPeriodIndex(detectNextPeriod(periods));
           // Picking the period that's scheduled right now is the same as
@@ -869,7 +885,7 @@ export default function App() {
           const scheduled = detectCurrentPeriod(periods);
           setAutoMode(scheduled >= 0 && idx === scheduled);
         }}
-        autoMode={autoMode}             onAutoModeChange={setAutoMode}
+        autoMode={autoMode}             onAutoModeChange={on => { setOffSchedulePeriod(null); setAutoMode(on); }}
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
         onImport={() => window.location.reload()}
         names={currentNames}            onNamesChange={handleNamesChange}

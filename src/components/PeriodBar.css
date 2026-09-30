@@ -246,6 +246,16 @@
   opacity: 1 !important;
 }
 
+/* Not in today's schedule — listed last and grayed out (but still
+   clickable); when picked it takes the active style, just dimmed. */
+.period-btn-off {
+  opacity: 0.45;
+  font-style: italic;
+}
+.period-btn-off.period-btn-active {
+  opacity: 0.7 !important;
+}
+
 .period-btn-next {
   border-color: var(--accent) !important;
   color: var(--accent) !important;

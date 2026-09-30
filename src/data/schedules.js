@@ -175,6 +175,41 @@ export function loadActivePeriod() {
   return { autoMode: true, label: null };
 }
 
+/** Periods that appear in some other schedule but not in `scheduleType`'s
+ *  (e.g. a period only on the Regular schedule, viewed on an Early Release
+ *  day) — one entry per label, in schedule order. The period sidebar lists
+ *  these after today's periods, grayed out, so their boards stay reachable. */
+export function periodsNotInSchedule(schedules, scheduleType) {
+  const today = new Set((schedules[scheduleType] || []).map(p => p.label));
+  const seen = new Set();
+  const out = [];
+  for (const [type, list] of Object.entries(schedules)) {
+    if (type === scheduleType || !Array.isArray(list)) continue;
+    for (const p of list) {
+      if (today.has(p.label) || seen.has(p.label)) continue;
+      seen.add(p.label);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+/** Current period for a popup window: like resolveActivePeriodIndex, but a
+ *  pinned period that isn't in today's schedule (picked from the sidebar's
+ *  grayed-out extras) is still found by label in the other schedules. */
+export function resolveActivePeriod(periods, activePeriod, schedules) {
+  if (activePeriod && activePeriod.autoMode === false && activePeriod.label) {
+    const here = periods.find(p => p.label === activePeriod.label);
+    if (here) return here;
+    for (const list of Object.values(schedules)) {
+      const other = Array.isArray(list) && list.find(p => p.label === activePeriod.label);
+      if (other) return other;
+    }
+  }
+  const idx = detectCurrentPeriod(periods);
+  return idx >= 0 ? periods[idx] : null;
+}
+
 /** Current-period index for a popup window: mirrors the main board's pinned
  *  period when it's not in Auto mode, otherwise falls back to time detection. */
 export function resolveActivePeriodIndex(periods, activePeriod) {
