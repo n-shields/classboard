@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import "./DecibelMeter.css";
 import { playChallengeWin, playChallengeLose } from "../data/sounds";
+import { CHALLENGE_COUNT_MS, CHALLENGE_REPEAT_DELAY_MS } from "../data/noiseChallenge";
 
 // There's no way to get a calibrated, device-independent SPL reading out of
 // a browser mic — every device's gain/sensitivity differs — so this reports
@@ -67,8 +68,6 @@ function levelOf(v, thresholds) {
 function levelUpperBound(level, thresholds) {
   return level < thresholds.length ? thresholds[level] : 100;
 }
-// How long a challenge's reward/cost takes to count onto the points.
-const CHALLENGE_COUNT_MS = 2000;
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
   p1: { x: -50, y: 0 },
@@ -571,10 +570,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     if (delta !== 0) onChallengeResultRef.current?.(delta, CHALLENGE_COUNT_MS, c.playSound);
     // Next round runs on the same terms it just finished with (not whatever
     // the setup form has since been edited to), but only once this round's
-    // points have finished counting on (plus a short beat), and only if the
-    // mic is still live by then.
+    // points have finished counting on and the student list it popped open
+    // has closed — so the new round's fresh average doesn't take in the
+    // celebration — and only if the mic is still live by then.
     if (c.autoRepeat) {
-      const wait = delta !== 0 ? CHALLENGE_COUNT_MS + 500 : 0;
+      const wait = delta !== 0 ? CHALLENGE_REPEAT_DELAY_MS : 0;
       repeatTimerRef.current = setTimeout(() => {
         repeatTimerRef.current = null;
         if (analyserRef.current) beginChallenge(c, { keepResult: true });

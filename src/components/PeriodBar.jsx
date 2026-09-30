@@ -13,12 +13,8 @@ import {
 } from "../data/autosave";
 import { GEMS_REPEAT_MS } from "../data/gems";
 import { collectData, doExport } from "../data/exportData";
+import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 import "./PeriodBar.css";
-
-// How long the student list stays up after a Noise Challenge result opens it:
-// the 2s points count (CHALLENGE_COUNT_MS in DecibelMeter) plus a short beat
-// to see the final totals, then it closes.
-const STUDENTS_AUTO_CLOSE_MS = 3_000;
 
 export default function PeriodBar({
   schedules, onSchedulesChange,
