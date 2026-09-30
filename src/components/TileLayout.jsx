@@ -64,8 +64,9 @@ function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
+  const maximized = maximizedId === id;
   const didDrag = useRef(false);
   const name = tileNames?.[id] ?? "";
   const swapTarget = swapMap?.[id];
@@ -75,7 +76,7 @@ function TileSlot({ id, content }) {
   const pagePayload = getTileDragPayload?.(id);
 
   return (
-    <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""}`} data-tile={id}>
+    <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""} ${maximized ? "tl-slot--maximized" : ""}`} data-tile={id}>
       <div
         className={`tl-drag-handle ${dragging === id ? "tl-drag-handle-dragging" : ""} ${collapsed ? "tl-drag-handle-collapsed" : ""}`}
         draggable
@@ -99,6 +100,16 @@ function TileSlot({ id, content }) {
       >
         {collapsed ? <>▶{name && <span className="tl-drag-handle-name">{name}</span>}</> : "⠿"}
       </div>
+      {/* Maximize: this same slot is just restyled to cover the screen (see
+          .tl-slot--maximized), not re-rendered elsewhere, so its content —
+          camera, mic, timers — keeps running uninterrupted. */}
+      {!collapsed && (
+        <button
+          className="tl-max-btn"
+          onClick={() => setMaximizedId(maximized ? null : id)}
+          title={maximized ? "Restore (Esc)" : "Maximize to fill the screen"}
+        >{maximized ? "❐" : "□"}</button>
+      )}
       {!collapsed && swapTarget && (
         <button
           className="tl-swap-btn"
@@ -210,6 +221,18 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop, getTileDragPayload, onDeleteTab }) {
   const [dragging, setDragging] = useState(null);
   const [pageDragOrigin, setPageDragOrigin] = useState(null);
+  // The one tile (if any) currently maximized to fill the screen — view
+  // state only, not saved with the layout. Escape restores it.
+  const [maximizedId, setMaximizedId] = useState(null);
+  useEffect(() => {
+    if (!maximizedId) return;
+    const onKey = (e) => {
+      // Leave Escape to an open dialog first (they close on it themselves).
+      if (e.key === "Escape" && !document.querySelector(".modal-overlay")) setMaximizedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [maximizedId]);
 
   const onMove = useCallback((fromId, toId, side) => {
     onLayoutChange(prev => moveTile(prev, fromId, toId, side));
@@ -228,8 +251,8 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   }, []);
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab }),
-    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId }),
+    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId],
   );
 
   return (

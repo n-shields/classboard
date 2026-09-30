@@ -96,6 +96,58 @@
   display: none;
 }
 
+/* ── Maximize button — sits just right of the drag handle ── */
+.tl-max-btn {
+  position: absolute;
+  top: 8px;
+  left: 30px;
+  z-index: 10;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tl-slot:hover .tl-max-btn {
+  opacity: 0.6;
+}
+
+.tl-max-btn:hover {
+  opacity: 1 !important;
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* The maximized tile covers the whole viewport — over the toolbar and the
+   period sidebar, under dialogs. Dragging/swapping make no sense while it
+   covers everything, so those controls hide and the restore button takes
+   the handle's corner. */
+.tl-slot--maximized {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  padding: 8px;
+  background: var(--bg);
+}
+.tl-slot--maximized > .tl-drag-handle,
+.tl-slot--maximized > .tl-swap-btn {
+  display: none;
+}
+.tl-slot--maximized > .tl-max-btn {
+  left: 8px;
+}
+
 /* ── Drag handle ── */
 .tl-drag-handle {
   position: absolute;
