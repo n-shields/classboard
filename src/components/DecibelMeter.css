@@ -316,6 +316,12 @@
 .decibel-challenge-grid > .decibel-settings-row {
   display: contents;
 }
+/* Rows don't all fill four cells (Duration has three), so pin each row's
+   label to the first column — otherwise auto-placement pulls the next
+   row's label up into the previous row's empty cell. */
+.decibel-challenge-grid > .decibel-settings-row > :first-child {
+  grid-column: 1;
+}
 .decibel-challenge-grid label {
   min-width: 0;
 }
