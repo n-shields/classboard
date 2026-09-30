@@ -77,7 +77,14 @@ export default function WheelOfNames({
     [names, excludedNames],
   );
 
-  useEffect(() => { setWinner(null); }, [names]);
+  // Drop a showing winner only once that name is actually gone from the
+  // list (renamed, removed, or a different period's class). `names` arrives
+  // as a fresh array whenever App reloads its data — which happens on every
+  // save from an open Teacher View/seating window, as often as every 2s —
+  // so clearing on any new array cut the winner's display short.
+  useEffect(() => {
+    setWinner(w => (w && !names.includes(w) ? null : w));
+  }, [names]);
 
   // Each period keeps its own settings and its own "don't repeat" memory —
   // reload both whenever the active period changes (this component stays
