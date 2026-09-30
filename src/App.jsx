@@ -641,6 +641,12 @@ export default function App() {
     const names = currentNames;
     setStudentsOpenSignal(s => s + 1);
 
+    // The count itself can tick many times a second on a big amount, but a
+    // ding on every tick turns into a buzz — the sound plays at most every
+    // COUNT_SOUND_GAP_MS (always on the first and last tick), so it lands
+    // a handful of times across the count however many points there are.
+    const COUNT_SOUND_GAP_MS = 400;
+    let lastSoundAt = -Infinity;
     let applied = 0;
     const applyStep = () => {
       applied += 1;
@@ -648,7 +654,11 @@ export default function App() {
       for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + sign * applied * perStep);
       handleGemsChange(next);
       setGemsBoostAnimation({ amount: sign * perStep, id: `${Date.now()}-${applied}` });
-      if (playSound) { if (sign > 0) playDing(); else playClick(); }
+      const now = performance.now();
+      if (playSound && (applied === steps || now - lastSoundAt >= COUNT_SOUND_GAP_MS)) {
+        lastSoundAt = now;
+        if (sign > 0) playDing(); else playClick();
+      }
       if (applied < steps) setTimeout(applyStep, stepMs);
     };
     applyStep();
