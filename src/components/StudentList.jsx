@@ -48,8 +48,12 @@ export default function StudentList({
   // reward) pulses every student's gems value at once, keyed by id so a
   // repeat of the same amount still replays the animation.
   const [boosted, setBoosted] = useState(false);
+  // The last boost stays in App's state after it plays, so it's already
+  // there when the list mounts (e.g. reopened with Space) — only a boost
+  // that arrives while the list is open should animate.
+  const mountBoostIdRef = useRef(boostAnimation?.id);
   useEffect(() => {
-    if (!boostAnimation) return;
+    if (!boostAnimation || boostAnimation.id === mountBoostIdRef.current) return;
     setBoosted(true);
     const t = setTimeout(() => setBoosted(false), 1600);
     return () => clearTimeout(t);
