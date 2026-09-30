@@ -192,12 +192,11 @@
 /* ── Left hover trigger zone (periods sidebar) ── */
 .period-sidebar-trigger {
   position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 8px;
   z-index: 200;
 }
+.period-sidebar-trigger--left   { top: 0; bottom: 0; left: 0;  width: 8px; }
+.period-sidebar-trigger--right  { top: 0; bottom: 0; right: 0; width: 8px; }
+.period-sidebar-trigger--bottom { left: 0; right: 0; bottom: 0; height: 8px; }
 
 /* ── Left periods sidebar — just the buttons themselves (each already has
    its own background/border via .period-btn), not wrapped in a toolbar-
@@ -205,29 +204,76 @@
    than stretching the full screen height. ── */
 .period-sidebar {
   position: fixed;
-  top: 50%;
-  left: 0;
   z-index: 199;
   display: flex;
-  flex-direction: column;
   gap: 5px;
   padding: 6px;
-  max-height: 90vh;
-  overflow-y: auto;
   scrollbar-width: none;
-  transform: translateY(-50%) translateX(-110%);
   opacity: 0;
   transition: transform 0.2s ease, opacity 0.15s ease;
 }
 .period-sidebar::-webkit-scrollbar { display: none; }
 
-.period-sidebar--visible {
+/* Left/right: a vertical column centered on that edge. */
+.period-sidebar--left,
+.period-sidebar--right {
+  top: 50%;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.period-sidebar--left  { left: 0;  transform: translateY(-50%) translateX(-110%); }
+.period-sidebar--right { right: 0; transform: translateY(-50%) translateX(110%); }
+.period-sidebar--left.period-sidebar--visible,
+.period-sidebar--right.period-sidebar--visible {
   transform: translateY(-50%) translateX(0);
   opacity: 1;
 }
-
-.period-sidebar .period-btn {
+.period-sidebar--left .period-btn,
+.period-sidebar--right .period-btn {
   width: 100%;
+}
+
+/* Bottom: a horizontal row centered along the bottom edge. */
+.period-sidebar--bottom {
+  bottom: 0;
+  left: 50%;
+  flex-direction: row;
+  align-items: center;
+  max-width: 96vw;
+  overflow-x: auto;
+  transform: translateX(-50%) translateY(110%);
+}
+.period-sidebar--bottom.period-sidebar--visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Top: a row inside the toolbar container, just under the toolbar itself. */
+.period-toolbar-periods {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.period-toolbar-periods::-webkit-scrollbar { display: none; }
+
+/* The dock-position picker the ⚙ at the end of the menu opens. */
+.period-edge-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.period-sidebar--left .period-edge-picker,
+.period-sidebar--right .period-edge-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.period-edge-picker .period-btn {
+  min-width: 30px;
 }
 
 /* ── Period buttons ── */
