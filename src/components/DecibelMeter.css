@@ -301,6 +301,33 @@
   min-width: 80px;
 }
 
+/* Start Noise Challenge form: label | input | suffix (or second label) |
+   second input, as a table-like grid whose rows are display: contents. */
+.decibel-challenge-grid {
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 10px 8px;
+  margin: 12px 0;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+.decibel-challenge-grid > .decibel-settings-row {
+  display: contents;
+}
+.decibel-challenge-grid label {
+  min-width: 0;
+}
+/* The level picker (levels mode) matches the number boxes' width. */
+.decibel-challenge-grid select {
+  width: 64px;
+  font-size: 0.85rem;
+}
+.decibel-challenge-grid .decibel-settings-inline-label {
+  margin-left: 8px;
+}
+
 /* A second label partway along a row (e.g. Cost after Reward) — sized to
    its text, with a gap from the field before it. */
 .decibel-settings-row .decibel-settings-inline-label {

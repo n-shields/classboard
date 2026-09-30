@@ -1017,6 +1017,9 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
             ) : (
               <>
                 <h2>Start Noise Challenge</h2>
+                {/* One grid for the three rows (each row display: contents), so the
+                    labels share a column and every input box lines up. */}
+                <div className="decibel-challenge-grid">
                 <div className="decibel-settings-row">
                   <label>Duration</label>
                   <input
@@ -1064,6 +1067,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                     onChange={e => setChallengeDraft(d => ({ ...d, cost: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
                   />
                 </div>
+                </div>
                 <label className="decibel-settings-check">
                   <input
                     type="checkbox"
@@ -1078,7 +1082,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                     checked={challengeDraft.autoRepeat}
                     onChange={e => setChallengeDraft(d => ({ ...d, autoRepeat: e.target.checked }))}
                   />
-                  Auto-repeat — start a new round as soon as one ends
+                  Auto-repeat
                 </label>
                 <div className="decibel-settings-actions">
                   <button className="btn btn-ghost btn-sm" onClick={() => setChallengeSetupOpen(false)}>Cancel</button>
