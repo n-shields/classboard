@@ -301,6 +301,13 @@
   min-width: 80px;
 }
 
+/* A second label partway along a row (e.g. Cost after Reward) — sized to
+   its text, with a gap from the field before it. */
+.decibel-settings-row .decibel-settings-inline-label {
+  min-width: 0;
+  margin-left: 12px;
+}
+
 .decibel-settings-row input[type="number"] {
   width: 64px;
   font-size: 0.85rem;

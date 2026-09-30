@@ -1051,20 +1051,18 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                 <div className="decibel-settings-row">
                   <label>Reward</label>
                   <input
+                    title={`${pointsLabel} each student gets for a win`}
                     type="number" min="1" max="100" step="1"
                     value={challengeDraft.reward}
                     onChange={e => setChallengeDraft(d => ({ ...d, reward: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
                   />
-                  <span>{pointsLabel} each</span>
-                </div>
-                <div className="decibel-settings-row">
-                  <label>Cost</label>
+                  <label className="decibel-settings-inline-label">Cost</label>
                   <input
+                    title={`${pointsLabel} taken from each student for a loss (0 = none)`}
                     type="number" min="0" max="100" step="1"
                     value={challengeDraft.cost}
                     onChange={e => setChallengeDraft(d => ({ ...d, cost: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
                   />
-                  <span>{pointsLabel} each if lost</span>
                 </div>
                 <label className="decibel-settings-check">
                   <input
