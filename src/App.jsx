@@ -313,6 +313,15 @@ export default function App() {
     }
   }, [scheduleType]); // eslint-disable-line
 
+  // Viewing a period manually (Auto off) and the schedule then reaches that
+  // very period — e.g. the next class's board was opened a few minutes
+  // early — re-engages Auto. Keyed only on the scheduled period changing,
+  // so turning Auto off while already on the current period still sticks
+  // (to keep a class's board up past its end).
+  useEffect(() => {
+    if (!autoMode && clockPeriodIndex >= 0 && clockPeriodIndex === currentPeriodIndex) setAutoMode(true);
+  }, [clockPeriodIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Let popup windows (Teacher View, seating chart) mirror whichever period
   // is active here, instead of independently time-detecting their own.
   useEffect(() => {
@@ -855,7 +864,10 @@ export default function App() {
         onPeriodSelect={idx => {
           setCurrentPeriodIndex(idx);
           setNextPeriodIndex(detectNextPeriod(periods));
-          setAutoMode(false);
+          // Picking the period that's scheduled right now is the same as
+          // going back to Auto; any other pick pins that period.
+          const scheduled = detectCurrentPeriod(periods);
+          setAutoMode(scheduled >= 0 && idx === scheduled);
         }}
         autoMode={autoMode}             onAutoModeChange={setAutoMode}
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
