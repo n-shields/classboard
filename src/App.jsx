@@ -831,6 +831,8 @@ export default function App() {
         names={currentNames}
         excludedNames={currentExcluded}
         colors={currentColors}
+        gems={currentGems}
+        gemsLabel={currentGemsLabel}
         periodLabel={displayPeriod?.label}
         collapsed={collapsed.wheel}
         onToggle={() => toggleCollapsed("wheel")}

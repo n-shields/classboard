@@ -8,7 +8,7 @@ import "./WheelOfNames.css";
 // Periods with no settings of their own, or no period active at all, fall
 // back to a shared "__default__" bucket rather than one hardcoded default.
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
-const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false };
+const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false, weightByPoints: false };
 function loadAllWheelSettings() {
   try {
     const raw = JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}");
@@ -51,6 +51,7 @@ function easeOut(t) {
 
 export default function WheelOfNames({
   names, excludedNames = [], colors = {},
+  gems = {}, gemsLabel = "Points",
   periodLabel, collapsed, onToggle,
   wheelColors = DEFAULT_WHEEL_COLORS, wheelText = "#ffffff",
 }) {
@@ -76,6 +77,28 @@ export default function WheelOfNames({
     () => names.filter(n => !excludedNames.includes(n)),
     [names, excludedNames],
   );
+
+  // Each name's wedge as { name, index, start, size } in radians, laid out
+  // clockwise from the pointer. Normally every wedge is the same size; with
+  // "size by points" on, each is proportional to that student's points, so
+  // a 0-point student gets no wedge at all (and can't be picked). If nobody
+  // has any points yet there's nothing to be proportional to, so it falls
+  // back to equal wedges rather than an empty wheel.
+  const weighted = !!wheelSettings.weightByPoints;
+  const segments = useMemo(() => {
+    const weights = activeNames.map(n => (weighted ? Math.max(0, gems[n] || 0) : 1));
+    const total = weights.reduce((a, b) => a + b, 0);
+    const useWeights = total > 0;
+    const sum = useWeights ? total : activeNames.length;
+    const segs = [];
+    let start = 0;
+    for (let i = 0; i < activeNames.length; i++) {
+      const size = ((useWeights ? weights[i] : 1) / sum) * 2 * Math.PI;
+      segs.push({ name: activeNames[i], index: i, start, size });
+      start += size;
+    }
+    return segs;
+  }, [activeNames, gems, weighted]);
 
   // Drop a showing winner only once that name is actually gone from the
   // list (renamed, removed, or a different period's class). `names` arrives
@@ -116,10 +139,9 @@ export default function WheelOfNames({
       return;
     }
 
-    const segAngle = (2 * Math.PI) / n;
-    for (let i = 0; i < n; i++) {
-      const name = activeNames[i];
-      const startAngle = rotation + i * segAngle - Math.PI / 2;
+    for (const { name, index: i, start, size: segAngle } of segments) {
+      if (segAngle <= 0) continue;
+      const startAngle = rotation + start - Math.PI / 2;
       const endAngle   = startAngle + segAngle;
 
       ctx.beginPath();
@@ -178,7 +200,7 @@ export default function WheelOfNames({
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.5;
     ctx.stroke();
-  }, [activeNames, periodLabel, wheelColors, wheelText, colors]);
+  }, [activeNames, segments, periodLabel, wheelColors, wheelText, colors]);
 
   useEffect(() => { drawWheel(rotationRef.current); }, [drawWheel]);
 
@@ -199,34 +221,39 @@ export default function WheelOfNames({
   }, [drawWheel]);
 
   const spin = useCallback(() => {
-    if (spinning || activeNames.length < 2) return;
+    if (spinning || segments.filter(s => s.size > 0).length < 2) return;
     setSpinning(true);
     setWinner(null);
-
-    const n = activeNames.length;
-    const segAngle = (2 * Math.PI) / n;
 
     // Pick the winner up front (rather than spinning to a random angle and
     // reading off whoever that lands on) so a "no repeats" setting can just
     // exclude last spin's winner from the pool here — there's always at
     // least one other name to exclude to, since spinning at all requires 2+.
-    let eligible = activeNames.map((_, i) => i);
+    // Odds follow wedge size, so with "size by points" on a student's
+    // chance of being picked matches the share of the wheel they cover.
+    let eligible = segments.filter(s => s.size > 0);
     if (wheelSettings.avoidRepeat && lastWinnerRef.current) {
-      const filtered = eligible.filter(i => activeNames[i] !== lastWinnerRef.current);
+      const filtered = eligible.filter(s => s.name !== lastWinnerRef.current);
       if (filtered.length > 0) eligible = filtered;
     }
-    const winnerIndex = eligible[Math.floor(Math.random() * eligible.length)];
-    const winnerName  = activeNames[winnerIndex];
+    const eligibleTotal = eligible.reduce((a, s) => a + s.size, 0);
+    let pick = Math.random() * eligibleTotal;
+    let winnerSeg = eligible[eligible.length - 1];
+    for (const s of eligible) {
+      if (pick < s.size) { winnerSeg = s; break; }
+      pick -= s.size;
+    }
+    const winnerName  = winnerSeg.name;
     // Land somewhere in the middle of the chosen segment, not flush against
     // either edge, so it's visually unambiguous which wedge the pointer hit.
     const frac = 0.1 + Math.random() * 0.8;
 
     const startRotation = rotationRef.current;
-    // See drawWheel: segment i sits under the (fixed, top) pointer when
-    // rotation ≡ -(i + frac) * segAngle (mod 2π). Pick a few full visual
+    // See drawWheel: a segment sits under the (fixed, top) pointer when
+    // rotation ≡ -(start + frac * size) (mod 2π). Pick a few full visual
     // turns, then nudge by whatever's needed to land exactly on that target
-    // angle, so the wheel always spins forward and still stops on winnerIndex.
-    const targetMod  = (((-(winnerIndex + frac) * segAngle) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    // angle, so the wheel always spins forward and still stops on winnerSeg.
+    const targetMod  = (((-(winnerSeg.start + frac * winnerSeg.size)) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
     const baseTurns  = (3 + Math.floor(Math.random() * 3)) * 2 * Math.PI;
     const currentMod = ((startRotation + baseTurns) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const adjustment = ((targetMod - currentMod) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
@@ -240,7 +267,8 @@ export default function WheelOfNames({
     // down along with the wheel's own easing instead of on a fixed timer.
     const segmentAt = (rotation) => {
       const normalized = (((-rotation) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-      return Math.floor(normalized / segAngle) % n;
+      const hit = segments.find(s => s.size > 0 && normalized >= s.start && normalized < s.start + s.size);
+      return hit ? hit.index : -1;
     };
     lastTickSegRef.current = segmentAt(startRotation);
 
@@ -269,7 +297,7 @@ export default function WheelOfNames({
       }
     };
     animRef.current = requestAnimationFrame(animate);
-  }, [spinning, activeNames, drawWheel, wheelSettings.spinDuration, wheelSettings.avoidRepeat, wheelSettings.spinSound]);
+  }, [spinning, segments, drawWheel, wheelSettings.spinDuration, wheelSettings.avoidRepeat, wheelSettings.spinSound]);
 
   useEffect(() => () => { if (animRef.current) cancelAnimationFrame(animRef.current); }, []);
 
@@ -306,7 +334,8 @@ export default function WheelOfNames({
     return () => ro.disconnect();
   }, [winner]);
 
-  const canSpin = !spinning && activeNames.length >= 2;
+  const spinnableCount = segments.filter(s => s.size > 0).length;
+  const canSpin = !spinning && spinnableCount >= 2;
 
   return (
     <div className={`card wheel-card ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
@@ -316,7 +345,7 @@ export default function WheelOfNames({
             ref={canvasRef}
             className={`wheel-canvas ${canSpin ? "wheel-clickable" : ""}`}
             onClick={spin}
-            title={activeNames.length < 2 ? "Need at least 2 active students" : "Click to spin!"}
+            title={spinnableCount < 2 ? (weighted && activeNames.length >= 2 ? `Need at least 2 students with ${gemsLabel}` : "Need at least 2 active students") : "Click to spin!"}
           />
           {winner && (
             <div
@@ -329,6 +358,12 @@ export default function WheelOfNames({
             </div>
           )}
         </div>
+        <button
+          className={`wheel-settings-btn wheel-weight-btn ${weighted ? "wheel-weight-btn--on" : ""}`}
+          onClick={() => !spinning && updateWheelSettings({ weightByPoints: !weighted })}
+          title={weighted ? `Slices sized by ${gemsLabel} — click for equal slices` : `Size slices by ${gemsLabel}`}
+          aria-pressed={weighted}
+        >⚖</button>
         <button className="wheel-settings-btn" onClick={() => setSettingsOpen(true)} title="Wheel settings">⚙</button>
       </div>
 
