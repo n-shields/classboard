@@ -8,7 +8,7 @@ import "./WheelOfNames.css";
 // Periods with no settings of their own, or no period active at all, fall
 // back to a shared "__default__" bucket rather than one hardcoded default.
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
-const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false, weightByPoints: false };
+const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false, weightMode: "equal" };
 function loadAllWheelSettings() {
   try {
     const raw = JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}");
@@ -79,14 +79,26 @@ export default function WheelOfNames({
   );
 
   // Each name's wedge as { name, index, start, size } in radians, laid out
-  // clockwise from the pointer. Normally every wedge is the same size; with
-  // "size by points" on, each is proportional to that student's points, so
-  // a 0-point student gets no wedge at all (and can't be picked). If nobody
-  // has any points yet there's nothing to be proportional to, so it falls
-  // back to equal wedges rather than an empty wheel.
-  const weighted = !!wheelSettings.weightByPoints;
+  // clockwise from the pointer. weightMode picks how big each wedge is:
+  //  - "equal":   every wedge the same size
+  //  - "points":  proportional to that student's points, so a 0-point
+  //               student gets no wedge at all (and can't be picked)
+  //  - "inverse": proportional to 1 / (points + 1), so the fewer points a
+  //               student has the bigger their wedge; the +1 keeps 0-point
+  //               students finite (they get the biggest wedges)
+  // If no weights are positive (nobody has points yet in "points" mode)
+  // there's nothing to be proportional to, so it falls back to equal
+  // wedges rather than an empty wheel. Older saves stored a weightByPoints
+  // boolean instead of a mode.
+  const weightMode = wheelSettings.weightMode ?? (wheelSettings.weightByPoints ? "points" : "equal");
+  const weighted = weightMode === "points";
   const segments = useMemo(() => {
-    const weights = activeNames.map(n => (weighted ? Math.max(0, gems[n] || 0) : 1));
+    const weights = activeNames.map(n => {
+      const pts = Math.max(0, gems[n] || 0);
+      if (weightMode === "points")  return pts;
+      if (weightMode === "inverse") return 1 / (pts + 1);
+      return 1;
+    });
     const total = weights.reduce((a, b) => a + b, 0);
     const useWeights = total > 0;
     const sum = useWeights ? total : activeNames.length;
@@ -98,7 +110,7 @@ export default function WheelOfNames({
       start += size;
     }
     return segs;
-  }, [activeNames, gems, weighted]);
+  }, [activeNames, gems, weightMode]);
 
   // Drop a showing winner only once that name is actually gone from the
   // list (renamed, removed, or a different period's class). `names` arrives
@@ -358,12 +370,19 @@ export default function WheelOfNames({
             </div>
           )}
         </div>
+        {/* Clicking whichever mode is already on goes back to equal slices. */}
         <button
-          className={`wheel-settings-btn wheel-weight-btn ${weighted ? "wheel-weight-btn--on" : ""}`}
-          onClick={() => !spinning && updateWheelSettings({ weightByPoints: !weighted })}
-          title={weighted ? `Slices sized by ${gemsLabel} — click for equal slices` : `Size slices by ${gemsLabel}`}
-          aria-pressed={weighted}
+          className={`wheel-settings-btn wheel-weight-btn ${weightMode === "points" ? "wheel-weight-btn--on" : ""}`}
+          onClick={() => !spinning && updateWheelSettings({ weightMode: weightMode === "points" ? "equal" : "points" })}
+          title={weightMode === "points" ? `More ${gemsLabel} = bigger slice — click for equal slices` : `More ${gemsLabel} = bigger slice`}
+          aria-pressed={weightMode === "points"}
         >⚖</button>
+        <button
+          className={`wheel-settings-btn wheel-weight-btn wheel-weight-btn--inverse ${weightMode === "inverse" ? "wheel-weight-btn--on" : ""}`}
+          onClick={() => !spinning && updateWheelSettings({ weightMode: weightMode === "inverse" ? "equal" : "inverse" })}
+          title={weightMode === "inverse" ? `Fewer ${gemsLabel} = bigger slice — click for equal slices` : `Fewer ${gemsLabel} = bigger slice`}
+          aria-pressed={weightMode === "inverse"}
+        ><span>⚖</span></button>
         <button className="wheel-settings-btn" onClick={() => setSettingsOpen(true)} title="Wheel settings">⚙</button>
       </div>
 

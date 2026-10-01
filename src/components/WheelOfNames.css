@@ -40,10 +40,20 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* Sits just left of the gear. Stays visible (not hover-only) while on, so
-   it's obvious the wheel isn't fair-share right now. */
+/* Slice-sizing buttons sit in the bottom-left corner, opposite the gear.
+   The active one stays visible (not hover-only), so it's obvious the wheel
+   isn't fair-share right now. The "fewer points" one shows the same scales
+   upside down. */
 .wheel-weight-btn {
-  right: 44px;
+  right: auto;
+  left: 10px;
+}
+.wheel-weight-btn--inverse {
+  left: 44px;
+}
+.wheel-weight-btn--inverse span {
+  display: inline-block;
+  transform: rotate(180deg);
 }
 .wheel-weight-btn--on {
   opacity: 1;
