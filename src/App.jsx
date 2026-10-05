@@ -10,7 +10,7 @@ import DateWidget from "./components/DateWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import DecibelMeter from "./components/DecibelMeter";
 import CaptionsPane from "./components/CaptionsPane";
-import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod } from "./data/schedules";
+import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod, loadActivePeriod, periodsNotInSchedule } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
@@ -334,6 +334,50 @@ export default function App() {
   useEffect(() => {
     saveActivePeriod(autoMode, (offSchedulePeriod ?? currentPeriod)?.label ?? null);
   }, [autoMode, currentPeriod, offSchedulePeriod]);
+
+  const selectPeriod = useCallback((idx) => {
+    setOffSchedulePeriod(null);
+    setCurrentPeriodIndex(idx);
+    setNextPeriodIndex(detectNextPeriod(periods));
+    // Picking the period that's scheduled right now is the same as
+    // going back to Auto; any other pick pins that period.
+    const scheduled = detectCurrentPeriod(periods);
+    setAutoMode(scheduled >= 0 && idx === scheduled);
+  }, [periods]);
+  const selectOffSchedulePeriod = useCallback((p) => {
+    setOffSchedulePeriod(p);
+    setCurrentPeriodIndex(-1);
+    setAutoMode(false);
+  }, []);
+
+  // ...and the other way round: a period picked from the seating chart
+  // window's own period menu (which writes the same key) switches this board
+  // too. The storage event only fires for other windows' writes, so our own
+  // saveActivePeriod above never loops back here; once we've applied it, the
+  // save above writes back the same value, which fires nothing.
+  const periodSelectRef = useRef(null);
+  useEffect(() => {
+    periodSelectRef.current = { periods, schedules, scheduleType, selectPeriod, selectOffSchedulePeriod };
+  });
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key !== "classboard_active_period" || !e.newValue) return;
+      if (!periodSelectRef.current) return;
+      const { periods, schedules, scheduleType, selectPeriod, selectOffSchedulePeriod } = periodSelectRef.current;
+      const picked = loadActivePeriod();
+      if (picked.autoMode) {
+        setOffSchedulePeriod(null);
+        setAutoMode(true);
+        return;
+      }
+      const idx = periods.findIndex(p => p.label === picked.label);
+      if (idx >= 0) { selectPeriod(idx); return; }
+      const off = periodsNotInSchedule(schedules, scheduleType).find(p => p.label === picked.label);
+      if (off) selectOffSchedulePeriod(off);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   // ── Per-period layout: restore on period change ──────────────────────────
   useEffect(() => {
@@ -873,20 +917,8 @@ export default function App() {
         currentPeriodIndex={currentPeriodIndex}
         nextPeriodIndex={nextPeriodIndex}
         offSchedulePeriodLabel={offSchedulePeriod?.label ?? null}
-        onOffSchedulePeriodSelect={p => {
-          setOffSchedulePeriod(p);
-          setCurrentPeriodIndex(-1);
-          setAutoMode(false);
-        }}
-        onPeriodSelect={idx => {
-          setOffSchedulePeriod(null);
-          setCurrentPeriodIndex(idx);
-          setNextPeriodIndex(detectNextPeriod(periods));
-          // Picking the period that's scheduled right now is the same as
-          // going back to Auto; any other pick pins that period.
-          const scheduled = detectCurrentPeriod(periods);
-          setAutoMode(scheduled >= 0 && idx === scheduled);
-        }}
+        onOffSchedulePeriodSelect={selectOffSchedulePeriod}
+        onPeriodSelect={selectPeriod}
         autoMode={autoMode}             onAutoModeChange={on => { setOffSchedulePeriod(null); setAutoMode(on); }}
         currentTheme={currentTheme}     onThemeChange={handleThemeChange}
         onImport={() => window.location.reload()}

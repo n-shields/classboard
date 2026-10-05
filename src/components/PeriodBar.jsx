@@ -5,7 +5,8 @@ import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS, hasDarkText } from "../data/themes";
 import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
-import { periodsNotInSchedule } from "../data/schedules";
+import PeriodMenu from "./PeriodMenu";
+import { usePeriodMenuEdge } from "../data/periodMenu";
 import { playClick, playDing } from "../data/sounds";
 import { loadSoundHotkeys, soundById } from "../data/soundHotkeys";
 import {
@@ -16,22 +17,6 @@ import { GEMS_REPEAT_MS } from "../data/gems";
 import { collectData, doExport } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 
-// Which screen edge the period menu docks to. "top" puts it in a row just
-// under the toolbar (revealed along with it); the others slide out from
-// their own edge on hover.
-const PERIOD_MENU_EDGE_KEY = "classboard_period_menu_edge";
-const PERIOD_MENU_EDGES = [
-  { edge: "left",   icon: "◀", label: "Left" },
-  { edge: "top",    icon: "▲", label: "Top (under the toolbar)" },
-  { edge: "right",  icon: "▶", label: "Right" },
-  { edge: "bottom", icon: "▼", label: "Bottom" },
-];
-function loadPeriodMenuEdge() {
-  try {
-    const v = localStorage.getItem(PERIOD_MENU_EDGE_KEY);
-    return PERIOD_MENU_EDGES.some(e => e.edge === v) ? v : "left";
-  } catch (_) { return "left"; }
-}
 import "./PeriodBar.css";
 
 export default function PeriodBar({
@@ -65,14 +50,7 @@ export default function PeriodBar({
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [themeMenuRect, setThemeMenuRect] = useState(null);
   const [visible,       setVisible]       = useState(false);
-  const [sidebarVisible, setSidebarVisible] = useState(false);
-  const [menuEdge, setMenuEdgeState] = useState(loadPeriodMenuEdge);
-  const [edgePickerOpen, setEdgePickerOpen] = useState(false);
-  const setMenuEdge = (edge) => {
-    setMenuEdgeState(edge);
-    setEdgePickerOpen(false);
-    try { localStorage.setItem(PERIOD_MENU_EDGE_KEY, edge); } catch (_) {}
-  };
+  const [menuEdge, setMenuEdge] = usePeriodMenuEdge("classboard_period_menu_edge");
   const [isFullscreen,  setIsFullscreen]  = useState(false);
   // "off": no folder chosen. "on": chosen and writable. "needs-permission":
   // a folder was chosen in an earlier session but the browser hasn't
@@ -84,7 +62,6 @@ export default function PeriodBar({
   const autosaveHandleRef = useRef(null);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
-  const sidebarHideTimer = useRef(null);
   const themeMenuRef = useRef(null);
   const themeBtnRef = useRef(null);
 
@@ -391,11 +368,6 @@ export default function PeriodBar({
     if (!visible) setThemeMenuOpen(false);
   }, [visible]);
 
-  const showSidebar = () => { clearTimeout(sidebarHideTimer.current); setSidebarVisible(true); };
-  const scheduleHideSidebar = () => {
-    sidebarHideTimer.current = setTimeout(() => { setSidebarVisible(false); setEdgePickerOpen(false); }, 300);
-  };
-
   const openTeacherView = () => {
     const bounds = loadTeacherViewBounds();
     // Floored (not just defaulted) so a size saved from before the student
@@ -447,54 +419,14 @@ export default function PeriodBar({
     reader.readAsText(file);
   };
 
-  // The period menu's contents — the same wherever it's docked.
-  const periodMenuItems = (
-    <>
-      {periods.map((p, i) => {
-        const isActive = i === currentPeriodIndex;
-        const isNext   = !isActive && autoMode && currentPeriodIndex === -1 && i === nextPeriodIndex;
-        return (
-          <button
-            key={p.id ?? `${p.label}-${i}`}
-            className={`btn btn-sm period-btn ${isActive ? "period-btn-active" : isNext ? "period-btn-next" : "btn-ghost"}`}
-            onClick={() => onPeriodSelect(i)}
-            title={`${p.start}–${p.end}`}
-          >
-            {p.label}
-          </button>
-        );
-      })}
-      {/* Periods from other schedules that aren't on today's — still
-          selectable (to reach their boards), grayed out at the end. */}
-      {periodsNotInSchedule(schedules, scheduleType).map(p => (
-        <button
-          key={`off-${p.label}`}
-          className={`btn btn-sm period-btn period-btn-off ${p.label === offSchedulePeriodLabel ? "period-btn-active" : "btn-ghost"}`}
-          onClick={() => onOffSchedulePeriodSelect?.(p)}
-          title="Not in today's schedule"
-        >
-          {p.label}
-        </button>
-      ))}
-      <button
-        className={`btn btn-sm btn-ghost period-btn period-menu-settings ${edgePickerOpen ? "period-btn-next" : ""}`}
-        onClick={() => setEdgePickerOpen(o => !o)}
-        title="Period menu position"
-      >⚙</button>
-      {edgePickerOpen && (
-        <div className="period-edge-picker">
-          {PERIOD_MENU_EDGES.map(({ edge, icon, label }) => (
-            <button
-              key={edge}
-              className={`btn btn-sm period-btn ${menuEdge === edge ? "period-btn-active" : "btn-ghost"}`}
-              onClick={() => setMenuEdge(edge)}
-              title={`Dock to ${label}`}
-            >{icon}</button>
-          ))}
-        </div>
-      )}
-    </>
-  );
+  // Same menu (and same props) wherever it's docked — see PeriodMenu.
+  const periodMenuProps = {
+    schedules, scheduleType,
+    currentPeriodIndex, nextPeriodIndex, autoMode,
+    onPeriodSelect,
+    offSchedulePeriodLabel, onOffSchedulePeriodSelect,
+    edge: menuEdge, onEdgeChange: setMenuEdge,
+  };
 
   return (
     <>
@@ -624,28 +556,13 @@ export default function PeriodBar({
         </div>
         {/* Period menu docked to the top: a row right under the toolbar,
             shown and hidden with it. */}
-        {menuEdge === "top" && <div className="period-toolbar-periods">{periodMenuItems}</div>}
+        {menuEdge === "top" && <div className="period-toolbar-periods"><PeriodMenu {...periodMenuProps} inline /></div>}
       </div>
 
       {/* Docked to any other edge: an invisible hover zone along that edge
           slides the period menu out from it, so the top toolbar doesn't
           have to grow with the schedule's period count. */}
-      {menuEdge !== "top" && (
-        <>
-          <div
-            className={`period-sidebar-trigger period-sidebar-trigger--${menuEdge}`}
-            onMouseEnter={showSidebar}
-            onMouseLeave={scheduleHideSidebar}
-          />
-          <div
-            className={`period-sidebar period-sidebar--${menuEdge}${sidebarVisible ? " period-sidebar--visible" : ""}`}
-            onMouseEnter={showSidebar}
-            onMouseLeave={scheduleHideSidebar}
-          >
-            {periodMenuItems}
-          </div>
-        </>
-      )}
+      {menuEdge !== "top" && <PeriodMenu {...periodMenuProps} />}
 
       {editorOpen && (
         <ScheduleEditor

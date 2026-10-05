@@ -197,6 +197,7 @@
 .period-sidebar-trigger--left   { top: 0; bottom: 0; left: 0;  width: 8px; }
 .period-sidebar-trigger--right  { top: 0; bottom: 0; right: 0; width: 8px; }
 .period-sidebar-trigger--bottom { left: 0; right: 0; bottom: 0; height: 8px; }
+.period-sidebar-trigger--top    { left: 0; right: 0; top: 0;    height: 8px; }
 
 /* ── Left periods sidebar — just the buttons themselves (each already has
    its own background/border via .period-btn), not wrapped in a toolbar-
@@ -249,7 +250,30 @@
   opacity: 1;
 }
 
-/* Top: a row inside the toolbar container, just under the toolbar itself. */
+/* Top, in a window with no hover toolbar of its own to sit under (the
+   seating chart): a row centered along the top edge, like bottom. */
+.period-sidebar--top {
+  top: 0;
+  left: 50%;
+  flex-direction: row;
+  align-items: center;
+  max-width: 96vw;
+  overflow-x: auto;
+  transform: translateX(-50%) translateY(-110%);
+  /* Lands on top of that window's own always-visible toolbar, so it needs
+     a solid backing or the toolbar's buttons show through between ours. */
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.period-sidebar--top.period-sidebar--visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Top on the main board: a row inside the toolbar container, just under the toolbar itself. */
 .period-toolbar-periods {
   display: flex;
   align-items: center;

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import SeatingChart from "./components/SeatingChart";
-import { loadSchedules, resolveActivePeriod, loadActivePeriod } from "./data/schedules";
+import PeriodMenu from "./components/PeriodMenu";
+import { usePeriodMenuEdge } from "./data/periodMenu";
+import { loadSchedules, resolveActivePeriod, resolveActivePeriodIndex, loadActivePeriod, saveActivePeriod, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
 import { loadPeriodData } from "./data/periodData";
 import { applyTheme } from "./data/themes";
 import { saveSeatingViewBounds } from "./data/teacherView";
@@ -41,6 +43,22 @@ export default function SeatingView() {
   const currentPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
+  // The same slide-out period menu as the main board. Picking a period here
+  // writes the shared active-period key, which the main board listens for
+  // and follows — so this switches the whole board, not just this window
+  // (and still works with no board window open at all).
+  const [menuEdge, setMenuEdge] = usePeriodMenuEdge("classboard_seating_period_menu_edge");
+  const currentPeriodIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
+  const nextPeriodIndex    = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
+  const autoMode = activePeriod?.autoMode !== false;
+  const offSchedulePeriodLabel = !autoMode && currentPeriodIndex === -1 ? activePeriod?.label ?? null : null;
+  const pickPeriod = (label, isScheduledNow) => {
+    // Same rule as the board: picking whatever's scheduled right now means Auto.
+    const next = { autoMode: isScheduledNow, label };
+    saveActivePeriod(next.autoMode, next.label);
+    setActivePeriod(next);
+  };
+
   const currentNames = periodKey ? (periodData[periodKey]?.names ?? []) : [];
 
   const periodTheme  = periodKey ? periodData[periodKey]?.theme : null;
@@ -59,11 +77,28 @@ export default function SeatingView() {
   }, []);
 
   return (
-    <SeatingChart
-      names={currentNames}
-      periodLabel={currentPeriod?.label}
-      periodKey={periodKey}
-      onClose={() => window.close()}
-    />
+    <>
+      <SeatingChart
+        names={currentNames}
+        periodLabel={currentPeriod?.label}
+        periodKey={periodKey}
+        onClose={() => window.close()}
+      />
+      <PeriodMenu
+        schedules={schedules}
+        scheduleType={scheduleType}
+        currentPeriodIndex={currentPeriodIndex}
+        nextPeriodIndex={nextPeriodIndex}
+        autoMode={autoMode}
+        onPeriodSelect={i => {
+          const scheduled = detectCurrentPeriod(periods);
+          pickPeriod(periods[i]?.label, scheduled >= 0 && i === scheduled);
+        }}
+        offSchedulePeriodLabel={offSchedulePeriodLabel}
+        onOffSchedulePeriodSelect={p => pickPeriod(p.label, false)}
+        edge={menuEdge}
+        onEdgeChange={setMenuEdge}
+      />
+    </>
   );
 }
