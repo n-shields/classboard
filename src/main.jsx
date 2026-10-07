@@ -46,6 +46,15 @@ import DEFAULT_BOARD from './data/defaultBoard.json'
   }
 }());
 
+// Escape takes focus off whatever pane/field has it, so the board's global
+// hotkeys (which ignore keys typed into a field) work again. Left to an open
+// dialog when there is one — those handle Escape themselves.
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || document.querySelector('.modal-overlay')) return;
+  const el = document.activeElement;
+  if (el && el !== document.body) el.blur();
+});
+
 const view = new URLSearchParams(window.location.search).get('view');
 
 createRoot(document.getElementById('root')).render(
