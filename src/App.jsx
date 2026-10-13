@@ -330,8 +330,11 @@ export default function App() {
   }, [clockPeriodIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Let popup windows (Teacher View, seating chart) mirror whichever period
-  // is active here, instead of independently time-detecting their own.
+  // is active here, instead of independently time-detecting their own. Not
+  // from a Clone window, though — it's for browsing other periods, so its
+  // picks must stay out of the shared key the main board follows.
   useEffect(() => {
+    if (isBoardPopup) return;
     saveActivePeriod(autoMode, (offSchedulePeriod ?? currentPeriod)?.label ?? null);
   }, [autoMode, currentPeriod, offSchedulePeriod]);
 
@@ -360,6 +363,7 @@ export default function App() {
     periodSelectRef.current = { periods, schedules, scheduleType, selectPeriod, selectOffSchedulePeriod };
   });
   useEffect(() => {
+    if (isBoardPopup) return; // a Clone window keeps its own period
     const onStorage = (e) => {
       if (e.key !== "classboard_active_period" || !e.newValue) return;
       if (!periodSelectRef.current) return;
