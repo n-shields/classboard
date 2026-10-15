@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { playClick, playDing, isGemsSoundMuted, setGemsSoundMuted } from "../data/sounds";
-import { GEMS_REPEAT_MS } from "../data/gems";
+import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
 import "./StudentList.css";
 
 const FALLBACK_PIE_COLORS = ["#e94560", "#0f3460", "#533483", "#1a7431", "#b5451b", "#1e8bc3"];
@@ -258,8 +258,10 @@ export default function StudentList({
   // pre-hold value, so every repeat would land the same total again.
   const gemsRef = useRef(gems);
   useEffect(() => { gemsRef.current = gems; }, [gems]);
-  const adjustGems = (name, delta) => {
+  // `direction` is ±1 per press (±10 with Shift), scaled by gemsStep.
+  const adjustGems = (name, direction) => {
     const current = gemsRef.current[name] || 0;
+    const delta = Math.sign(direction) * gemsStep(current, Math.abs(direction));
     const next = { ...gemsRef.current, [name]: Math.max(0, current + delta) };
     gemsRef.current = next;
     onGemsChange?.(next);

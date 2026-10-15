@@ -13,7 +13,7 @@ import {
   isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
 } from "../data/autosave";
-import { GEMS_REPEAT_MS } from "../data/gems";
+import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
 import { collectData, doExport } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 
@@ -192,7 +192,7 @@ export default function PeriodBar({
   // Keyboard shortcuts, active whenever no text field has focus:
   //   ←/→ and ↑/↓  cycle the active period (wraps; disables auto-detect,
   //                same as clicking a period button)
-  //   +/- (or =/-) give or take 1 gem from every student, or 10 with Shift
+  //   +/- (or =/-) give or take a step (1% of each student's own total, min 1 — see gemsStep) from every student, 10 steps with Shift
   //                held — held keys repeat at a fixed rate via our own timer
   //                rather than relying on the browser's OS-driven key-repeat,
   //                which varies and starts after a delay. Applying a delta
@@ -251,7 +251,11 @@ export default function PeriodBar({
       const handler = onGemsChangeRef.current;
       if (!handler) return;
       const next = { ...gemsRef.current };
-      for (const name of namesRef.current) next[name] = Math.max(0, (next[name] || 0) + delta);
+      // `delta` is ±1 (±10 with Shift), scaled per student by gemsStep.
+      for (const name of namesRef.current) {
+        const current = next[name] || 0;
+        next[name] = Math.max(0, current + Math.sign(delta) * gemsStep(current, Math.abs(delta)));
+      }
       handler(next);
       if (delta > 0) playDing(); else playClick();
       // A deliberate adjustment means someone's using the list now.
