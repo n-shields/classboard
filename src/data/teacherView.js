@@ -22,3 +22,9 @@ export function saveSeatingViewBounds(bounds) { saveBounds(SEATING_VIEW_BOUNDS_K
 
 export function loadBoardViewBounds() { return loadBounds(BOARD_VIEW_BOUNDS_KEY); }
 export function saveBoardViewBounds(bounds) { saveBounds(BOARD_VIEW_BOUNDS_KEY, bounds); }
+
+// The primary board window's viewport size, so a Clone window can render at
+// that same size and scale itself down (text and all) to fit its own window.
+export const MAIN_BOARD_SIZE_KEY = "classboard_main_board_size";
+export function loadMainBoardSize() { return loadBounds(MAIN_BOARD_SIZE_KEY); }
+export function saveMainBoardSize(size) { saveBounds(MAIN_BOARD_SIZE_KEY, size); }

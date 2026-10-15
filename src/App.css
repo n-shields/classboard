@@ -4,3 +4,6 @@
   height: 100vh;
   overflow: hidden;
 }
+/* A Clone window sizes #root itself (see App's scaling effect), so the board
+   fills that instead of the window's real height. */
+.board-scaled .app { height: 100%; }

@@ -16,7 +16,7 @@ import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, 
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
-import { saveBoardViewBounds } from "./data/teacherView";
+import { saveBoardViewBounds, loadMainBoardSize, saveMainBoardSize, MAIN_BOARD_SIZE_KEY } from "./data/teacherView";
 import { playClick, playDing } from "./data/sounds";
 import "./App.css";
 
@@ -272,6 +272,40 @@ export default function App() {
     const id = setInterval(save, 2000);
     window.addEventListener("beforeunload", save);
     return () => { clearInterval(id); window.removeEventListener("beforeunload", save); };
+  }, []);
+
+  // Scale a Clone window as a miniature of the primary board: the primary
+  // records its viewport size, and the clone lays itself out at that size
+  // (stretched along whichever axis has extra room, so it still fills the
+  // window) and then scales the whole thing — text included — to fit.
+  useEffect(() => {
+    if (!isBoardPopup) {
+      const save = () => saveMainBoardSize({ width: window.innerWidth, height: window.innerHeight });
+      save();
+      window.addEventListener("resize", save);
+      return () => window.removeEventListener("resize", save);
+    }
+    const root = document.getElementById("root");
+    document.documentElement.classList.add("board-scaled");
+    const fit = () => {
+      const ref = loadMainBoardSize();
+      const w = window.innerWidth, h = window.innerHeight;
+      const scale = ref ? Math.min(w / ref.width, h / ref.height) : 1;
+      Object.assign(root.style, {
+        width: `${w / scale}px`,
+        height: `${h / scale}px`,
+        transform: scale === 1 ? "" : `scale(${scale})`,
+        transformOrigin: "0 0",
+      });
+    };
+    const onStorage = (e) => { if (e.key === MAIN_BOARD_SIZE_KEY) fit(); };
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   // ── Schedule auto-selection ──────────────────────────────────────────────
