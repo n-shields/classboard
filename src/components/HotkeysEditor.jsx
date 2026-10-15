@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { SOUND_PRESETS, soundById } from "../data/soundHotkeys";
+import { SOUND_PRESETS, SOUND_CLIPS, soundById } from "../data/soundHotkeys";
 import { loadCustomSounds, addCustomSound, removeCustomSound, playDataUrl, MAX_CUSTOM_SOUND_BYTES } from "../data/customSounds";
 import "./HotkeysEditor.css";
 
@@ -123,6 +123,9 @@ export default function HotkeysEditor({ hotkeys, onChange, onClose }) {
                 >
                   <optgroup label="Presets">
                     {SOUND_PRESETS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </optgroup>
+                  <optgroup label="Sound clips">
+                    {SOUND_CLIPS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                   </optgroup>
                   {customSounds.length > 0 && (
                     <optgroup label="Custom">
