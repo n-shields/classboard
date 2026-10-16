@@ -200,6 +200,7 @@ export default function PeriodBar({
   //                stays open until the teacher closes it (Space, Escape, or
   //                clicking off).
   //   a            toggles auto-detect period
+  //   Tab          toggles compact mode (handled in App — see data/compactLayout)
   //   (custom)     plays a sound effect — assigned from Teacher View's
   //                "🔊 Hotkeys" button, see soundHotkeys / HotkeysEditor
   const periods = schedules[scheduleType] || [];

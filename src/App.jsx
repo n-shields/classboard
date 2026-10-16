@@ -17,6 +17,7 @@ import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGr
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import { saveBoardViewBounds, loadMainBoardSize, saveMainBoardSize, MAIN_BOARD_SIZE_KEY } from "./data/teacherView";
+import { DEFAULT_COMPACT_LAYOUT, loadCompactLayouts, saveCompactLayouts, sanitizeCompactTree, loadCompactSession, saveCompactSession } from "./data/compactLayout";
 import { playClick, playDing } from "./data/sounds";
 import "./App.css";
 
@@ -125,6 +126,14 @@ function loadLayouts() {
 // life of the window, so no need for state.
 const isBoardPopup = typeof window !== "undefined" && !!window.opener;
 
+// Best effort — a browser ignores this for a window the page didn't open.
+function resizeWindow(b) {
+  try {
+    window.resizeTo(b.width, b.height);
+    if (Number.isFinite(b.left)) window.moveTo(b.left, b.top);
+  } catch (_) {}
+}
+
 export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
@@ -187,6 +196,13 @@ export default function App() {
 
   // Layout tree
   const [layout, setLayout] = useState(loadLayout);
+
+  // Compact mode (Tab) — see data/compactLayout. The ref mirrors the state
+  // synchronously so resize listeners can tell a compact-window resize from
+  // the restore that happens on the way out.
+  const [compact, setCompact] = useState(() => !!loadCompactSession());
+  const compactRef        = useRef(compact);
+  const compactLayoutsRef = useRef(loadCompactLayouts());
 
   // Bumped to force PeriodBar's (otherwise self-contained) student list
   // open from outside it — see handleNoiseChallengeResult.
@@ -265,7 +281,7 @@ export default function App() {
   // which would otherwise clobber the popup's own remembered spot.
   useEffect(() => {
     if (!isBoardPopup) return;
-    const save = () => saveBoardViewBounds({
+    const save = () => !compactRef.current && saveBoardViewBounds({
       left: window.screenX, top: window.screenY,
       width: window.outerWidth, height: window.outerHeight,
     });
@@ -278,15 +294,22 @@ export default function App() {
   // records its viewport size, and the clone lays itself out at that size
   // (stretched along whichever axis has extra room, so it still fills the
   // window) and then scales the whole thing — text included — to fit.
+  // Compact mode opts out on both ends: the primary's small window isn't the
+  // size clones should mimic, and a compact clone is laid out on its own.
   useEffect(() => {
     if (!isBoardPopup) {
-      const save = () => saveMainBoardSize({ width: window.innerWidth, height: window.innerHeight });
+      if (compact) return;
+      const save = () => !compactRef.current && saveMainBoardSize({ width: window.innerWidth, height: window.innerHeight });
       save();
       window.addEventListener("resize", save);
       return () => window.removeEventListener("resize", save);
     }
     const root = document.getElementById("root");
     document.documentElement.classList.add("board-scaled");
+    if (compact) {
+      Object.assign(root.style, { width: "", height: "", transform: "" });
+      return;
+    }
     const fit = () => {
       const ref = loadMainBoardSize();
       const w = window.innerWidth, h = window.innerHeight;
@@ -306,7 +329,92 @@ export default function App() {
       window.removeEventListener("resize", fit);
       window.removeEventListener("storage", onStorage);
     };
+  }, [compact]);
+
+  // ── Compact mode (Tab) ───────────────────────────────────────────────────
+  // Tab shrinks this window to the compact format and back. Browsers only
+  // let a page resize a window it opened as a popup (a Clone window, say) —
+  // in an ordinary tab the layout still switches, but the window stays put.
+  // Fullscreen is left first (a fullscreen window can't be resized) and
+  // re-entered on the way back; the Tab keypress counts as the user gesture
+  // requestFullscreen needs.
+  const periodKeyRef = useRef(periodKey);
+  useEffect(() => { periodKeyRef.current = periodKey; }, [periodKey]);
+  const toggleCompact = useCallback(() => {
+    if (!compactRef.current) {
+      const wasFullscreen = !!document.fullscreenElement;
+      const full = { left: window.screenX, top: window.screenY, width: window.outerWidth, height: window.outerHeight, wasFullscreen };
+      const saved = compactLayoutsRef.current[periodKeyRef.current ?? ""];
+      let size;
+      if (saved?.width && saved?.height) {
+        size = { width: saved.width, height: saved.height };
+      } else {
+        // Default: as wide as the clock pane is right now (plus the window's
+        // own frame), full height.
+        const clock = document.querySelector('.tl-slot[data-tile="clock"]');
+        const clockWidth = clock ? clock.getBoundingClientRect().width : 360;
+        size = { width: Math.round(clockWidth + (window.outerWidth - window.innerWidth)), height: window.outerHeight };
+      }
+      // Keep the right edge where it was, since the clock lives on the right
+      // in the default layout.
+      const target = { ...size, left: full.left + full.width - size.width, top: full.top };
+      compactRef.current = true;
+      saveCompactSession({ full });
+      setCompact(true);
+      if (wasFullscreen) {
+        document.exitFullscreen().then(() => setTimeout(() => resizeWindow(target), 150)).catch(() => {});
+      } else {
+        resizeWindow(target);
+      }
+    } else {
+      const full = loadCompactSession()?.full;
+      compactRef.current = false;
+      saveCompactSession(null);
+      setCompact(false);
+      if (full) {
+        resizeWindow(full);
+        if (full.wasFullscreen) document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Tab" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      if (document.querySelector(".modal-overlay")) return;
+      e.preventDefault();
+      if (!e.repeat) toggleCompact();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleCompact]);
+
+  // While compact, remember this period's window size whenever it's resized.
+  useEffect(() => {
+    if (!compact) return;
+    let timer = null;
+    const save = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!compactRef.current || document.fullscreenElement) return;
+        const key = periodKeyRef.current ?? "";
+        const map = compactLayoutsRef.current;
+        compactLayoutsRef.current = { ...map, [key]: { ...map[key], width: window.outerWidth, height: window.outerHeight } };
+        saveCompactLayouts(compactLayoutsRef.current);
+      }, 400);
+    };
+    window.addEventListener("resize", save);
+    return () => { clearTimeout(timer); window.removeEventListener("resize", save); };
+  }, [compact]);
+
+  // Switching periods while compact takes on that period's saved size.
+  useEffect(() => {
+    if (!compactRef.current) return;
+    const saved = compactLayoutsRef.current[periodKey ?? ""];
+    if (saved?.width && saved?.height) resizeWindow({ width: saved.width, height: saved.height });
+  }, [periodKey]);
 
   // ── Schedule auto-selection ──────────────────────────────────────────────
   useEffect(() => {
@@ -419,13 +527,20 @@ export default function App() {
 
   // ── Per-period layout: restore on period change ──────────────────────────
   useEffect(() => {
-    if (!periodKey) return;
+    if (!periodKey) {
+      if (compact) setLayout(sanitizeCompactTree(compactLayoutsRef.current[""]?.tree) ?? DEFAULT_COMPACT_LAYOUT);
+      return;
+    }
     justSwitchedRef.current = true;
     const saved = layoutsRef.current[periodKey];
     if (saved?.collapsed) {
       setCollapsed({ ...DEFAULT_COLLAPSED, ...saved.collapsed });
     } else {
       setCollapsed({ ...DEFAULT_COLLAPSED });
+    }
+    if (compact) {
+      setLayout(sanitizeCompactTree(compactLayoutsRef.current[periodKey]?.tree) ?? DEFAULT_COMPACT_LAYOUT);
+      return;
     }
     // Restore per-period tile layout (fall back to hard-coded default, not global)
     const hiddenTileIds = loadHiddenTileIds();
@@ -435,7 +550,7 @@ export default function App() {
     } else {
       setLayout(stripHiddenTiles(JSON.parse(JSON.stringify(DEFAULT_LAYOUT)), hiddenTileIds));
     }
-  }, [periodKey]);
+  }, [periodKey, compact]);
 
   // ── Per-period layout: save on collapse change ───────────────────────────
   useEffect(() => {
@@ -447,6 +562,19 @@ export default function App() {
 
   // ── Layout persistence ───────────────────────────────────────────────────
   const handleLayoutChange = useCallback((updater) => {
+    // Compact mode keeps its own per-period tree, and leaving tiles out is
+    // its whole point — so that's not recorded as hiding them (trackHidden).
+    if (compact) {
+      setLayout(prev => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        const key = periodKey ?? "";
+        const map = compactLayoutsRef.current;
+        compactLayoutsRef.current = { ...map, [key]: { ...map[key], tree: next } };
+        saveCompactLayouts(compactLayoutsRef.current);
+        return next;
+      });
+      return;
+    }
     const persist = (next) => {
       if (periodKey) {
         // Save per-period only; don't pollute the global default
@@ -476,7 +604,7 @@ export default function App() {
       persist(next);
       return next;
     });
-  }, [periodKey]);
+  }, [periodKey, compact]);
 
   // ── Data persistence ─────────────────────────────────────────────────────
   const savePeriod = useCallback((key, patch) => {
