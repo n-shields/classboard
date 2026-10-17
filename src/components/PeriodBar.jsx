@@ -442,7 +442,15 @@ export default function PeriodBar({
       localStorage.setItem(IMPORT_URL_KEY, entered.trim());
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText}`);
-      const entries = parseImport(await res.text());
+      const text = await res.text();
+      // A share link that points at a viewer/sign-in page (or a 404 page)
+      // comes back as HTML rather than the file — say so plainly instead of
+      // surfacing JSON.parse's "Unexpected token '<'".
+      if (/^\s*</.test(text)) {
+        alert(`That address returned a web page, not the JSON file itself:\n${url}\n\nUse a link that downloads the raw file — e.g. the "Raw" button's link on GitHub, or a Gist's raw link. If it's a GitHub Pages address, check the file path (a missing file shows a 404 page).`);
+        return;
+      }
+      const entries = parseImport(text);
       if (!window.confirm("Replace this board's data with the imported file?")) return;
       applyImport(entries);
     } catch (err) {
