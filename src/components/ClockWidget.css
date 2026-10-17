@@ -10,11 +10,11 @@
   position: relative;
 }
 
-/* Mode cycle arrows — top right */
+/* Mode cycle arrows — top right, just left of the tile's hide button */
 .clock-mode-nav {
   position: absolute;
   top: 8px;
-  right: 8px;
+  right: 32px;
   display: flex;
   align-items: center;
   gap: 4px;

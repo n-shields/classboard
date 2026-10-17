@@ -127,9 +127,10 @@
   object-fit: cover;
 }
 
+/* Top-right items here sit below the tile's swap/hide buttons (top 8–26px). */
 .freeze-badge {
   position: absolute;
-  top: 8px;
+  top: 32px;
   right: 8px;
   background: rgba(91,141,238,0.85);
   color: #fff;
@@ -168,7 +169,7 @@
 /* Clock overlay — top-right, clickable to dismiss */
 .camera-clock-overlay {
   position: absolute;
-  top: 16px;
+  top: 32px;
   right: 16px;
   font-size: clamp(1.2rem, 3vw, 2rem);
   font-weight: 700;
@@ -195,7 +196,7 @@
 /* Ghost restore button when clock is hidden */
 .camera-clock-restore {
   position: absolute;
-  top: 12px;
+  top: 32px;
   right: 12px;
   z-index: 3;
   background: rgba(0, 0, 0, 0.3);

@@ -1,5 +1,5 @@
 import { useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { moveTile, swapLeaves, isPaneTile } from "../data/layout";
+import { moveTile, swapLeaves, removeLeaf, isPaneTile } from "../data/layout";
 import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./TileLayout.css";
 
@@ -64,7 +64,7 @@ function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const maximized = maximizedId === id;
   const didDrag = useRef(false);
@@ -125,6 +125,16 @@ function TileSlot({ id, content }) {
           onClick={() => onDeleteTab?.(id)}
           title="Delete this tab"
         >✕</button>
+      )}
+      {/* Every other tile gets a plain hide button in that same corner —
+          it only leaves the layout (the Layout tool brings it back), so
+          nothing is lost. Not offered on the last tile left, or maximized. */}
+      {!collapsed && !maximized && !pagePayload && canHide && (
+        <button
+          className="tl-hide-btn"
+          onClick={() => onHide(id)}
+          title={`Hide ${name || "this pane"} (bring it back from ▦ Layout)`}
+        >×</button>
       )}
       {/* Suppress the overlay on the pane a tab drag started from — dropping
           a tab back onto its own pane isn't a meaningful move. */}
@@ -250,9 +260,14 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
     return () => document.removeEventListener("dragend", handler);
   }, []);
 
+  const onHide = useCallback((id) => {
+    onLayoutChange(prev => removeLeaf(prev, id) ?? prev);
+  }, [onLayoutChange]);
+  const canHide = typeof layout !== "string"; // never hide the only tile
+
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId }),
-    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide }),
+    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, onHide, canHide],
   );
 
   return (
