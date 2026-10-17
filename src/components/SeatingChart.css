@@ -546,3 +546,27 @@
 .seating-rules-tag:hover {
   border-color: var(--border, rgba(255,255,255,0.12));
 }
+
+/* ── Plain view — white background, black desk outlines and text. Only the
+   chart area changes; the toolbar and sidebar keep the app theme. Selection
+   still uses the accent color so editing stays readable. ── */
+.seating-overlay--plain .seating-canvas-wrap { background: #fff; }
+.seating-overlay--plain .seating-canvas { background: #fff; background-image: none; }
+.seating-overlay--plain .seating-card,
+.seating-overlay--plain .seating-card--empty,
+.seating-overlay--plain .seating-card--door,
+.seating-overlay--plain .seating-card--teacher {
+  background: #fff;
+  border: 2px solid #000;
+  color: #000;
+  box-shadow: none;
+}
+.seating-overlay--plain .seating-card--teacher,
+.seating-overlay--plain .seating-card--pinned { border-style: dashed; }
+.seating-overlay--plain .seating-card--empty { color: #777; }
+.seating-overlay--plain .seating-card:hover { border-color: #000; box-shadow: 0 0 0 1px #000; }
+.seating-overlay--plain .seating-rect { border-color: #000; background: transparent; }
+.seating-overlay--plain .seating-front-label { color: #000; }
+.seating-overlay--plain .seating-front-label:hover,
+.seating-overlay--plain .seating-front-label:active { color: #000; background: rgba(0, 0, 0, 0.06); }
+.seating-overlay--plain .seating-fullscreen-btn { color: #000; }

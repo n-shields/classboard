@@ -93,7 +93,7 @@ function findFreeSpot(occupied) {
 
 function loadPositions(p) { try { return JSON.parse(localStorage.getItem(STORAGE_KEY(p)) || "null"); } catch (_) { return null; } }
 function savePositions(p, v) { try { localStorage.setItem(STORAGE_KEY(p), JSON.stringify(v)); } catch (_) {} }
-const DEFAULT_UI = { showDoor: true, showTeacher: true, rotation: 0, frontDir: "top" };
+const DEFAULT_UI = { showDoor: true, showTeacher: true, rotation: 0, frontDir: "top", plain: false };
 function loadUI(p) { try { return { ...DEFAULT_UI, ...JSON.parse(localStorage.getItem(SEATING_UI_KEY(p)) || "{}") }; } catch (_) { return { ...DEFAULT_UI }; } }
 function saveUI(p, v) { try { localStorage.setItem(SEATING_UI_KEY(p), JSON.stringify(v)); } catch (_) {} }
 function loadRects(p) { try { return JSON.parse(localStorage.getItem(RECTS_KEY(p)) || "[]"); } catch (_) { return []; } }
@@ -123,6 +123,9 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const [zoom,        setZoom]        = useState(1);
   const [showDoor,    setShowDoor]    = useState(initUI.showDoor);
   const [showTeacher, setShowTeacher] = useState(initUI.showTeacher);
+  // Plain: white background, black desk outlines and text — no theme colors
+  // (e.g. for printing or a projector that washes out dark backgrounds).
+  const [plain,       setPlain]       = useState(initUI.plain);
   const [rects,       setRects]       = useState(() => loadRects(periodKey));
   const [desks,       setDesks]       = useState(() => initDesks);
   const [drawMode,    setDrawMode]    = useState(false);
@@ -179,7 +182,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   }, []); // eslint-disable-line
 
   useEffect(() => { savePositions(periodKey, positions); }, [positions, periodKey]);
-  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation, frontDir, frontPos }); }, [showDoor, showTeacher, rotation, frontDir, frontPos, periodKey]);
+  useEffect(() => { saveUI(periodKey, { showDoor, showTeacher, rotation, frontDir, frontPos, plain }); }, [showDoor, showTeacher, rotation, frontDir, frontPos, plain, periodKey]);
   useEffect(() => { saveRects(periodKey, rects); }, [rects, periodKey]);
   useEffect(() => { saveDesks(periodKey, desks); }, [desks, periodKey]);
   useEffect(() => { saveConstraints(periodKey, constraints); }, [constraints, periodKey]);
@@ -504,7 +507,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     const orig = el.style.transform;
     el.style.transform = "none";
     try {
-      const url = await toPng(el, { backgroundColor: "#0f172a", width: CANVAS_W, height: CANVAS_H });
+      const url = await toPng(el, { backgroundColor: plain ? "#ffffff" : "#0f172a", width: CANVAS_W, height: CANVAS_H });
       const a = document.createElement("a");
       a.href = url;
       a.download = `seating${periodLabel ? `-${periodLabel}` : ""}.png`;
@@ -514,7 +517,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
     } finally {
       el.style.transform = orig;
     }
-  }, [periodLabel]);
+  }, [periodLabel, plain]);
 
   const handleSave   = useCallback(() => onClose(), [onClose]);
   const handleCancel = useCallback(() => {
@@ -785,7 +788,7 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
   const selSeats = selectedSeats();
 
   return (
-    <div className="seating-overlay" ref={rootRef}>
+    <div className={`seating-overlay${plain ? " seating-overlay--plain" : ""}`} ref={rootRef}>
       <div className="seating-toolbar">
         <span className="seating-title">{periodLabel ? `${periodLabel} — Seating` : "Seating Chart"}</span>
         <button className="seating-tb-btn" onClick={cycleRotation} title="Rotate view 90°">⟳ {rotation}°</button>
@@ -898,6 +901,11 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
           )}
         </div>
 
+        <button
+          className={`seating-tb-btn ${plain ? "seating-tb-btn--rect-on" : ""}`}
+          onClick={() => setPlain(v => !v)}
+          title="Plain view: white background, black desk outlines and text"
+        >◻ Plain</button>
         <button className="seating-tb-btn" onClick={handleDownload} title="Download as PNG">⬇ PNG</button>
         <button className="seating-tb-btn seating-tb-btn--save"   onClick={handleSave}   title="Save and close">Save</button>
         <button className="seating-tb-btn seating-tb-btn--cancel" onClick={handleCancel} title="Cancel changes (Escape)">Cancel</button>
