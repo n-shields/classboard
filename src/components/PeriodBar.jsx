@@ -14,7 +14,7 @@ import {
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
 } from "../data/autosave";
 import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
-import { collectData, doExport } from "../data/exportData";
+import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 
 import "./PeriodBar.css";
@@ -404,24 +404,54 @@ export default function PeriodBar({
     popup?.focus();
   };
 
+  // Shared by file and URL import: the classboard_ entries of an exported
+  // snapshot (throwing if it isn't one), then writing them back into
+  // localStorage and letting App reload.
+  const parseImport = (text) => {
+    const data = JSON.parse(text);
+    if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("not a Classboard export");
+    const entries = Object.entries(data).filter(([k, v]) => k.startsWith("classboard_") && v != null);
+    if (!entries.length) throw new Error("no Classboard data found in it");
+    return entries;
+  };
+  const applyImport = (entries) => {
+    entries.forEach(([k, v]) => localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)));
+    onImport?.();
+  };
+
   const handleImportFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const data = JSON.parse(ev.target.result);
-        Object.entries(data).forEach(([k, v]) => {
-          if (!k.startsWith("classboard_") || v == null) return;
-          localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
-        });
-        onImport?.();
+        applyImport(parseImport(ev.target.result));
       } catch (err) {
         alert("Could not read file: " + err.message);
       }
       e.target.value = "";
     };
     reader.readAsText(file);
+  };
+
+  const handleImportUrl = async () => {
+    const entered = window.prompt("Import Classboard data from a JSON file at this URL:", localStorage.getItem(IMPORT_URL_KEY) || "");
+    if (!entered?.trim()) return;
+    const url = directDownloadUrl(entered.trim());
+    try {
+      localStorage.setItem(IMPORT_URL_KEY, entered.trim());
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText}`);
+      const entries = parseImport(await res.text());
+      if (!window.confirm("Replace this board's data with the imported file?")) return;
+      applyImport(entries);
+    } catch (err) {
+      // A TypeError from fetch is almost always CORS or a bad address —
+      // the browser hides which, so say both.
+      alert(err instanceof TypeError
+        ? "Couldn't download that URL. Check the address, and that the site allows downloads from other pages (GitHub raw files, Gists, and Dropbox links do; Google Drive and OneDrive share links don't)."
+        : "Could not import from that URL: " + err.message);
+    }
   };
 
   // Same menu (and same props) wherever it's docked — see PeriodMenu.
@@ -536,6 +566,7 @@ export default function PeriodBar({
           {/* Import / export — pinned right */}
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
+          <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={handleImportUrl} title="Import data from a JSON file at a web address">🔗 Import URL</button>
           {isFileSystemAccessSupported() && (
             <button
               className={`btn btn-sm tb-btn ei-btn ${autosaveStatus === "on" ? "btn-primary" : "btn-ghost"}`}
