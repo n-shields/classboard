@@ -32,6 +32,15 @@ export function doExport() {
   URL.revokeObjectURL(url);
 }
 
+// Hosts that refuse to hand a file to another web page at all — e.g. Google
+// Drive's download host answers 403 to any browser cross-site request (it
+// only serves direct visits and non-browser clients), so no link rewrite
+// helps. Import URL explains this up front instead of failing vaguely.
+const NO_CORS_HOSTS = /(^|\.)(drive\.google\.com|docs\.google\.com|drive\.usercontent\.google\.com|onedrive\.live\.com|1drv\.ms|sharepoint\.com)$/;
+export function isUnfetchableHost(input) {
+  try { return NO_CORS_HOSTS.test(new URL(input).hostname); } catch (_) { return false; }
+}
+
 // The last address used with "Import URL", offered again next time.
 export const IMPORT_URL_KEY = "classboard_import_url";
 

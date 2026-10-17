@@ -14,7 +14,7 @@ import {
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
 } from "../data/autosave";
 import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
-import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl } from "../data/exportData";
+import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl, isUnfetchableHost } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 
 import "./PeriodBar.css";
@@ -437,9 +437,13 @@ export default function PeriodBar({
   const handleImportUrl = async () => {
     const entered = window.prompt("Import Classboard data from a JSON file at this URL:", localStorage.getItem(IMPORT_URL_KEY) || "");
     if (!entered?.trim()) return;
+    localStorage.setItem(IMPORT_URL_KEY, entered.trim());
+    if (isUnfetchableHost(entered.trim())) {
+      alert("Google Drive and OneDrive don't allow other web pages to download their files, so Classboard can't import from those links.\n\nInstead, put the file in a GitHub Gist (gist.github.com — paste the JSON, create it, then use its link), a GitHub repo, or Dropbox, and import from that link.");
+      return;
+    }
     const url = directDownloadUrl(entered.trim());
     try {
-      localStorage.setItem(IMPORT_URL_KEY, entered.trim());
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`the server answered ${res.status} ${res.statusText}`);
       const text = await res.text();
@@ -447,7 +451,7 @@ export default function PeriodBar({
       // comes back as HTML rather than the file — say so plainly instead of
       // surfacing JSON.parse's "Unexpected token '<'".
       if (/^\s*</.test(text)) {
-        alert(`That address returned a web page, not the JSON file itself:\n${url}\n\nUse a link that downloads the raw file — e.g. the "Raw" button's link on GitHub, or a Gist's raw link. If it's a GitHub Pages address, check the file path (a missing file shows a 404 page).`);
+        alert(`That address returned a web page, not the JSON file itself:\n${url}\n\nUse a link that downloads the raw file — e.g. the "Raw" button's link on GitHub, or a Gist's link. If it's a GitHub Pages address, check the file path (a missing file shows a 404 page).`);
         return;
       }
       const entries = parseImport(text);
@@ -457,7 +461,7 @@ export default function PeriodBar({
       // A TypeError from fetch is almost always CORS or a bad address —
       // the browser hides which, so say both.
       alert(err instanceof TypeError
-        ? "Couldn't download that URL. Check the address, and that the site allows downloads from other pages (GitHub raw files, Gists, and Dropbox links do; Google Drive and OneDrive share links don't)."
+        ? "Couldn't download that URL. Check the address, and that the site allows downloads from other pages (GitHub, Gist, and Dropbox links do)."
         : "Could not import from that URL: " + err.message);
     }
   };
