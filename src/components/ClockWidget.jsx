@@ -2,25 +2,43 @@ import { useState, useEffect, useRef, useCallback, useMemo, useContext, createCo
 import { secondsUntilEnd, secondsUntilStart } from "../data/schedules";
 import "./ClockWidget.css";
 
-const MODES = ["Period", "Timer"];
+const MODES = ["Period", "Timer"]; // a pane's default (Teacher View's)
 
 const CLOCK_SETTINGS_KEY = "classboard_clock_settings";
 
-export const FONT_SIZE_OPTIONS = [
-  { key: "sm", label: "S",  clockStyle: "clamp(1.5rem, 3vw, 3rem)"    },
-  { key: "md", label: "M",  clockStyle: "clamp(2.5rem, 5vw, 4.5rem)"  },
-  { key: "lg", label: "L",  clockStyle: "clamp(3.5rem, 7vw, 6rem)"    },
-  { key: "xl", label: "XL", clockStyle: "clamp(5rem, 10vw, 9rem)"     },
-];
+// Each mode's digits are this base size times its own scale, nudged with
+// the A− / A+ buttons in its settings panel.
+const BASE_FONT_SIZE = "clamp(2.5rem, 5vw, 4.5rem)";
+const FONT_SCALE_STEP = 1.15;
+const FONT_SCALE_MIN = 0.4;
+const FONT_SCALE_MAX = 4;
+// The scales the old fixed S/M/L/XL sizes came to, for carrying a saved
+// pick over — and back again for the camera overlay, which still sizes its
+// copy of the clock in those buckets.
+const LEGACY_FONT_SCALES = { sm: 0.6, md: 1, lg: 1.35, xl: 2 };
+function fontSizeKeyForScale(scale) {
+  return scale < 0.8 ? "sm" : scale < 1.17 ? "md" : scale < 1.65 ? "lg" : "xl";
+}
 
-const DEFAULT_SHOW_SECS = { Period: true, Timer: true };
+const DEFAULT_SHOW_SECS = { Period: true, Timer: true, Stopwatch: true };
 
 function loadClockSettings() {
+  const defaults = { use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS, showSmallClock: true };
   try {
-    const s = localStorage.getItem(CLOCK_SETTINGS_KEY);
-    if (s) return { fontSize: "md", use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS, showSmallClock: true, ...JSON.parse(s) };
+    const s = JSON.parse(localStorage.getItem(CLOCK_SETTINGS_KEY) || "null");
+    if (s) {
+      const legacy = LEGACY_FONT_SCALES[s.fontSize] ?? 1;
+      return {
+        ...defaults, ...s,
+        fontScaleByMode: { Period: legacy, Timer: legacy, Stopwatch: legacy, ...s.fontScaleByMode },
+      };
+    }
   } catch (_) {}
-  return { fontSize: "md", use24h: true, timerSound: false, showSecsByMode: DEFAULT_SHOW_SECS, showSmallClock: true };
+  return { ...defaults, fontScaleByMode: { Period: 1, Timer: 1, Stopwatch: 1 } };
+}
+
+function formatStopwatch(ms) {
+  return splitSecs(Math.floor(ms / 1000));
 }
 
 function saveClockSettings(settings) {
@@ -78,20 +96,21 @@ function SecSpan({ sec, show, onToggle }) {
 
 const ClockCtx = createContext(null);
 
-// The Period and Timer panes can sit in separate tiles or share one (see
-// COMBINABLE_IDS in data/layout), and get split apart or combined at will —
-// so the timer, settings, and keyboard shortcuts live here, once per board,
-// rather than in each pane, where combining or splitting would remount the
-// pane and lose a running timer (or double up the shortcuts).
+// The Period, Timer and Stopwatch panes can sit in separate tiles or share
+// one (see COMBINABLE_IDS in data/layout), and get split apart or combined
+// at will — so the timer, stopwatch, settings, and keyboard shortcuts live
+// here, once per board, rather than in each pane, where combining or
+// splitting would remount the pane and lose a running timer (or double up
+// the shortcuts).
 //
-// `mode` is whichever of Period/Timer was used last: what a combined pane
-// shows, and what the camera overlay mirrors (via onDisplayChange).
+// `mode` is whichever mode was used last: what a combined pane shows, and
+// what the camera overlay mirrors (via onDisplayChange).
 export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSettingsChange, children }) {
   const [mode, setMode] = useState("Period");
   const [now, setNow] = useState(new Date());
 
   const initSettings = useMemo(loadClockSettings, []);
-  const [fontSize,        setFontSize]        = useState(initSettings.fontSize);
+  const [fontScaleByMode, setFontScaleByMode] = useState(initSettings.fontScaleByMode);
   const [use24h,          setUse24h]          = useState(initSettings.use24h);
   const [timerSound,      setTimerSound]      = useState(initSettings.timerSound);
   const [showSmallClock]                      = useState(initSettings.showSmallClock ?? true);
@@ -112,12 +131,45 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
   const timerRef       = useRef(null);
   const lastDurationRef = useRef(10 * 60);
 
-  // Persist settings and notify parent whenever they change
+  const adjustFontScale = useCallback((modeName, dir) => {
+    setFontScaleByMode(prev => {
+      const next = (prev[modeName] ?? 1) * (dir > 0 ? FONT_SCALE_STEP : 1 / FONT_SCALE_STEP);
+      return { ...prev, [modeName]: Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, next)) };
+    });
+  }, []);
+
+  // Stopwatch: timed from timestamps rather than counted ticks, so it stays
+  // exact however the interval below drifts.
+  const [swRunning, setSwRunning] = useState(false);
+  const [swStartedAt, setSwStartedAt] = useState(0);
+  const [swBanked, setSwBanked] = useState(0); // ms from earlier runs
+  const [swNow, setSwNow] = useState(() => Date.now());
   useEffect(() => {
-    const settings = { fontSize, use24h, timerSound, showSecsByMode, showSmallClock };
+    if (!swRunning) return;
+    const id = setInterval(() => setSwNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [swRunning]);
+  const swElapsed = swBanked + (swRunning ? Math.max(0, swNow - swStartedAt) : 0);
+  const toggleStopwatch = () => {
+    const t = Date.now();
+    setMode("Stopwatch");
+    if (swRunning) { setSwBanked(b => b + (t - swStartedAt)); setSwRunning(false); }
+    else { setSwStartedAt(t); setSwNow(t); setSwRunning(true); }
+  };
+  const resetStopwatch = () => {
+    const t = Date.now();
+    setSwBanked(0);
+    setSwStartedAt(t);
+    setSwNow(t);
+  };
+
+  // Persist settings and notify parent whenever they change. `fontSize`
+  // (an S/M/L/XL bucket of the shown mode's scale) is for the camera overlay.
+  useEffect(() => {
+    const settings = { fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock };
     saveClockSettings(settings);
-    onSettingsChange?.(settings);
-  }, [fontSize, use24h, timerSound, showSecsByMode, showSmallClock]); // eslint-disable-line
+    onSettingsChange?.({ ...settings, fontSize: fontSizeKeyForScale(fontScaleByMode[mode] ?? 1) });
+  }, [fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, mode]); // eslint-disable-line
 
   // Clock tick
   useEffect(() => {
@@ -283,22 +335,26 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
   } else if (mode === "Timer") {
     const { main, sec } = splitSecs(timerSecs, !showSecsByMode.Timer);
     displayStr = main + (showSecsByMode.Timer ? `:${sec}` : "");
+  } else if (mode === "Stopwatch") {
+    const { main, sec } = formatStopwatch(swElapsed);
+    displayStr = main + (showSecsByMode.Stopwatch ? `:${sec}` : "");
   }
   useEffect(() => { onDisplayChange?.(displayStr); }, [displayStr]); // eslint-disable-line
 
   const value = {
     mode, setMode,
     currentPeriod, nextPeriod, periodRemaining, nextStarting,
-    fontSize, setFontSize, timerSound, setTimerSound,
+    fontScaleByMode, adjustFontScale, timerSound, setTimerSound,
     showSecsByMode, toggleSecs,
     timerSecs, timerInput, setTimerInput, timerRunning, timerDone,
     setPreset, toggleTimer, resetTimer, handleTimerInputBlur,
+    swElapsed, swRunning, toggleStopwatch, resetStopwatch,
   };
   return <ClockCtx.Provider value={value}>{children}</ClockCtx.Provider>;
 }
 
-// One pane showing `modes` — just "Period" or "Timer" on its own, or both
-// when combined, switched with the ‹ › arrows. `onSplit(mode)` (combined
+// One pane showing `modes` — "Period", "Timer" or "Stopwatch" on its own,
+// or several when combined, switched with the ‹ › arrows. `onSplit(mode)` (combined
 // panes only) pops that mode back out into a pane of its own.
 export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
   const c = useContext(ClockCtx);
@@ -327,8 +383,7 @@ export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
   }, [settingsOpen]);
 
   const { currentPeriod, nextPeriod, periodRemaining, nextStarting, showSecsByMode, toggleSecs } = c;
-  const fontSizeStyle = FONT_SIZE_OPTIONS.find(o => o.key === c.fontSize)?.clockStyle
-    ?? FONT_SIZE_OPTIONS[1].clockStyle;
+  const fontSizeStyle = `calc(${BASE_FONT_SIZE} * ${c.fontScaleByMode[mode] ?? 1})`;
 
   return (
     <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
@@ -350,28 +405,26 @@ export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
           )}
         </div>
 
-        {/* Settings panel */}
+        {/* Settings panel — for whichever mode is showing: its own size,
+            plus the sound option for Timer */}
         {settingsOpen && (
           <div className="clock-settings-panel" ref={settingsPanelRef}>
             <div className="clock-settings-row">
               <span className="clock-settings-label">Size</span>
               <div className="clock-settings-group">
-                {FONT_SIZE_OPTIONS.map(o => (
-                  <button
-                    key={o.key}
-                    className={`btn btn-sm ${c.fontSize === o.key ? "btn-primary" : "btn-ghost"}`}
-                    onClick={() => c.setFontSize(o.key)}
-                  >{o.label}</button>
-                ))}
+                <button className="btn btn-sm btn-ghost" onClick={() => c.adjustFontScale(mode, -1)} title="Smaller" disabled={(c.fontScaleByMode[mode] ?? 1) <= FONT_SCALE_MIN + 1e-6}>A−</button>
+                <button className="btn btn-sm btn-ghost" onClick={() => c.adjustFontScale(mode, 1)} title="Larger" disabled={(c.fontScaleByMode[mode] ?? 1) >= FONT_SCALE_MAX - 1e-6}>A+</button>
               </div>
             </div>
-            <div className="clock-settings-row">
-              <span className="clock-settings-label">Timer sound</span>
-              <div className="clock-settings-group">
-                <button className={`btn btn-sm ${c.timerSound ? "btn-primary" : "btn-ghost"}`}  onClick={() => c.setTimerSound(true)}>On</button>
-                <button className={`btn btn-sm ${!c.timerSound ? "btn-primary" : "btn-ghost"}`} onClick={() => c.setTimerSound(false)}>Off</button>
+            {mode === "Timer" && (
+              <div className="clock-settings-row">
+                <span className="clock-settings-label">Timer sound</span>
+                <div className="clock-settings-group">
+                  <button className={`btn btn-sm ${c.timerSound ? "btn-primary" : "btn-ghost"}`}  onClick={() => c.setTimerSound(true)}>On</button>
+                  <button className={`btn btn-sm ${!c.timerSound ? "btn-primary" : "btn-ghost"}`} onClick={() => c.setTimerSound(false)}>Off</button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
         {mode === "Period" && (() => {
@@ -433,6 +486,25 @@ export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
                 {[1, 2, 5, 10, 15].map(m => (
                   <button key={m} className="btn btn-ghost btn-sm" onClick={() => c.setPreset(m)}>{m}</button>
                 ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {mode === "Stopwatch" && (() => {
+          const t = formatStopwatch(c.swElapsed);
+          return (
+            <div className="clock-display timer-display">
+              <div className="clock-time" style={{ fontSize: fontSizeStyle }}>
+                <span className="clock-min-toggle" onClick={() => toggleSecs("Stopwatch")} title={showSecsByMode.Stopwatch ? "Click to hide seconds" : "Click to show seconds"}>{t.main}</span>
+                <SecSpan sec={t.sec} show={showSecsByMode.Stopwatch} onToggle={() => toggleSecs("Stopwatch")} />
+                {!showSecsByMode.Stopwatch && <span className="clock-unit-label">min</span>}
+              </div>
+              <div className="timer-controls timer-controls--top">
+                <button className={`btn btn-sm ${c.swRunning ? "btn-danger" : "btn-primary"}`} onClick={c.toggleStopwatch}>
+                  {c.swRunning ? "Stop" : c.swElapsed > 0 ? "Resume" : "Start"}
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={c.resetStopwatch}>Reset</button>
               </div>
             </div>
           );

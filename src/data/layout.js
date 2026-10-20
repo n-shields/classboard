@@ -1,4 +1,4 @@
-export const TILE_IDS = ['date', 'clock', 'timer', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel', 'captions'];
+export const TILE_IDS = ['date', 'clock', 'timer', 'stopwatch', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel', 'captions'];
 
 const HIDDEN_TILES_KEY = 'classboard_hidden_tiles';
 
@@ -55,7 +55,7 @@ export function makePaneId() {
 // arrows) — a combined pane is a single leaf joining their IDs with "+",
 // e.g. "clock+timer", so each layout tree (per period, compact, presets)
 // records for itself whether they're combined.
-export const COMBINABLE_IDS = ['clock', 'timer'];
+export const COMBINABLE_IDS = ['clock', 'timer', 'stopwatch'];
 
 /** The tile IDs a leaf hosts — just itself, unless it's a combined leaf */
 export function leafParts(id) {
@@ -132,7 +132,7 @@ export const DEFAULT_LAYOUT = {
     a: {
       dir: 'v', ratio: 0.28,
       a: 'reminders',
-      b: { dir: 'v', ratio: 0.44, a: 'date', b: { dir: 'h', ratio: 0.5, a: 'clock', b: 'timer' } },
+      b: { dir: 'v', ratio: 0.3, a: 'date', b: { dir: 'v', ratio: 0.6, a: { dir: 'h', ratio: 0.5, a: 'clock', b: 'timer' }, b: 'stopwatch' } },
     },
     b: {
       dir: 'v', ratio: 0.38,
@@ -148,6 +148,7 @@ const NEW_TILE_PLACEMENT = {
   decibel: { near: 'prize', side: 'bottom' },
   captions: { near: 'notes', side: 'bottom' },
   timer: { near: 'clock', side: 'right' },
+  stopwatch: { near: 'timer', side: 'bottom' },
 };
 
 /** Remove a leaf by ID — or, given one part of a combined leaf, just that

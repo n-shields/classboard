@@ -30,8 +30,8 @@ function loadPeriodLayoutTrees() {
   return {};
 }
 
-const DEFAULT_COLLAPSED = { date: false, clock: false, timer: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
-const TILE_NAMES = { date: "Clock", clock: "Period", timer: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Noise", captions: "Captions" };
+const DEFAULT_COLLAPSED = { date: false, clock: false, timer: false, stopwatch: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
+const TILE_NAMES = { date: "Clock", clock: "Period", timer: "Timer", stopwatch: "Stopwatch", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Noise", captions: "Captions" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 
 
@@ -977,12 +977,12 @@ export default function App() {
   // ── Tile content map ─────────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
 
-  // Period ("clock") and Timer ("timer") panes, alone or combined into one
+  // Period ("clock"), Timer ("timer") and Stopwatch panes, alone or combined into one
   // leaf like "clock+timer" — see COMBINABLE_IDS. Their shared state lives
   // in the ClockProvider wrapped around the whole layout below.
-  const CLOCK_MODES = { clock: "Period", timer: "Timer" };
+  const CLOCK_MODES = { clock: "Period", timer: "Timer", stopwatch: "Stopwatch" };
   const clockTiles = Object.fromEntries(
-    ["clock", "timer", ...collectRawLeaves(layout).filter(isCombinedLeaf)].map(leafId => [
+    ["clock", "timer", "stopwatch", ...collectRawLeaves(layout).filter(isCombinedLeaf)].map(leafId => [
       leafId,
       <ClockWidget
         modes={leafParts(leafId).map(p => CLOCK_MODES[p])}

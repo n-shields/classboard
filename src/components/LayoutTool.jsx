@@ -4,7 +4,7 @@ import { BUILTIN_PRESETS, loadSavedLayouts, saveSavedLayouts } from "../data/lay
 import "./LayoutTool.css";
 
 const TILE_LABELS = {
-  date: "Clock", clock: "Period", timer: "Timer", notes: "Notes", text: "Board",
+  date: "Clock", clock: "Period", timer: "Timer", stopwatch: "Stopwatch", notes: "Notes", text: "Board",
   camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders",
   decibel: "Noise", captions: "Captions",
 };

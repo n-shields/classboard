@@ -298,7 +298,9 @@
   transition: opacity 0.15s;
 }
 
-.timer-controls--top    { top: 10px; left: 0; right: 50%; }
+/* Starts just right of the tile's own grip + maximize buttons (top-left),
+   so a narrow pane never puts Start underneath them. */
+.timer-controls--top    { top: 6px; left: 52px; right: auto; justify-content: flex-start; }
 .timer-controls--bottom { bottom: 10px; }
 
 .clock-widget:hover .timer-controls {
