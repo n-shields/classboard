@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { TILE_IDS, collectLeaves, insertLeaf, removeLeaf, combineLegacyClock } from "../data/layout";
+import { TILE_IDS, COMBINABLE_IDS, collectLeaves, insertLeaf, removeLeaf, combineLegacyClock, addToCombinable } from "../data/layout";
 import { BUILTIN_PRESETS, loadSavedLayouts, saveSavedLayouts } from "../data/layoutPresets";
 import "./LayoutTool.css";
 
 const TILE_LABELS = {
-  date: "Clock", clock: "Period", timer: "Timer", stopwatch: "Stopwatch", notes: "Notes", text: "Board",
+  date: "Clock", clock: "Period countdown", timer: "Timer", stopwatch: "Stopwatch", notes: "Notes", text: "Board",
   camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders",
   decibel: "Noise", captions: "Captions",
 };
@@ -27,6 +27,11 @@ export default function LayoutTool({ layout, onLayoutChange, onClose }) {
         if (leaves.size <= 1) return prev; // always leave at least one tile
         return removeLeaf(prev, id) ?? prev;
       }
+      // Period/Timer/Stopwatch join the pane already showing one of them
+      // (switched with its ‹ › arrows) rather than getting a tile each —
+      // that pane's ⇹ button splits one off into its own.
+      const joined = COMBINABLE_IDS.includes(id) && addToCombinable(prev, id);
+      if (joined) return joined;
       const anchor = [...leaves][0];
       return anchor ? insertLeaf(prev, anchor, id, "bottom") : prev;
     });
@@ -58,7 +63,22 @@ export default function LayoutTool({ layout, onLayoutChange, onClose }) {
 
         <div className="layout-tool-section-label">Panes</div>
         <div className="layout-tool-checkboxes">
-          {TILE_IDS.map(id => (
+          {TILE_IDS.filter(id => !COMBINABLE_IDS.includes(id)).map(id => (
+            <label key={id} className="layout-tool-checkbox">
+              <input
+                type="checkbox"
+                checked={shownIds.has(id)}
+                onChange={() => toggleTile(id)}
+              />
+              {TILE_LABELS[id] ?? id}
+            </label>
+          ))}
+        </div>
+
+        <div className="layout-tool-section-label">Countdowns &amp; timers</div>
+        <div className="layout-tool-hint">Shown together in one pane — switch with its ‹ › arrows, or ⇹ to split one off.</div>
+        <div className="layout-tool-checkboxes">
+          {COMBINABLE_IDS.map(id => (
             <label key={id} className="layout-tool-checkbox">
               <input
                 type="checkbox"

@@ -79,3 +79,9 @@
   font-size: 0.82rem;
   color: var(--text-dim);
 }
+
+.layout-tool-hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}

@@ -12,7 +12,7 @@ import DecibelMeter from "./components/DecibelMeter";
 import CaptionsPane from "./components/CaptionsPane";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod, loadActivePeriod, periodsNotInSchedule } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles, combineClockPanesOnce } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
@@ -26,6 +26,7 @@ const PERIOD_LAYOUT_KEY       = "classboard_period_layout";
 const PERIOD_LAYOUT_TREES_KEY = "classboard_period_layout_trees";
 
 function loadPeriodLayoutTrees() {
+  combineClockPanesOnce();
   try { const s = localStorage.getItem(PERIOD_LAYOUT_TREES_KEY); if (s) return JSON.parse(s); } catch (_) {}
   return {};
 }

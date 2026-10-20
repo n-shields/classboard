@@ -96,12 +96,37 @@ function replaceLeaf(node, id, replacement) {
   return { ...node, a: replaceLeaf(node.a, id, replacement), b: replaceLeaf(node.b, id, replacement) };
 }
 
-/** Fold leaf `fromId` into leaf `toId`, making one combined pane */
+/** Fold leaf `fromId` into leaf `toId`, making one combined pane (its
+ *  modes always in COMBINABLE_IDS order: Period, Timer, Stopwatch) */
 export function combineLeaves(tree, fromId, toId) {
   if (!canCombine(fromId, toId)) return tree;
   const removed = removeLeaf(tree, fromId);
   if (!removed) return tree;
-  return replaceLeaf(removed, toId, [...leafParts(toId), ...leafParts(fromId)].join('+'));
+  const parts = [...leafParts(toId), ...leafParts(fromId)]
+    .sort((x, y) => COMBINABLE_IDS.indexOf(x) - COMBINABLE_IDS.indexOf(y));
+  return replaceLeaf(removed, toId, parts.join('+'));
+}
+
+/** The leaf (if any) already hosting a combinable tile — where another one
+ *  being shown joins in, rather than getting a tile of its own */
+export function combinableHost(tree) {
+  return collectRawLeaves(tree).find(l => leafParts(l).every(p => COMBINABLE_IDS.includes(p))) ?? null;
+}
+
+/** Add combinable tile `id` into the existing combined pane, if there is one */
+export function addToCombinable(tree, id) {
+  const host = combinableHost(tree);
+  return host ? combineLeaves(tree, id, host) : null;
+}
+
+/** Fold every combinable tile in a tree into one pane, where the first sits */
+export function combineAllCombinable(tree) {
+  let next = tree;
+  for (;;) {
+    const leaves = collectRawLeaves(next).filter(l => leafParts(l).every(p => COMBINABLE_IDS.includes(p)));
+    if (leaves.length < 2) return next;
+    next = combineLeaves(next, leaves[1], leaves[0]);
+  }
 }
 
 /** A tree saved back when the "clock" pane held both Period and Timer, with
@@ -132,7 +157,7 @@ export const DEFAULT_LAYOUT = {
     a: {
       dir: 'v', ratio: 0.28,
       a: 'reminders',
-      b: { dir: 'v', ratio: 0.3, a: 'date', b: { dir: 'v', ratio: 0.6, a: { dir: 'h', ratio: 0.5, a: 'clock', b: 'timer' }, b: 'stopwatch' } },
+      b: { dir: 'v', ratio: 0.44, a: 'date', b: 'clock+timer+stopwatch' },
     },
     b: {
       dir: 'v', ratio: 0.38,
@@ -240,6 +265,8 @@ export function migrateLayout(node, hiddenIds = []) {
     if (hiddenIds.includes(id)) continue;
     const leaves = collectLeaves(tree);
     if (leaves.has(id)) continue;
+    const joined = COMBINABLE_IDS.includes(id) && addToCombinable(tree, id);
+    if (joined) { tree = joined; continue; }
     const place = NEW_TILE_PLACEMENT[id];
     const anchor = place && leaves.has(place.near) ? place.near : [...leaves][0];
     if (!anchor) return null;
@@ -249,7 +276,28 @@ export function migrateLayout(node, hiddenIds = []) {
   return tree;
 }
 
+const COMBINED_ONCE_KEY = 'classboard_clock_panes_combined_once';
+export const PERIOD_LAYOUT_TREES_KEY = 'classboard_period_layout_trees';
+
+/** One-time: Period, Timer and Stopwatch briefly defaulted to separate
+ *  panes; fold them back into one combined pane in every saved full layout
+ *  (global and per-period). After this they stay however they're arranged. */
+export function combineClockPanesOnce() {
+  try {
+    if (localStorage.getItem(COMBINED_ONCE_KEY)) return;
+    const global = JSON.parse(localStorage.getItem('classboard_layout_v2') || 'null');
+    if (global) saveLayout(combineAllCombinable(global));
+    const trees = JSON.parse(localStorage.getItem(PERIOD_LAYOUT_TREES_KEY) || 'null');
+    if (trees && typeof trees === 'object') {
+      const next = Object.fromEntries(Object.entries(trees).map(([k, t]) => [k, t ? combineAllCombinable(t) : t]));
+      localStorage.setItem(PERIOD_LAYOUT_TREES_KEY, JSON.stringify(next));
+    }
+    localStorage.setItem(COMBINED_ONCE_KEY, '1');
+  } catch (_) {}
+}
+
 export function loadLayout() {
+  combineClockPanesOnce();
   try {
     const saved = localStorage.getItem('classboard_layout_v2');
     if (saved) {
