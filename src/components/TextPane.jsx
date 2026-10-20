@@ -21,6 +21,10 @@ import "./TextPane.css";
 // its tile's own corner grip (see TileLayout) moves just the active page,
 // not the whole tab set.
 const HOVER_HIDE_DELAY_MS = 250;
+// The toolbar also tucks itself away after this long without input (typing,
+// clicking, or moving over the toolbar), even with the pane still focused —
+// the next keystroke or click in the pane brings it back.
+const IDLE_HIDE_MS = 5000;
 
 // CSS's own definition of a physical unit: 96px per inch, 2.54cm per inch —
 // the same ratio the browser itself uses for e.g. `width: 1cm`, regardless
@@ -46,6 +50,8 @@ export default function TextPane({
   const editorRef = useRef(null);
   const wrapRef = useRef(null);
   const hideTimerRef = useRef(null);
+  const idleTimerRef = useRef(null);
+  const toolbarRef = useRef(null);
   useIdleCaret(editorRef);
 
   // Keep the active tab pointed at a page that still exists (closed/merged away)
@@ -355,7 +361,28 @@ export default function TextPane({
     return () => { window.removeEventListener("resize", updateAnchor); ro.disconnect(); };
   }, [toolbarVisible]);
 
-  useEffect(() => () => clearTimeout(hideTimerRef.current), []);
+  // Idle auto-hide (IDLE_HIDE_MS). Never while one of the toolbar's own
+  // controls has focus — e.g. a color input with its native picker open,
+  // which would otherwise be unmounted mid-pick — just check again later.
+  const restartIdleHide = () => {
+    clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      if (toolbarRef.current?.contains(document.activeElement)) { restartIdleHide(); return; }
+      setToolbarVisible(false);
+    }, IDLE_HIDE_MS);
+  };
+  useEffect(() => {
+    if (toolbarVisible) restartIdleHide();
+    else clearTimeout(idleTimerRef.current);
+  }, [toolbarVisible]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Any input in the pane counts as activity — and brings an idle-hidden
+  // toolbar back, as long as the pane is still the one being edited.
+  const onPaneInput = () => {
+    if (toolbarVisible) { restartIdleHide(); return; }
+    if (wrapRef.current?.contains(document.activeElement)) showToolbar();
+  };
+
+  useEffect(() => () => { clearTimeout(hideTimerRef.current); clearTimeout(idleTimerRef.current); }, []);
 
   // Recalibrate the marquee's distance/duration (see applyMarqueeDistance)
   // whenever scrolling turns on, the page changes, or the pane itself
@@ -380,6 +407,8 @@ export default function TextPane({
       ref={wrapRef}
       onFocusCapture={showToolbar}
       onBlurCapture={scheduleHideToolbar}
+      onKeyDownCapture={onPaneInput}
+      onPointerDownCapture={onPaneInput}
     >
       <div className="card textpane" style={activePage?.bgColor ? { background: activePage.bgColor } : undefined}>
         <div className="card-body textpane-body">
@@ -471,8 +500,12 @@ export default function TextPane({
               : toolbarPlacement === "overlay" ? { bottom: window.innerHeight - anchorRect.bottom }
               : { bottom: window.innerHeight - anchorRect.top }),
           }}
+          ref={toolbarRef}
           onMouseEnter={showToolbar}
           onMouseLeave={scheduleHideToolbar}
+          onPointerMove={restartIdleHide}
+          onPointerDown={restartIdleHide}
+          onKeyDown={restartIdleHide}
         >
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(1); }} title={hasSelection ? "Larger selected text" : "Larger text (1%)"}>A+</button>
           <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(-1); }} title={hasSelection ? "Smaller selected text" : "Smaller text (1%)"}>A−</button>
