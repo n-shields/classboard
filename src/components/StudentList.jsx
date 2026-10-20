@@ -39,6 +39,9 @@ export default function StudentList({
   periodLabel,
   onClose,
   simple = false,
+  // Fills its own popup window (see StudentsView) instead of overlaying
+  // the board — no backdrop, and the list sizes to the window.
+  windowed = false,
   sortMode = "default",
   onSortModeChange,
   boostAnimation = null,
@@ -476,8 +479,8 @@ export default function StudentList({
   ].filter(Boolean).join(" ");
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose?.()}>
-      <div className={`modal student-modal student-modal--full ${useColumns ? "student-modal--wide" : ""}`}>
+    <div className={windowed ? "student-window" : "modal-overlay"} onClick={e => !windowed && e.target === e.currentTarget && onClose?.()}>
+      <div className={`modal student-modal student-modal--full ${useColumns ? "student-modal--wide" : ""} ${windowed ? "student-modal--window" : ""}`}>
         <div className="student-modal-header">
           <h2>Students{periodLabel ? ` — ${periodLabel}` : ""}</h2>
           <div className="student-gems-label-group">

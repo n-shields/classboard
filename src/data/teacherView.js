@@ -28,3 +28,7 @@ export function saveBoardViewBounds(bounds) { saveBounds(BOARD_VIEW_BOUNDS_KEY, 
 export const MAIN_BOARD_SIZE_KEY = "classboard_main_board_size";
 export function loadMainBoardSize() { return loadBounds(MAIN_BOARD_SIZE_KEY); }
 export function saveMainBoardSize(size) { saveBounds(MAIN_BOARD_SIZE_KEY, size); }
+
+export const STUDENTS_VIEW_BOUNDS_KEY = "classboard_students_view_bounds";
+export function loadStudentsViewBounds() { return loadBounds(STUDENTS_VIEW_BOUNDS_KEY); }
+export function saveStudentsViewBounds(bounds) { saveBounds(STUDENTS_VIEW_BOUNDS_KEY, bounds); }

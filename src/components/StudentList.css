@@ -20,6 +20,23 @@
   overflow: hidden;
 }
 
+/* Its own popup window (StudentsView): fill the whole window instead. */
+.student-window {
+  position: fixed;
+  inset: 0;
+  display: flex;
+}
+.student-modal--window {
+  flex: 1;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+}
+
 .student-modal--wide .student-modal-header,
 .student-modal--wide .student-list-actions {
   flex-shrink: 0;

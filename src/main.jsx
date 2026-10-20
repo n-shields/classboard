@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import TeacherView from './TeacherView.jsx'
 import SeatingView from './SeatingView.jsx'
+import StudentsView from './StudentsView.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import DEFAULT_BOARD from './data/defaultBoard.json'
 
@@ -60,7 +61,7 @@ const view = new URLSearchParams(window.location.search).get('view');
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      {view === 'teacher' ? <TeacherView /> : view === 'seating' ? <SeatingView /> : <App />}
+      {view === 'teacher' ? <TeacherView /> : view === 'seating' ? <SeatingView /> : view === 'students' ? <StudentsView /> : <App />}
     </ErrorBoundary>
   </StrictMode>,
 )

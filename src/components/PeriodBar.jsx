@@ -4,7 +4,7 @@ import ScheduleEditor from "./ScheduleEditor";
 import StudentList from "./StudentList";
 import LayoutTool from "./LayoutTool";
 import { THEMES, THEME_KEYS, hasDarkText } from "../data/themes";
-import { loadTeacherViewBounds, loadSeatingViewBounds } from "../data/teacherView";
+import { loadTeacherViewBounds, loadSeatingViewBounds, loadStudentsViewBounds } from "../data/teacherView";
 import PeriodMenu from "./PeriodMenu";
 import { usePeriodMenuEdge } from "../data/periodMenu";
 import { playClick, playDing } from "../data/sounds";
@@ -81,6 +81,24 @@ export default function PeriodBar({
   // it first — a click inside it, or a +/- adjustment — or it was already
   // open on its own before the signal arrived, in which case it's left
   // alone. A repeat signal while still auto-opened restarts the countdown.
+  // The student list's own popup window (see the Space shortcut below).
+  // While it's open, the things that would otherwise pop the overlay list
+  // up (+/-, a Noise Challenge) leave the board alone — it's already showing.
+  const studentsWindowRef = useRef(null);
+  const studentsWindowOpen = () => !!studentsWindowRef.current && !studentsWindowRef.current.closed;
+  const openStudentsWindow = () => {
+    const bounds = loadStudentsViewBounds();
+    const width  = bounds?.width  || 1000;
+    const height = bounds?.height || 750;
+    const left   = Number.isFinite(bounds?.left) ? bounds.left : window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+    const top    = Number.isFinite(bounds?.top)  ? bounds.top  : window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "students");
+    url.searchParams.delete("s");
+    studentsWindowRef.current = window.open(url.toString(), "classboard-students-view", `width=${width},height=${height},left=${left},top=${top}`);
+    studentsWindowRef.current?.focus();
+  };
+
   const openStudentsSignalRef = useRef(openStudentsSignal);
   const studentsOpenRef = useRef(studentsOpen);
   useEffect(() => { studentsOpenRef.current = studentsOpen; }, [studentsOpen]);
@@ -91,6 +109,7 @@ export default function PeriodBar({
   useEffect(() => {
     if (openStudentsSignalRef.current === openStudentsSignal) return;
     openStudentsSignalRef.current = openStudentsSignal;
+    if (studentsWindowOpen()) return;
     const openedByUser = studentsOpenRef.current && !autoCloseTimerRef.current;
     if (!openedByUser) {
       cancelStudentsAutoClose();
@@ -172,8 +191,10 @@ export default function PeriodBar({
     })();
   }, [periodLabel, autosaveStatus]);
 
-  // Space toggles the student list, as long as no other modal is up and the
-  // user isn't typing in a field or focused on a button.
+  // Space opens the student list in its own popup window (StudentsView) —
+  // or closes it again — as long as no other modal is up and the user isn't
+  // typing in a field or focused on a button. If the overlay list is up
+  // instead (opened by +/- or a Noise Challenge), Space closes that.
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== " " && e.code !== "Space") return;
@@ -183,7 +204,9 @@ export default function PeriodBar({
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;
       e.preventDefault();
-      setStudentsOpen(o => !o);
+      if (studentsOpenRef.current) { setStudentsOpen(false); return; }
+      if (studentsWindowOpen()) { studentsWindowRef.current.close(); return; }
+      openStudentsWindow();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -261,7 +284,7 @@ export default function PeriodBar({
       if (delta > 0) playDing(); else playClick();
       // A deliberate adjustment means someone's using the list now.
       if (autoCloseTimerRef.current) { clearTimeout(autoCloseTimerRef.current); autoCloseTimerRef.current = null; }
-      setStudentsOpen(true);
+      if (!studentsWindowOpen()) setStudentsOpen(true);
     };
     // Tracks each held key's own repeat interval independently (not just the
     // most recent key) — pressing a second shortcut key before releasing the

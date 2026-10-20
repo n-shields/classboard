@@ -2,6 +2,9 @@ import { isPageArray, isPanesMap } from "./pages";
 
 export const PERIOD_DATA_KEY = "classboard_period_data";
 
+// The roster a period shows until it has one of its own.
+export const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
+
 // Sanitize each period entry so malformed data doesn't crash components
 export function loadPeriodData() {
   try {

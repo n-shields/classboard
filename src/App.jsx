@@ -14,7 +14,7 @@ import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadP
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
-import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
+import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import { saveBoardViewBounds, loadMainBoardSize, saveMainBoardSize, MAIN_BOARD_SIZE_KEY } from "./data/teacherView";
 import { DEFAULT_COMPACT_LAYOUT, loadCompactLayouts, saveCompactLayouts, sanitizeCompactTree, loadCompactSession, saveCompactSession } from "./data/compactLayout";
@@ -33,7 +33,7 @@ function loadPeriodLayoutTrees() {
 const DEFAULT_COLLAPSED = { date: false, clock: false, timer: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
 const TILE_NAMES = { date: "Clock", clock: "Period", timer: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Noise", captions: "Captions" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
-const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
+
 
 // Each of the two fixed panes starts with one blank page, shown until it's
 // edited (at which point it becomes a real stored page) or closed. Applied
