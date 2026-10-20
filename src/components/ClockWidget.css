@@ -307,3 +307,8 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* Stopwatch hundredths — a touch smaller than the rest of the digits */
+.clock-hundredths {
+  font-size: 0.6em;
+}

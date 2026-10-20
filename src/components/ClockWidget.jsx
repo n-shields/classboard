@@ -38,7 +38,7 @@ function loadClockSettings() {
 }
 
 function formatStopwatch(ms) {
-  return splitSecs(Math.floor(ms / 1000));
+  return { ...splitSecs(Math.floor(ms / 1000)), hund: pad(Math.floor(ms / 10) % 100) };
 }
 
 function saveClockSettings(settings) {
@@ -144,11 +144,15 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
   const [swStartedAt, setSwStartedAt] = useState(0);
   const [swBanked, setSwBanked] = useState(0); // ms from earlier runs
   const [swNow, setSwNow] = useState(() => Date.now());
+  const [swShowHundredths, setSwShowHundredths] = useState(initSettings.swShowHundredths ?? true);
+  // Hundredths need a much faster refresh than whole seconds do — only
+  // while they're actually on screen.
+  const swFast = swShowHundredths && showSecsByMode.Stopwatch;
   useEffect(() => {
     if (!swRunning) return;
-    const id = setInterval(() => setSwNow(Date.now()), 200);
+    const id = setInterval(() => setSwNow(Date.now()), swFast ? 30 : 200);
     return () => clearInterval(id);
-  }, [swRunning]);
+  }, [swRunning, swFast]);
   const swElapsed = swBanked + (swRunning ? Math.max(0, swNow - swStartedAt) : 0);
   const toggleStopwatch = () => {
     const t = Date.now();
@@ -166,10 +170,10 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
   // Persist settings and notify parent whenever they change. `fontSize`
   // (an S/M/L/XL bucket of the shown mode's scale) is for the camera overlay.
   useEffect(() => {
-    const settings = { fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock };
+    const settings = { fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, swShowHundredths };
     saveClockSettings(settings);
     onSettingsChange?.({ ...settings, fontSize: fontSizeKeyForScale(fontScaleByMode[mode] ?? 1) });
-  }, [fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, mode]); // eslint-disable-line
+  }, [fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, swShowHundredths, mode]); // eslint-disable-line
 
   // Clock tick
   useEffect(() => {
@@ -348,7 +352,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
     showSecsByMode, toggleSecs,
     timerSecs, timerInput, setTimerInput, timerRunning, timerDone,
     setPreset, toggleTimer, resetTimer, handleTimerInputBlur,
-    swElapsed, swRunning, toggleStopwatch, resetStopwatch,
+    swElapsed, swRunning, toggleStopwatch, resetStopwatch, swShowHundredths, setSwShowHundredths,
   };
   return <ClockCtx.Provider value={value}>{children}</ClockCtx.Provider>;
 }
@@ -493,11 +497,28 @@ export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
 
         {mode === "Stopwatch" && (() => {
           const t = formatStopwatch(c.swElapsed);
+          const showSecs = showSecsByMode.Stopwatch;
+          const showHund = showSecs && c.swShowHundredths;
+          // Clicking the minutes brings back whatever's hidden — seconds
+          // first, then hundredths — and, with everything showing, hides
+          // the seconds as it does elsewhere. Clicking the seconds or the
+          // hundredths hides just that part.
+          const onMainClick = () => {
+            if (showSecs && !c.swShowHundredths) c.setSwShowHundredths(true);
+            else toggleSecs("Stopwatch");
+          };
           return (
             <div className="clock-display timer-display">
               <div className="clock-time" style={{ fontSize: fontSizeStyle }}>
-                <span className="clock-min-toggle" onClick={() => toggleSecs("Stopwatch")} title={showSecsByMode.Stopwatch ? "Click to hide seconds" : "Click to show seconds"}>{t.main}</span>
-                <SecSpan sec={t.sec} show={showSecsByMode.Stopwatch} onToggle={() => toggleSecs("Stopwatch")} />
+                <span className="clock-min-toggle" onClick={onMainClick} title={!showSecs ? "Click to show seconds" : !showHund ? "Click to show hundredths" : "Click to hide seconds"}>{t.main}</span>
+                <SecSpan sec={t.sec} show={showSecs} onToggle={() => toggleSecs("Stopwatch")} />
+                {showHund && (
+                  <span
+                    className="clock-secs clock-hundredths"
+                    onClick={e => { e.stopPropagation(); c.setSwShowHundredths(false); }}
+                    title="Click to hide hundredths"
+                  >.{t.hund}</span>
+                )}
                 {!showSecsByMode.Stopwatch && <span className="clock-unit-label">min</span>}
               </div>
               <div className="timer-controls timer-controls--top">
