@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import TextPane from "./components/TextPane";
-import ClockWidget from "./components/ClockWidget";
+import ClockWidget, { ClockProvider } from "./components/ClockWidget";
 import PeriodBar from "./components/PeriodBar";
 import CameraFeed from "./components/CameraFeed";
 import WheelOfNames from "./components/WheelOfNames";
@@ -12,7 +12,7 @@ import DecibelMeter from "./components/DecibelMeter";
 import CaptionsPane from "./components/CaptionsPane";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod, loadActivePeriod, periodsNotInSchedule } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles } from "./data/layout";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
@@ -30,8 +30,8 @@ function loadPeriodLayoutTrees() {
   return {};
 }
 
-const DEFAULT_COLLAPSED = { date: false, clock: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
-const TILE_NAMES = { date: "Clock", clock: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Noise", captions: "Captions" };
+const DEFAULT_COLLAPSED = { date: false, clock: false, timer: false, text: false, notes: false, wheel: false, prize: false, reminders: false };
+const TILE_NAMES = { date: "Clock", clock: "Period", timer: "Timer", notes: "Notes", text: "Board", camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders", decibel: "Noise", captions: "Captions" };
 const SWAP_MAP = { camera: "notes", notes: "camera" };
 const DEFAULT_NAMES = ["Diego", "Sara", "Andre", "Lin"];
 
@@ -351,7 +351,8 @@ export default function App() {
       } else {
         // Default: as wide as the clock pane is right now (plus the window's
         // own frame), full height.
-        const clock = document.querySelector('.tl-slot[data-tile="clock"]');
+        const clock = [...document.querySelectorAll(".tl-slot[data-tile]")]
+          .find(el => leafParts(el.dataset.tile).includes("clock"));
         const clockWidth = clock ? clock.getBoundingClientRect().width : 360;
         size = { width: Math.round(clockWidth + (window.outerWidth - window.innerWidth)), height: window.outerHeight };
       }
@@ -976,18 +977,25 @@ export default function App() {
   // ── Tile content map ─────────────────────────────────────────────────────
   const wheelTheme = THEMES[currentTheme] || THEMES.midnight;
 
+  // Period ("clock") and Timer ("timer") panes, alone or combined into one
+  // leaf like "clock+timer" — see COMBINABLE_IDS. Their shared state lives
+  // in the ClockProvider wrapped around the whole layout below.
+  const CLOCK_MODES = { clock: "Period", timer: "Timer" };
+  const clockTiles = Object.fromEntries(
+    ["clock", "timer", ...collectRawLeaves(layout).filter(isCombinedLeaf)].map(leafId => [
+      leafId,
+      <ClockWidget
+        modes={leafParts(leafId).map(p => CLOCK_MODES[p])}
+        collapsed={collapsed[leafId]}
+        onSplit={mode => handleLayoutChange(prev =>
+          splitLeaf(prev, leafId, Object.keys(CLOCK_MODES).find(k => CLOCK_MODES[k] === mode)))}
+      />,
+    ]),
+  );
+
   const tiles = {
     date: <DateWidget />,
-    clock: (
-      <ClockWidget
-        currentPeriod={clockPeriod}
-        nextPeriod={clockNextPeriod}
-        collapsed={collapsed.clock}
-        onToggle={() => toggleCollapsed("clock")}
-        onDisplayChange={setClockDisplay}
-        onSettingsChange={s => setClockFontSize(s.fontSize)}
-      />
-    ),
+    ...clockTiles,
     text: (
       <TextPane
         key={`text-${periodKey}`}
@@ -1105,18 +1113,25 @@ export default function App() {
         openStudentsSignal={studentsOpenSignal}
         gemsBoostAnimation={gemsBoostAnimation}
       />
-      <TileLayout
-        layout={layout}
-        onLayoutChange={handleLayoutChange}
-        tiles={tiles}
-        isCollapsed={id => collapsed[id] || false}
-        onToggle={toggleCollapsed}
-        tileNames={TILE_NAMES}
-        swapMap={SWAP_MAP}
-        onPageDrop={handlePageDrop}
-        getTileDragPayload={getTileDragPayload}
-        onDeleteTab={handleDeleteTab}
-      />
+      <ClockProvider
+        currentPeriod={clockPeriod}
+        nextPeriod={clockNextPeriod}
+        onDisplayChange={setClockDisplay}
+        onSettingsChange={s => setClockFontSize(s.fontSize)}
+      >
+        <TileLayout
+          layout={layout}
+          onLayoutChange={handleLayoutChange}
+          tiles={tiles}
+          isCollapsed={id => collapsed[id] || false}
+          onToggle={toggleCollapsed}
+          tileNames={TILE_NAMES}
+          swapMap={SWAP_MAP}
+          onPageDrop={handlePageDrop}
+          getTileDragPayload={getTileDragPayload}
+          onDeleteTab={handleDeleteTab}
+        />
+      </ClockProvider>
     </div>
   );
 }

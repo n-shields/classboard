@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import ClockWidget from "./components/ClockWidget";
+import ClockWidget, { ClockProvider } from "./components/ClockWidget";
 import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
@@ -184,12 +184,7 @@ export default function TeacherView() {
 
   const tiles = {
     clock: (
-      <ClockWidget
-        currentPeriod={clockPeriod}
-        nextPeriod={clockNextPeriod}
-        collapsed={collapsed.clock}
-        onToggle={() => toggleCollapsed("clock")}
-      />
+      <ClockWidget collapsed={collapsed.clock} />
     ),
     reminders: (
       <RemindersWidget
@@ -281,14 +276,17 @@ export default function TeacherView() {
         >🔊 Hotkeys</button>
       </div>
       <div className="teacher-view-body">
-        <TileLayout
-          layout={layout}
-          onLayoutChange={handleLayoutChange}
-          tiles={tiles}
-          isCollapsed={id => collapsed[id] || false}
-          onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
-          tileNames={TILE_NAMES}
-        />
+        {/* Teacher View keeps a single pane with both Period and Timer. */}
+        <ClockProvider currentPeriod={clockPeriod} nextPeriod={clockNextPeriod}>
+          <TileLayout
+            layout={layout}
+            onLayoutChange={handleLayoutChange}
+            tiles={tiles}
+            isCollapsed={id => collapsed[id] || false}
+            onToggle={id => { if (id in DEFAULT_COLLAPSED) toggleCollapsed(id); }}
+            tileNames={TILE_NAMES}
+          />
+        </ClockProvider>
       </div>
 
       {studentsOpen && (

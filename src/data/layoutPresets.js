@@ -8,12 +8,12 @@ export const BUILTIN_PRESETS = {
   "Announcement Focus": {
     dir: "h", ratio: 0.75,
     a: "text",
-    b: { dir: "v", ratio: 0.5, a: "clock", b: "reminders" },
+    b: { dir: "v", ratio: 0.5, a: "clock+timer", b: "reminders" },
   },
   "Wheel Focus": {
     dir: "h", ratio: 0.7,
     a: "wheel",
-    b: { dir: "v", ratio: 0.5, a: "clock", b: "text" },
+    b: { dir: "v", ratio: 0.5, a: "clock+timer", b: "text" },
   },
 };
 

@@ -1,4 +1,4 @@
-export const TILE_IDS = ['date', 'clock', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel', 'captions'];
+export const TILE_IDS = ['date', 'clock', 'timer', 'text', 'camera', 'notes', 'wheel', 'prize', 'reminders', 'decibel', 'captions'];
 
 const HIDDEN_TILES_KEY = 'classboard_hidden_tiles';
 
@@ -51,12 +51,73 @@ export function makePaneId() {
   return `pane-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** All leaf IDs present in a layout tree */
+// Tiles that can share one pane (switching between them with its ‹ ›
+// arrows) — a combined pane is a single leaf joining their IDs with "+",
+// e.g. "clock+timer", so each layout tree (per period, compact, presets)
+// records for itself whether they're combined.
+export const COMBINABLE_IDS = ['clock', 'timer'];
+
+/** The tile IDs a leaf hosts — just itself, unless it's a combined leaf */
+export function leafParts(id) {
+  return typeof id === 'string' ? id.split('+') : [];
+}
+
+export function isCombinedLeaf(id) {
+  return leafParts(id).length > 1;
+}
+
+/** Whether dragging leaf `fromId` onto leaf `toId` can combine them */
+export function canCombine(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return false;
+  const parts = [...leafParts(fromId), ...leafParts(toId)];
+  return parts.every(p => COMBINABLE_IDS.includes(p)) && new Set(parts).size === parts.length;
+}
+
+/** All tile IDs present in a layout tree (a combined leaf counts as each
+ *  of its parts) */
 export function collectLeaves(node, out = new Set()) {
-  if (typeof node === 'string') { out.add(node); return out; }
+  if (typeof node === 'string') { leafParts(node).forEach(p => out.add(p)); return out; }
   collectLeaves(node.a, out);
   collectLeaves(node.b, out);
   return out;
+}
+
+/** The leaves of a tree exactly as stored — combined leaves left whole */
+export function collectRawLeaves(node, out = []) {
+  if (typeof node === 'string') { out.push(node); return out; }
+  collectRawLeaves(node.a, out);
+  collectRawLeaves(node.b, out);
+  return out;
+}
+
+/** Replace leaf `id` (exact match) with `replacement` */
+function replaceLeaf(node, id, replacement) {
+  if (typeof node === 'string') return node === id ? replacement : node;
+  return { ...node, a: replaceLeaf(node.a, id, replacement), b: replaceLeaf(node.b, id, replacement) };
+}
+
+/** Fold leaf `fromId` into leaf `toId`, making one combined pane */
+export function combineLeaves(tree, fromId, toId) {
+  if (!canCombine(fromId, toId)) return tree;
+  const removed = removeLeaf(tree, fromId);
+  if (!removed) return tree;
+  return replaceLeaf(removed, toId, [...leafParts(toId), ...leafParts(fromId)].join('+'));
+}
+
+/** A tree saved back when the "clock" pane held both Period and Timer, with
+ *  no "timer" of its own — keep both in that one pane, as they were then.
+ *  (Full per-period layouts graft a separate Timer in instead.) */
+export function combineLegacyClock(tree) {
+  if (!tree || collectLeaves(tree).has('timer')) return tree;
+  return replaceLeaf(tree, 'clock', 'clock+timer');
+}
+
+/** Split tile `partId` back out of combined leaf `leafId`, beside it */
+export function splitLeaf(tree, leafId, partId, side = 'right') {
+  const rest = leafParts(leafId).filter(p => p !== partId);
+  if (rest.length === leafParts(leafId).length) return tree;
+  const restId = rest.join('+');
+  return insertLeaf(replaceLeaf(tree, leafId, restId), restId, partId, side);
 }
 
 export const DEFAULT_LAYOUT = {
@@ -71,7 +132,7 @@ export const DEFAULT_LAYOUT = {
     a: {
       dir: 'v', ratio: 0.28,
       a: 'reminders',
-      b: { dir: 'v', ratio: 0.44, a: 'date', b: 'clock' },
+      b: { dir: 'v', ratio: 0.44, a: 'date', b: { dir: 'h', ratio: 0.5, a: 'clock', b: 'timer' } },
     },
     b: {
       dir: 'v', ratio: 0.38,
@@ -86,11 +147,17 @@ const NEW_TILE_PLACEMENT = {
   reminders: { near: 'prize', side: 'bottom' },
   decibel: { near: 'prize', side: 'bottom' },
   captions: { near: 'notes', side: 'bottom' },
+  timer: { near: 'clock', side: 'right' },
 };
 
-/** Remove a leaf by ID; returns null if the leaf was the only node */
+/** Remove a leaf by ID — or, given one part of a combined leaf, just that
+ *  part; returns null if the leaf was the only node */
 export function removeLeaf(node, id) {
-  if (typeof node === 'string') return node === id ? null : node;
+  if (typeof node === 'string') {
+    if (node === id) return null;
+    const parts = leafParts(node);
+    return parts.includes(id) ? parts.filter(p => p !== id).join('+') : node;
+  }
   const a = removeLeaf(node.a, id);
   const b = removeLeaf(node.b, id);
   if (a === null) return b;
@@ -101,7 +168,9 @@ export function removeLeaf(node, id) {
 /** Insert newId adjacent to targetId on the given side ('top'|'bottom'|'left'|'right') */
 export function insertLeaf(node, targetId, newId, side) {
   if (typeof node === 'string') {
-    if (node !== targetId) return node;
+    // Targeting one part of a combined leaf docks beside the whole pane.
+    if (node !== targetId && !leafParts(node).includes(targetId)) return node;
+    targetId = node;
     const dir = (side === 'left' || side === 'right') ? 'h' : 'v';
     const [a, b] = (side === 'top' || side === 'left') ? [newId, targetId] : [targetId, newId];
     return { dir, ratio: 0.5, a, b };
@@ -136,7 +205,10 @@ export function moveTile(tree, fromId, toId, side) {
  *  number of detached-page panes alongside them) */
 export function validateLayout(node, hiddenIds = []) {
   function check(n) {
-    if (typeof n === 'string') return TILE_IDS.includes(n) || isDynamicPaneId(n);
+    if (typeof n === 'string') {
+      if (isCombinedLeaf(n)) return leafParts(n).every(p => COMBINABLE_IDS.includes(p));
+      return TILE_IDS.includes(n) || isDynamicPaneId(n);
+    }
     if (!n || !['h', 'v'].includes(n.dir) || typeof n.ratio !== 'number') return false;
     return check(n.a) && check(n.b);
   }

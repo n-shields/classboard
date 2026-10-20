@@ -1,5 +1,5 @@
 import { useContext, useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { moveTile, swapLeaves, removeLeaf, isPaneTile } from "../data/layout";
+import { moveTile, swapLeaves, removeLeaf, isPaneTile, canCombine, combineLeaves, leafParts } from "../data/layout";
 import { DragCtx, PAGE_DND_TYPE } from "./dragContext";
 import "./TileLayout.css";
 
@@ -30,7 +30,10 @@ function getZone(e, isMergeTarget) {
   return "right";
 }
 
-function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
+// `combineLabel`: set when a whole tile is being dragged onto one it can
+// share a pane with (Period/Timer — see COMBINABLE_IDS) — the center then
+// combines the two instead of stacking a page tab.
+function DropOverlay({ tileId, onDrop, onDropPage, onCombine, isMergeTarget, combineLabel }) {
   const [zone, setZone] = useState(null);
 
   return (
@@ -48,13 +51,14 @@ function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
           onDropPage(JSON.parse(pageJson), zone === "merge" ? null : zone);
         } else {
           const fromId = e.dataTransfer.getData("text/plain");
-          if (zone && zone !== "merge" && fromId && fromId !== tileId) onDrop(fromId, zone);
+          if (zone === "merge" && combineLabel && fromId) onCombine(fromId);
+          else if (zone && zone !== "merge" && fromId && fromId !== tileId) onDrop(fromId, zone);
         }
         setZone(null);
       }}
     >
       {zone && (zone === "merge"
-        ? <div className="tl-drop-indicator tl-drop-merge"><span>+ Add tab</span></div>
+        ? <div className="tl-drop-indicator tl-drop-merge"><span>{combineLabel ?? "+ Add tab"}</span></div>
         : <div className={`tl-drop-indicator tl-drop-${zone}`} />
       )}
     </div>
@@ -64,11 +68,12 @@ function DropOverlay({ tileId, onDrop, onDropPage, isMergeTarget }) {
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const maximized = maximizedId === id;
   const didDrag = useRef(false);
-  const name = tileNames?.[id] ?? "";
+  const name = tileNames?.[id] ?? leafParts(id).map(p => tileNames?.[p] ?? p).join(" + ");
+  const combineTarget = !pageDragOrigin && canCombine(dragging, id);
   const swapTarget = swapMap?.[id];
   // A pane with more than one tab has no tab strip of its own to drag from —
   // this same corner grip instead drags its active tab (to merge into
@@ -141,8 +146,10 @@ function TileSlot({ id, content }) {
       {dragging && dragging !== id && pageDragOrigin !== id && (
         <DropOverlay
           tileId={id}
-          isMergeTarget={!!pageDragOrigin && isPaneTile(id)}
+          isMergeTarget={(!!pageDragOrigin && isPaneTile(id)) || combineTarget}
+          combineLabel={combineTarget ? "+ Combine" : undefined}
           onDrop={(fromId, side) => { onMove(fromId, id, side); setDragging(null); }}
+          onCombine={fromId => { onCombine(fromId, id); setDragging(null); }}
           onDropPage={(info, side) => { onPageDrop?.(info, id, side); setDragging(null); setPageDragOrigin(null); }}
         />
       )}
@@ -248,6 +255,10 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
     onLayoutChange(prev => moveTile(prev, fromId, toId, side));
   }, [onLayoutChange]);
 
+  const onCombine = useCallback((fromId, toId) => {
+    onLayoutChange(prev => combineLeaves(prev, fromId, toId));
+  }, [onLayoutChange]);
+
   const onSwap = useCallback((idA, idB) => {
     onLayoutChange(prev => swapLeaves(prev, idA, idB));
   }, [onLayoutChange]);
@@ -266,8 +277,8 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   const canHide = typeof layout !== "string"; // never hide the only tile
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide }),
-    [dragging, pageDragOrigin, onMove, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, onHide, canHide],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide }),
+    [dragging, pageDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, onHide, canHide],
   );
 
   return (

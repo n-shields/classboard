@@ -1,4 +1,4 @@
-import { migrateLayout, TILE_IDS } from "./layout";
+import { migrateLayout, combineLegacyClock, TILE_IDS } from "./layout";
 
 // Compact mode (Tab): a small-window format — narrowed to the clock pane's
 // width by default — so another window can sit beside the board. Each period
@@ -10,7 +10,7 @@ const STORAGE_KEY = "classboard_compact_layouts";
 // bounds to restore when it leaves — so a reload mid-compact stays compact.
 const SESSION_KEY = "classboard_compact_session";
 
-export const DEFAULT_COMPACT_LAYOUT = "clock";
+export const DEFAULT_COMPACT_LAYOUT = "clock+timer";
 
 export function loadCompactLayouts() {
   try {
@@ -28,7 +28,7 @@ export function saveCompactLayouts(map) {
  *  missing tiles are expected here (compact shows only a few), so nothing is
  *  grafted back in. Null if there's nothing usable. */
 export function sanitizeCompactTree(tree) {
-  try { return migrateLayout(tree, TILE_IDS); } catch (_) { return null; }
+  try { return migrateLayout(combineLegacyClock(tree), TILE_IDS); } catch (_) { return null; }
 }
 
 export function loadCompactSession() {

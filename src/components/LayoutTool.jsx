@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { TILE_IDS, collectLeaves, insertLeaf, removeLeaf } from "../data/layout";
+import { TILE_IDS, collectLeaves, insertLeaf, removeLeaf, combineLegacyClock } from "../data/layout";
 import { BUILTIN_PRESETS, loadSavedLayouts, saveSavedLayouts } from "../data/layoutPresets";
 import "./LayoutTool.css";
 
 const TILE_LABELS = {
-  date: "Clock", clock: "Timer", notes: "Notes", text: "Board",
+  date: "Clock", clock: "Period", timer: "Timer", notes: "Notes", text: "Board",
   camera: "Camera", wheel: "Names", prize: "Goals", reminders: "Reminders",
   decibel: "Noise", captions: "Captions",
 };
@@ -32,7 +32,7 @@ export default function LayoutTool({ layout, onLayoutChange, onClose }) {
     });
   };
 
-  const applyTree = (tree) => onLayoutChange(() => JSON.parse(JSON.stringify(tree)));
+  const applyTree = (tree) => onLayoutChange(() => combineLegacyClock(JSON.parse(JSON.stringify(tree))));
 
   const saveCurrentAs = () => {
     const name = window.prompt("Name this layout:", "My Layout");
