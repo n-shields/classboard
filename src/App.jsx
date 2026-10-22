@@ -140,6 +140,8 @@ export default function App() {
   const [schedules, setSchedules]           = useState(loadSchedules);
   const [scheduleDays, setScheduleDays]     = useState(loadScheduleDays);
   const [periodNames, setPeriodNames]       = useState(() => loadPeriodNames(loadSchedules()));
+  // Stored as soon as it's picked (today's by weekday, on load) so popup
+  // windows show the same schedule's periods — see loadBoardScheduleType.
   const [scheduleType, setScheduleType]     = useState(() => {
     const loaded = loadSchedules();
     const days   = loadScheduleDays();
@@ -147,6 +149,9 @@ export default function App() {
     // Fall back to first available schedule if stored value is stale/unrecognized
     return (candidate && candidate in loaded) ? candidate : (Object.keys(loaded)[0] ?? "Regular");
   });
+  useEffect(() => {
+    if (!isBoardPopup) localStorage.setItem("classboard_schedule_type", scheduleType);
+  }, [scheduleType]);
   const [periodData, setPeriodData]         = useState(() => migrateWarmUpRename(migrateTextNotesPages(migrateGlobalReminders(loadPeriodData()))));
   const [pageSyncGroups, setPageSyncGroups] = useState(loadPageSyncGroups);
 

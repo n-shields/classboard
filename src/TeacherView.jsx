@@ -5,7 +5,7 @@ import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
 import HotkeysEditor from "./components/HotkeysEditor";
-import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod, resolveActivePeriodIndex, saveActivePeriod, cyclePeriod } from "./data/schedules";
+import { loadSchedules, loadBoardScheduleType, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod, resolveActivePeriodIndex, saveActivePeriod, cyclePeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, PERIOD_DATA_KEY } from "./data/periodData";
 import { loadGemsSyncGroups, saveGemsSyncGroups, gemsSyncMates, setGemsSyncGroup, reconcileGems } from "./data/gemsSync";
 import { pagesForPane } from "./data/pages";
@@ -18,9 +18,6 @@ import "./TeacherView.css";
 const DEFAULT_COLLAPSED = { clock: false, reminders: false, notes: false };
 const TILE_NAMES = { clock: "Timer", reminders: "Reminders", notes: "Notes" };
 
-function loadScheduleType() {
-  return localStorage.getItem("classboard_schedule_type") || "Regular";
-}
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
 }
@@ -40,7 +37,7 @@ const FALLBACK_TEACHER_PANES = { [TEACHER_NOTES_PANE]: ["fallback-teacher-notes"
 // reminders) by re-reading localStorage rather than sharing React state.
 export default function TeacherView() {
   const [schedules, setSchedules]     = useState(loadSchedules);
-  const [scheduleType, setScheduleType] = useState(loadScheduleType);
+  const [scheduleType, setScheduleType] = useState(() => loadBoardScheduleType());
   const [periodData, setPeriodData]   = useState(loadPeriodData);
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
@@ -69,7 +66,7 @@ export default function TeacherView() {
   useEffect(() => {
     const reload = () => {
       setSchedules(loadSchedules());
-      setScheduleType(loadScheduleType());
+      setScheduleType(loadBoardScheduleType());
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
       setActivePeriod(loadActivePeriod());

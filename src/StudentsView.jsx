@@ -1,15 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import StudentList from "./components/StudentList";
-import { loadSchedules, resolveActivePeriod, loadActivePeriod, saveActivePeriod, cyclePeriod } from "./data/schedules";
+import { loadSchedules, loadBoardScheduleType, resolveActivePeriod, loadActivePeriod, saveActivePeriod, cyclePeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, DEFAULT_NAMES } from "./data/periodData";
 import { applyTheme, THEMES } from "./data/themes";
 import { saveStudentsViewBounds } from "./data/teacherView";
 import { GEMS_REPEAT_MS, gemsStep } from "./data/gems";
 import { playClick, playDing } from "./data/sounds";
 
-function loadScheduleType() {
-  return localStorage.getItem("classboard_schedule_type") || "Regular";
-}
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
 }
@@ -21,7 +18,7 @@ function loadGlobalTheme() {
 // active period and syncs both ways through localStorage, like Seating View.
 export default function StudentsView() {
   const [schedules, setSchedules]     = useState(loadSchedules);
-  const [scheduleType, setScheduleType] = useState(loadScheduleType);
+  const [scheduleType, setScheduleType] = useState(() => loadBoardScheduleType());
   const [periodData, setPeriodData]   = useState(loadPeriodData);
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
@@ -42,7 +39,7 @@ export default function StudentsView() {
   useEffect(() => {
     const reload = () => {
       setSchedules(loadSchedules());
-      setScheduleType(loadScheduleType());
+      setScheduleType(loadBoardScheduleType());
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
       setActivePeriod(loadActivePeriod());

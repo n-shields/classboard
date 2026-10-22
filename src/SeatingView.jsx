@@ -2,14 +2,11 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import SeatingChart from "./components/SeatingChart";
 import PeriodMenu from "./components/PeriodMenu";
 import { usePeriodMenuEdge } from "./data/periodMenu";
-import { loadSchedules, resolveActivePeriod, resolveActivePeriodIndex, loadActivePeriod, saveActivePeriod, detectCurrentPeriod, detectNextPeriod, cyclePeriod } from "./data/schedules";
+import { loadSchedules, loadBoardScheduleType, resolveActivePeriod, resolveActivePeriodIndex, loadActivePeriod, saveActivePeriod, detectCurrentPeriod, detectNextPeriod, cyclePeriod } from "./data/schedules";
 import { loadPeriodData } from "./data/periodData";
 import { applyTheme } from "./data/themes";
 import { saveSeatingViewBounds } from "./data/teacherView";
 
-function loadScheduleType() {
-  return localStorage.getItem("classboard_schedule_type") || "Regular";
-}
 function loadGlobalTheme() {
   return localStorage.getItem("classboard_global_theme") || "midnight";
 }
@@ -20,7 +17,7 @@ function loadGlobalTheme() {
 // by re-reading localStorage, the same way Teacher View does.
 export default function SeatingView() {
   const [schedules, setSchedules]     = useState(loadSchedules);
-  const [scheduleType, setScheduleType] = useState(loadScheduleType);
+  const [scheduleType, setScheduleType] = useState(() => loadBoardScheduleType());
   const [periodData, setPeriodData]   = useState(loadPeriodData);
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
@@ -29,7 +26,7 @@ export default function SeatingView() {
   useEffect(() => {
     const reload = () => {
       setSchedules(loadSchedules());
-      setScheduleType(loadScheduleType());
+      setScheduleType(loadBoardScheduleType());
       setPeriodData(loadPeriodData());
       setGlobalTheme(loadGlobalTheme());
       setActivePeriod(loadActivePeriod());

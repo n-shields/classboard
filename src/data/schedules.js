@@ -69,6 +69,18 @@ export function saveScheduleDays(days) {
 }
 
 /** Returns the schedule name whose days include today, or null */
+/** The schedule the main board is showing, for its popup windows: the one
+ *  it stored (it stores whichever it's on), else today's by weekday, else
+ *  the first — never one that doesn't exist, which would leave a popup with
+ *  no periods at all. */
+export function loadBoardScheduleType(schedules = loadSchedules()) {
+  const stored = localStorage.getItem("classboard_schedule_type");
+  if (stored && stored in schedules) return stored;
+  const today = getScheduleForToday(loadScheduleDays());
+  if (today && today in schedules) return today;
+  return Object.keys(schedules)[0] ?? "Regular";
+}
+
 export function getScheduleForToday(scheduleDays) {
   const today = new Date().getDay();
   for (const [name, days] of Object.entries(scheduleDays)) {
