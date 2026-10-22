@@ -769,6 +769,10 @@ export default function SeatingChart({ names, periodLabel, periodKey, onClose })
       }
       const dir = ARROW[e.key];
       if (!dir || !selected.size) return;
+      // Plain left/right switch period (see SeatingView); Shift+arrows nudge
+      // horizontally, so a click that happened to select something doesn't
+      // swallow them.
+      if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.shiftKey) return;
       e.preventDefault();
       const [dx, dy] = dir;
       setPositions(prev => {

@@ -56,9 +56,8 @@ export default function SeatingView() {
     setActivePeriod(next);
   };
 
-  // Left/right switch period too, like the board — unless the chart used
-  // them to nudge a selected desk (it marks those handled), or a field
-  // has focus.
+  // Left/right switch period too, like the board (Shift+arrows nudge a
+  // selected desk instead — see SeatingChart), unless a field has focus.
   const periodCycleRef = useRef(null);
   useEffect(() => { periodCycleRef.current = { periods, currentPeriodIndex }; });
   useEffect(() => {
@@ -98,7 +97,11 @@ export default function SeatingView() {
 
   return (
     <>
+      {/* Keyed by period: the chart reads a period's layout only when it
+          mounts, so switching periods must remount it — otherwise it would
+          save the old period's desks over the new one's. */}
       <SeatingChart
+        key={periodKey ?? ""}
         names={currentNames}
         periodLabel={currentPeriod?.label}
         periodKey={periodKey}
