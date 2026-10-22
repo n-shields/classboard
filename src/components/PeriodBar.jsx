@@ -208,7 +208,7 @@ export default function PeriodBar({
   // Space opens the student list in its own popup window (StudentsView) —
   // or closes it again — as long as no other modal is up and the user isn't
   // typing in a field or focused on a button. If the overlay list is up
-  // instead (opened by +/- or a Noise Challenge), Space closes that.
+  // instead (opened by a Noise Challenge), Space closes that.
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== " " && e.code !== "Space") return;
@@ -233,9 +233,8 @@ export default function PeriodBar({
   //                held — held keys repeat at a fixed rate via our own timer
   //                rather than relying on the browser's OS-driven key-repeat,
   //                which varies and starts after a delay. Applying a delta
-  //                opens the (real, central) student list, which then just
-  //                stays open until the teacher closes it (Space, Escape, or
-  //                clicking off).
+  //                opens the students window (or brings it to the front),
+  //                which stays open until the teacher closes it (Space).
   //   a            toggles auto-detect period
   //   Tab          toggles compact mode (handled in App — see data/compactLayout)
   //   (custom)     plays a sound effect — assigned from Teacher View's
@@ -298,7 +297,6 @@ export default function PeriodBar({
       if (delta > 0) playDing(); else playClick();
       // A deliberate adjustment means someone's using the list now.
       if (autoCloseTimerRef.current) { clearTimeout(autoCloseTimerRef.current); autoCloseTimerRef.current = null; }
-      if (!studentsWindowOpen()) setStudentsOpen(true);
     };
     // Tracks each held key's own repeat interval independently (not just the
     // most recent key) — pressing a second shortcut key before releasing the
@@ -351,6 +349,14 @@ export default function PeriodBar({
       if (e.repeat || heldTimers.has(holdKey)) return; // we drive our own repeat, not the browser's
       applyDelta(delta);
       heldTimers.set(holdKey, setInterval(() => applyDelta(delta), GEMS_REPEAT_MS));
+      // Show the points in the students window — opened if need be, else
+      // brought to the front — unless the list is already up as an overlay
+      // here. Either takes focus, so the board stops its own repeat (blur)
+      // and further presses land in that window, which handles +/- itself.
+      if (!studentsOpenRef.current) {
+        if (studentsWindowOpen()) studentsWindowRef.current.focus();
+        else openStudentsWindow();
+      }
     };
     const onKeyUp = (e) => stopKey(e.code || e.key);
     window.addEventListener("keydown", onKeyDown);
