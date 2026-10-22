@@ -259,6 +259,13 @@
   opacity: 1;
 }
 
+/* Desks clip to their rounded corners (overflow: hidden), so the X sits
+   inside the corner rather than straddling it like a shape's does. */
+.seating-card--empty .seating-rect-del {
+  top: 5px;
+  right: 5px;
+}
+
 .seating-rect {
   position: absolute;
   border: 2px dashed rgba(255, 255, 255, 0.35);
