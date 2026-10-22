@@ -13,6 +13,7 @@ import CaptionsPane from "./components/CaptionsPane";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod, loadActivePeriod, periodsNotInSchedule } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
 import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles, combineClockPanesOnce } from "./data/layout";
+import { patchPeriodWithGemsSync } from "./data/gemsSync";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodData";
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
@@ -612,7 +613,7 @@ export default function App() {
   const savePeriod = useCallback((key, patch) => {
     if (!key) return;
     setPeriodData(d => {
-      const next = { ...d, [key]: { ...d[key], ...patch } };
+      const next = patchPeriodWithGemsSync(d, key, patch);
       localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
       return next;
     });

@@ -36,6 +36,10 @@ export default function StudentList({
   onJobsChange,
   otherPeriods = [],
   onDeleteClassList,
+  // Periods whose points are linked with this one (see gemsSync), and the
+  // setter for that list — the teacher-facing list only.
+  linkedPeriods = [],
+  onLinkedPeriodsChange,
   periodLabel,
   onClose,
   simple = false,
@@ -62,6 +66,7 @@ export default function StudentList({
     return () => clearTimeout(t);
   }, [boostAnimation?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [importOpen, setImportOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [editingGemsLabel, setEditingGemsLabel] = useState(false);
   const [gemsMuted, setGemsMuted] = useState(isGemsSoundMuted);
   const toggleGemsMuted = () => {
@@ -703,6 +708,37 @@ export default function StudentList({
             onBlur={addFromDraft}
             placeholder="Add a student — type a name, or paste a list"
           />
+        )}
+
+        {!simple && onLinkedPeriodsChange && otherPeriods.length > 0 && (
+          <div className="student-import">
+            <button
+              className="btn btn-ghost btn-sm student-import-toggle"
+              onClick={() => setLinkOpen(o => !o)}
+            >
+              Share {gemsLabel} with other periods{linkedPeriods.length ? ` (${linkedPeriods.join(", ")})` : ""} {linkOpen ? "▴" : "▾"}
+            </button>
+            {linkOpen && (
+              <div className="student-import-list">
+                <div className="student-link-hint">
+                  A student on both lists has one total — {gemsLabel.toLowerCase()} given in either period count in both.
+                  Linking starts each shared student at their higher total.
+                </div>
+                {otherPeriods.map(p => (
+                  <label key={p.label} className="student-link-row">
+                    <input
+                      type="checkbox"
+                      checked={linkedPeriods.includes(p.label)}
+                      onChange={e => onLinkedPeriodsChange(e.target.checked
+                        ? [...linkedPeriods, p.label]
+                        : linkedPeriods.filter(l => l !== p.label))}
+                    />
+                    {p.label} ({p.names.filter(n => names.includes(n)).length} shared)
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {!simple && otherPeriods.length > 0 && (

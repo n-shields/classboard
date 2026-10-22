@@ -1,4 +1,5 @@
 import { isPageArray, isPanesMap } from "./pages";
+import { patchPeriodWithGemsSync } from "./gemsSync";
 
 export const PERIOD_DATA_KEY = "classboard_period_data";
 
@@ -40,12 +41,13 @@ export function loadPeriodData() {
   } catch (_) { return {}; }
 }
 
-// Merge `patch` into one period's entry and persist. Returns the full,
+// Merge `patch` into one period's entry (mirroring points to any linked
+// periods — see gemsSync) and persist. Returns the full,
 // updated period-data object so callers can push it straight into state.
 export function savePeriodPatch(periodKey, patch) {
   if (!periodKey) return null;
   const data = loadPeriodData();
-  const next = { ...data, [periodKey]: { ...data[periodKey], ...patch } };
+  const next = patchPeriodWithGemsSync(data, periodKey, patch);
   localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
   return next;
 }

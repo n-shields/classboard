@@ -6,7 +6,8 @@ import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
 import HotkeysEditor from "./components/HotkeysEditor";
 import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod } from "./data/schedules";
-import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList } from "./data/periodData";
+import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, PERIOD_DATA_KEY } from "./data/periodData";
+import { loadGemsSyncGroups, saveGemsSyncGroups, gemsSyncMates, setGemsSyncGroup, reconcileGems } from "./data/gemsSync";
 import { pagesForPane } from "./data/pages";
 import { THEMES, applyTheme } from "./data/themes";
 import { saveTeacherViewBounds, loadSeatingViewBounds, loadBoardViewBounds } from "./data/teacherView";
@@ -59,6 +60,9 @@ export default function TeacherView() {
     });
   }, []);
 
+  // Period groups whose points are linked (see handleLinkedPeriodsChange).
+  const [gemsSyncGroups, setGemsSyncGroups] = useState(loadGemsSyncGroups);
+
   // Re-read everything the main window might have changed, either on a
   // storage event (change made in the other window) or periodically as a
   // fallback (e.g. the minute rolling over into a new period).
@@ -70,6 +74,7 @@ export default function TeacherView() {
       setGlobalTheme(loadGlobalTheme());
       setActivePeriod(loadActivePeriod());
       setSoundHotkeys(loadSoundHotkeys());
+      setGemsSyncGroups(loadGemsSyncGroups());
     };
     const id = setInterval(() => { setNow(new Date()); reload(); }, 15_000);
     window.addEventListener("storage", reload);
@@ -161,6 +166,19 @@ export default function TeacherView() {
   const handleSoundHotkeysChange = (map) => {
     setSoundHotkeys(map);
     saveSoundHotkeys(map);
+  };
+
+  // Link this period's points with others: students on both rosters share
+  // one total from now on, starting from the higher of their current ones.
+  const linkedPeriods = periodKey ? gemsSyncMates(gemsSyncGroups, periodKey) : [];
+  const handleLinkedPeriodsChange = (labels) => {
+    if (!periodKey) return;
+    const groups = setGemsSyncGroup(gemsSyncGroups, periodKey, labels);
+    saveGemsSyncGroups(groups);
+    setGemsSyncGroups(groups);
+    const next = reconcileGems(loadPeriodData(), [periodKey, ...labels]);
+    localStorage.setItem(PERIOD_DATA_KEY, JSON.stringify(next));
+    setPeriodData(next);
   };
 
   const handleDeleteClassList = (label) => {
@@ -310,6 +328,8 @@ export default function TeacherView() {
           onSortModeChange={handleSortModeChange}
           otherPeriods={otherPeriodOptions}
           onDeleteClassList={handleDeleteClassList}
+          linkedPeriods={linkedPeriods}
+          onLinkedPeriodsChange={handleLinkedPeriodsChange}
           periodLabel={currentPeriod?.label}
           onClose={() => setStudentsOpen(false)}
         />
