@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import SeatingChart from "./components/SeatingChart";
 import PeriodMenu from "./components/PeriodMenu";
 import { usePeriodMenuEdge } from "./data/periodMenu";
-import { loadSchedules, resolveActivePeriod, resolveActivePeriodIndex, loadActivePeriod, saveActivePeriod, detectCurrentPeriod, detectNextPeriod } from "./data/schedules";
+import { loadSchedules, resolveActivePeriod, resolveActivePeriodIndex, loadActivePeriod, saveActivePeriod, detectCurrentPeriod, detectNextPeriod, cyclePeriod } from "./data/schedules";
 import { loadPeriodData } from "./data/periodData";
 import { applyTheme } from "./data/themes";
 import { saveSeatingViewBounds } from "./data/teacherView";
@@ -58,6 +58,29 @@ export default function SeatingView() {
     saveActivePeriod(next.autoMode, next.label);
     setActivePeriod(next);
   };
+
+  // Left/right switch period too, like the board — unless the chart used
+  // them to nudge a selected desk (it marks those handled), or a field
+  // has focus.
+  const periodCycleRef = useRef(null);
+  useEffect(() => { periodCycleRef.current = { periods, currentPeriodIndex }; });
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const t = e.target;
+      if (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      const { periods, currentPeriodIndex } = periodCycleRef.current;
+      const next = cyclePeriod(periods, currentPeriodIndex, e.key === "ArrowRight" ? 1 : -1);
+      if (!next) return;
+      e.preventDefault();
+      // Advance now, so a quick second press steps on from here.
+      periodCycleRef.current.currentPeriodIndex = periods.findIndex(p => p.label === next.label);
+      pickPeriod(next.label, next.autoMode);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const currentNames = periodKey ? (periodData[periodKey]?.names ?? []) : [];
 

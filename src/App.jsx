@@ -478,9 +478,17 @@ export default function App() {
   // is active here, instead of independently time-detecting their own. Not
   // from a Clone window, though — it's for browsing other periods, so its
   // picks must stay out of the shared key the main board follows.
+  // A period just taken from another window (see below) isn't written back:
+  // by the time this runs that window may already have moved on (a quick
+  // second arrow press), and writing the old one would undo it.
+  const adoptedPeriodRef = useRef(null);
   useEffect(() => {
     if (isBoardPopup) return;
-    saveActivePeriod(autoMode, (offSchedulePeriod ?? currentPeriod)?.label ?? null);
+    const label = (offSchedulePeriod ?? currentPeriod)?.label ?? null;
+    const adopted = adoptedPeriodRef.current;
+    adoptedPeriodRef.current = null;
+    if (adopted && adopted.autoMode === autoMode && (autoMode || adopted.label === label)) return;
+    saveActivePeriod(autoMode, label);
   }, [autoMode, currentPeriod, offSchedulePeriod]);
 
   const selectPeriod = useCallback((idx) => {
@@ -514,6 +522,7 @@ export default function App() {
       if (!periodSelectRef.current) return;
       const { periods, schedules, scheduleType, selectPeriod, selectOffSchedulePeriod } = periodSelectRef.current;
       const picked = loadActivePeriod();
+      adoptedPeriodRef.current = picked;
       if (picked.autoMode) {
         setOffSchedulePeriod(null);
         setAutoMode(true);

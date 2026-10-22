@@ -163,6 +163,8 @@ export default function TeacherView() {
       const next = cyclePeriod(periods, resolveActivePeriodIndex(periods, activePeriod), e.key === "ArrowRight" ? 1 : -1);
       if (!next) return;
       e.preventDefault();
+      // Advance now, so a quick second press steps on from here.
+      periodCycleRef.current.activePeriod = { autoMode: false, label: next.label };
       saveActivePeriod(next.autoMode, next.label);
       setActivePeriod({ autoMode: next.autoMode, label: next.label });
     };
