@@ -26,6 +26,18 @@ export default function StudentsView() {
   const [globalTheme, setGlobalTheme] = useState(loadGlobalTheme);
   const [activePeriod, setActivePeriod] = useState(loadActivePeriod);
   const [now, setNow] = useState(() => new Date());
+  // The period of the board that opened this window ("" for none), which
+  // it keeps updated as that board switches — so a Clone window's list
+  // shows the Clone's period. Without one, follow the main board's.
+  const [boardPeriod, setBoardPeriod] = useState(() => new URLSearchParams(window.location.search).get("period"));
+  useEffect(() => {
+    const onMessage = (e) => {
+      if (e.source !== window.opener || e.data?.type !== "classboard-students-period") return;
+      setBoardPeriod(e.data.label ?? "");
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   useEffect(() => {
     const reload = () => {
@@ -41,7 +53,14 @@ export default function StudentsView() {
   }, []);
 
   const periods = schedules[scheduleType] || [];
-  const currentPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
+  const currentPeriod = useMemo(() => {
+    if (boardPeriod === null) return resolveActivePeriod(periods, activePeriod, schedules);
+    if (!boardPeriod) return null;
+    // (resolveActivePeriod falls back to the time-detected period if the
+    // label isn't in any schedule, so check it found the right one.)
+    const found = resolveActivePeriod(periods, { autoMode: false, label: boardPeriod }, schedules);
+    return found?.label === boardPeriod ? found : { label: boardPeriod };
+  }, [periods, now, activePeriod, schedules, boardPeriod]); // eslint-disable-line
   const periodKey = currentPeriod ? currentPeriod.label : null;
   const period = periodKey ? periodData[periodKey] : null;
   const names = period?.names ?? DEFAULT_NAMES;

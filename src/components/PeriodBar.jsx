@@ -85,6 +85,9 @@ export default function PeriodBar({
   // While it's open, the things that would otherwise pop the overlay list
   // up (+/-, a Noise Challenge) leave the board alone — it's already showing.
   const studentsWindowRef = useRef(null);
+  // Read when the window opens, from a keydown handler bound only once.
+  const periodLabelRef = useRef(periodLabel);
+  useEffect(() => { periodLabelRef.current = periodLabel; }, [periodLabel]);
   const studentsWindowOpen = () => !!studentsWindowRef.current && !studentsWindowRef.current.closed;
   const openStudentsWindow = () => {
     const bounds = loadStudentsViewBounds();
@@ -95,7 +98,12 @@ export default function PeriodBar({
     const url = new URL(window.location.href);
     url.searchParams.set("view", "students");
     url.searchParams.delete("s");
-    studentsWindowRef.current = window.open(url.toString(), "classboard-students-view", `width=${width},height=${height},left=${left},top=${top}`);
+    // Show this board's own period (a Clone window can be on a different
+    // one than the main board), and give each board its own students
+    // window so a Clone's Space doesn't retarget the main board's.
+    url.searchParams.set("period", periodLabelRef.current ?? "");
+    const name = window.opener ? `classboard-students-view-${window.name}` : "classboard-students-view";
+    studentsWindowRef.current = window.open(url.toString(), name, `width=${width},height=${height},left=${left},top=${top}`);
     studentsWindowRef.current?.focus();
   };
 
@@ -169,6 +177,12 @@ export default function PeriodBar({
       // User canceled the folder picker — leave autosave off.
     }
   };
+
+  // Keep an open students window on this board's period as it changes.
+  useEffect(() => {
+    if (!studentsWindowOpen()) return;
+    studentsWindowRef.current.postMessage({ type: "classboard-students-period", label: periodLabel ?? "" }, window.location.origin);
+  }, [periodLabel]);
 
   // Snapshot the period being left, whenever the active period changes —
   // whether from its scheduled end time passing or a manual switch, both of
