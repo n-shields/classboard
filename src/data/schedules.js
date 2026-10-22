@@ -210,6 +210,19 @@ export function resolveActivePeriod(periods, activePeriod, schedules) {
   return idx >= 0 ? periods[idx] : null;
 }
 
+/** The period `delta` steps from `currentIndex` in `periods`, wrapping —
+ *  from no period (-1), the first going forward or the last going back.
+ *  `autoMode` is true when that's the period scheduled right now, the same
+ *  rule the board uses for a manual pick. */
+export function cyclePeriod(periods, currentIndex, delta) {
+  if (!periods.length) return null;
+  const idx = currentIndex === -1
+    ? (delta > 0 ? 0 : periods.length - 1)
+    : ((currentIndex + delta) % periods.length + periods.length) % periods.length;
+  const scheduled = detectCurrentPeriod(periods);
+  return { label: periods[idx].label, autoMode: scheduled >= 0 && idx === scheduled };
+}
+
 /** Current-period index for a popup window: mirrors the main board's pinned
  *  period when it's not in Auto mode, otherwise falls back to time detection. */
 export function resolveActivePeriodIndex(periods, activePeriod) {

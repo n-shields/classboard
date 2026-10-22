@@ -528,6 +528,23 @@ export default function App() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // This board's students window (see PeriodBar) asks for a period with its
+  // left/right arrows — in any board, Clone windows included, since the
+  // window follows whichever board opened it.
+  useEffect(() => {
+    const onMessage = (e) => {
+      if (e.origin !== window.location.origin || e.data?.type !== "classboard-select-period") return;
+      if (!periodSelectRef.current) return;
+      const { periods, schedules, scheduleType, selectPeriod, selectOffSchedulePeriod } = periodSelectRef.current;
+      const idx = periods.findIndex(p => p.label === e.data.label);
+      if (idx >= 0) { selectPeriod(idx); return; }
+      const off = periodsNotInSchedule(schedules, scheduleType).find(p => p.label === e.data.label);
+      if (off) selectOffSchedulePeriod(off);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   // ── Per-period layout: restore on period change ──────────────────────────
   useEffect(() => {
     if (!periodKey) {

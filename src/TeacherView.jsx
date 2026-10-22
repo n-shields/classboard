@@ -5,7 +5,7 @@ import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
 import HotkeysEditor from "./components/HotkeysEditor";
-import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod } from "./data/schedules";
+import { loadSchedules, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod, resolveActivePeriodIndex, saveActivePeriod, cyclePeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, PERIOD_DATA_KEY } from "./data/periodData";
 import { loadGemsSyncGroups, saveGemsSyncGroups, gemsSyncMates, setGemsSyncGroup, reconcileGems } from "./data/gemsSync";
 import { pagesForPane } from "./data/pages";
@@ -144,6 +144,27 @@ export default function TeacherView() {
       if (overlay && !overlay.querySelector(".student-modal")) return;
       e.preventDefault();
       setStudentsOpen(o => !o);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Left/right switch period — written to the shared key, so the main
+  // board (and Seating View) follow, as with Seating View's period menu.
+  const periodCycleRef = useRef(null);
+  useEffect(() => { periodCycleRef.current = { periods, activePeriod }; });
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const target = e.target;
+      if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      const { periods, activePeriod } = periodCycleRef.current;
+      const next = cyclePeriod(periods, resolveActivePeriodIndex(periods, activePeriod), e.key === "ArrowRight" ? 1 : -1);
+      if (!next) return;
+      e.preventDefault();
+      saveActivePeriod(next.autoMode, next.label);
+      setActivePeriod({ autoMode: next.autoMode, label: next.label });
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

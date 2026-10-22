@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import StudentList from "./components/StudentList";
-import { loadSchedules, resolveActivePeriod, loadActivePeriod } from "./data/schedules";
+import { loadSchedules, resolveActivePeriod, loadActivePeriod, saveActivePeriod, cyclePeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, DEFAULT_NAMES } from "./data/periodData";
 import { applyTheme, THEMES } from "./data/themes";
 import { saveStudentsViewBounds } from "./data/teacherView";
@@ -91,11 +91,12 @@ export default function StudentsView() {
   };
 
   // Keys, while no field has focus: Space closes the window again (as it
-  // opened it), and +/- (Shift for ±10) give or take from every student —
+  // opened it), left/right switch period, and +/- (Shift for ±10) give or
+  // take from every student —
   // the board's own shortcut, which doesn't reach the board while this
   // window has focus. Held keys repeat at a fixed rate, as on the board.
   const latest = useRef({});
-  latest.current = { names, gems: period?.gems ?? {}, save };
+  latest.current = { names, gems: period?.gems ?? {}, save, periods, currentPeriod, boardPeriod };
   useEffect(() => {
     const held = new Map();
     const apply = (delta) => {
@@ -114,6 +115,25 @@ export default function StudentsView() {
       const t = e.target;
       if (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(t.tagName)) return;
       if (e.key === " " || e.code === "Space") { e.preventDefault(); window.close(); return; }
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const { periods, currentPeriod, boardPeriod } = latest.current;
+        const idx = periods.findIndex(p => p.label === currentPeriod?.label);
+        const next = cyclePeriod(periods, idx, e.key === "ArrowRight" ? 1 : -1);
+        if (!next) return;
+        if (boardPeriod !== null) {
+          // Opened by a board: switch that board (it sends its new period
+          // back), and show it here right away.
+          setBoardPeriod(next.label);
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({ type: "classboard-select-period", label: next.label }, window.location.origin);
+          }
+        } else {
+          saveActivePeriod(next.autoMode, next.label);
+          setActivePeriod({ autoMode: next.autoMode, label: next.label });
+        }
+        return;
+      }
       const magnitude = e.shiftKey ? 10 : 1;
       const delta = e.code === "Equal" || e.key === "+" || e.key === "=" ? magnitude
         : e.code === "Minus" || e.key === "-" || e.key === "_" ? -magnitude : 0;

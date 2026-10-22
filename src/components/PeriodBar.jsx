@@ -599,7 +599,11 @@ export default function PeriodBar({
 
           {/* Student list */}
           {onNamesChange && (
-            <button className="btn btn-ghost btn-sm tb-btn" onClick={() => setStudentsOpen(true)} title="Edit the student list">
+            <button
+              className="btn btn-ghost btn-sm tb-btn"
+              onClick={() => studentsWindowOpen() ? studentsWindowRef.current.focus() : openStudentsWindow()}
+              title="Open the student list in its own window (Space)"
+            >
               👥 Students
             </button>
           )}
