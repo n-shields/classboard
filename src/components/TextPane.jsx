@@ -196,6 +196,56 @@ export default function TextPane({
     saveContent();
   };
 
+  // A line's height and baseline come not just from its text but from its
+  // block's own "strut" — an invisible zero-width character at the block's
+  // font-size — so text shrunk with an inline span still sat in a line as
+  // tall as the page's base size, its baseline never moving up with it.
+  // Giving the block itself the size of its largest text shrinks the strut
+  // to match. (A bullet/number marker follows its <li>'s font-size the same
+  // way, so this keeps a resized list item's marker in step too.)
+  const lineBlockFor = (editor, node) => {
+    let el = node.parentElement;
+    while (el && el !== editor && window.getComputedStyle(el).display.startsWith("inline")) el = el.parentElement;
+    if (el && el !== editor) return el;
+    // Text sitting right in the editor (its first line, before any Enter)
+    // shares the editor's own strut, which is the page's base size — wrap
+    // that one line in a div of its own so it can be sized separately.
+    let top = node;
+    while (top.parentNode !== editor) top = top.parentNode;
+    const isBreak = n => n.nodeName === "BR" || (n.nodeType === Node.ELEMENT_NODE && !window.getComputedStyle(n).display.startsWith("inline"));
+    let first = top;
+    while (first.previousSibling && !isBreak(first.previousSibling)) first = first.previousSibling;
+    let last = top;
+    while (last.nextSibling && !isBreak(last.nextSibling)) last = last.nextSibling;
+    const div = document.createElement("div");
+    editor.insertBefore(div, first);
+    let n = first;
+    for (;;) {
+      const next = n.nextSibling;
+      div.appendChild(n);
+      if (n === last) break;
+      n = next;
+    }
+    // The div ends the line now, so the <br> that used to is redundant.
+    if (div.nextSibling?.nodeName === "BR") div.nextSibling.remove();
+    return div;
+  };
+  const fitBlockToText = (block) => {
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    let max = 0;
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+      if (!t.nodeValue.trim()) continue;
+      let sized = false;
+      for (let el = t.parentElement; el && el !== block; el = el.parentElement) {
+        if (el.style.fontSize) { sized = true; break; }
+      }
+      // Text at the block's own size keeps the block (and its strut) as is.
+      if (!sized) return;
+      max = Math.max(max, parseFloat(window.getComputedStyle(t.parentElement).fontSize));
+    }
+    if (max) block.style.fontSize = `${max}px`;
+  };
+
   const changeSizeForSelection = (delta) => {
     const editor = editorRef.current;
     if (!editor) return;
@@ -237,12 +287,8 @@ export default function TextPane({
       span.innerHTML = el.innerHTML;
       el.replaceWith(span);
       newSpans.push(span);
-      // A bullet/number marker's size follows its own <li>'s font-size, not
-      // its (resized) text content's — without this a resized list item's
-      // marker stays at the old size while its text visibly changes.
-      const li = span.closest("li");
-      if (li) li.style.fontSize = span.style.fontSize;
     });
+    new Set(newSpans.map(span => lineBlockFor(editor, span))).forEach(fitBlockToText);
     if (newSpans.length > 0) {
       const range = document.createRange();
       range.setStartBefore(newSpans[0]);
