@@ -331,3 +331,30 @@
   color: var(--accent) !important;
   opacity: 1 !important;
 }
+
+/* ── Auto-save options and its "Save a snapshot?" prompt ── */
+.autosave-modal { max-width: 460px; }
+.autosave-hint { font-size: 0.82rem; color: var(--text-dim); }
+.autosave-modal > .autosave-hint { margin: 0 0 12px; }
+.autosave-folder {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.autosave-folder > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.autosave-check {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0;
+  cursor: pointer;
+}
+.autosave-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}

@@ -12,7 +12,10 @@ import { loadSoundHotkeys, soundById } from "../data/soundHotkeys";
 import {
   isFileSystemAccessSupported, pickAutosaveFolder, loadAutosaveHandle, clearAutosaveHandle,
   hasReadWritePermission, requestReadWritePermission, timestampedFilename, writeSnapshot,
+  loadAutosaveOptions, saveAutosaveOptions, localDateKey, loadLastEndOfDaySave, markEndOfDaySave,
+  dayEndTime, toMinutes,
 } from "../data/autosave";
+import { getScheduleForToday } from "../data/schedules";
 import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
 import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl, isUnfetchableHost } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
@@ -60,6 +63,11 @@ export default function PeriodBar({
   const [autosaveFolderName, setAutosaveFolderName] = useState(null);
   const [lastAutosaveAt, setLastAutosaveAt] = useState(null);
   const autosaveHandleRef = useRef(null);
+  const [autosaveOptions, setAutosaveOptions] = useState(loadAutosaveOptions);
+  const [autosaveMenuOpen, setAutosaveMenuOpen] = useState(false);
+  // Snapshots waiting on "Ask before saving" — each holds the data as it was
+  // when it came due, so answering late still saves that moment's board.
+  const [pendingSaves, setPendingSaves] = useState([]);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
   const themeMenuRef = useRef(null);
@@ -154,29 +162,108 @@ export default function PeriodBar({
     })();
   }, []);
 
-  const toggleAutosave = async () => {
-    if (autosaveStatus === "on") {
-      await clearAutosaveHandle().catch(() => {});
-      autosaveHandleRef.current = null;
-      setAutosaveFolderName(null);
-      setLastAutosaveAt(null);
-      setAutosaveStatus("off");
-      return;
-    }
-    if (autosaveStatus === "needs-permission" && autosaveHandleRef.current) {
-      const granted = await requestReadWritePermission(autosaveHandleRef.current).catch(() => false);
-      if (granted) setAutosaveStatus("on");
-      return;
-    }
+  const turnOffAutosave = async () => {
+    await clearAutosaveHandle().catch(() => {});
+    autosaveHandleRef.current = null;
+    setAutosaveFolderName(null);
+    setLastAutosaveAt(null);
+    setAutosaveStatus("off");
+    setPendingSaves([]);
+  };
+
+  const resumeAutosave = async () => {
+    if (!autosaveHandleRef.current) return false;
+    const granted = await requestReadWritePermission(autosaveHandleRef.current).catch(() => false);
+    if (granted) setAutosaveStatus("on");
+    return granted;
+  };
+
+  const chooseAutosaveFolder = async () => {
     try {
       const handle = await pickAutosaveFolder();
       autosaveHandleRef.current = handle;
       setAutosaveFolderName(handle.name);
       setAutosaveStatus("on");
     } catch (_) {
-      // User canceled the folder picker — leave autosave off.
+      // User canceled the folder picker — leave things as they were.
     }
   };
+
+  const updateAutosaveOptions = (patch) => {
+    setAutosaveOptions(o => {
+      const next = { ...o, ...patch };
+      saveAutosaveOptions(next);
+      return next;
+    });
+  };
+
+  const writeAutosave = async (label, data) => {
+    try {
+      await writeSnapshot(autosaveHandleRef.current, timestampedFilename(label), data);
+      setLastAutosaveAt(new Date());
+      return true;
+    } catch {
+      // Quiet by design — most likely permission was revoked outside the
+      // app; stop trying silently until the teacher re-enables it.
+      setAutosaveStatus("needs-permission");
+      return false;
+    }
+  };
+
+  // A snapshot came due: save it now, or (Ask before saving) queue it up
+  // for the teacher to confirm. Only the main board saves — a cloned board
+  // window would otherwise write a duplicate of every snapshot.
+  const autosaveStatusRef = useRef(autosaveStatus);
+  const autosaveOptionsRef = useRef(autosaveOptions);
+  useEffect(() => { autosaveStatusRef.current = autosaveStatus; }, [autosaveStatus]);
+  useEffect(() => { autosaveOptionsRef.current = autosaveOptions; }, [autosaveOptions]);
+  const snapshotDue = (label, reason) => {
+    if (window.opener || !autosaveHandleRef.current) return;
+    const data = collectData();
+    if (autosaveOptionsRef.current.ask) {
+      setPendingSaves(q => [...q, { label, reason, data }]);
+    } else if (autosaveStatusRef.current === "on") {
+      writeAutosave(label, data);
+    }
+  };
+
+  const answerPendingSave = async (save) => {
+    const [first] = pendingSaves;
+    setPendingSaves(q => q.slice(1));
+    if (!save || !first) return;
+    // The Save click is a user gesture, so a lapsed permission can be
+    // re-granted right here instead of the save quietly failing.
+    if (autosaveStatus !== "on" && !(await resumeAutosave())) return;
+    await writeAutosave(first.label, first.data);
+  };
+
+  // End of day: once the last period of today's schedule has ended, save
+  // once for the day. Once schedules have weekdays assigned, days with none
+  // (weekends, say) are skipped; with none assigned at all, every day counts.
+  const periodsForDayRef = useRef([]);
+  useEffect(() => { periodsForDayRef.current = schedules[scheduleType] || []; }, [schedules, scheduleType]);
+  const scheduleDaysRef = useRef(scheduleDays);
+  useEffect(() => { scheduleDaysRef.current = scheduleDays; }, [scheduleDays]);
+  useEffect(() => {
+    if (!autosaveOptions.endOfDay) return;
+    const check = () => {
+      if (autosaveStatusRef.current === "off") return;
+      const days = scheduleDaysRef.current || {};
+      const anyDaysAssigned = Object.values(days).some(d => Array.isArray(d) && d.length);
+      if (anyDaysAssigned && !getScheduleForToday(days)) return;
+      const end = dayEndTime(periodsForDayRef.current);
+      if (!end) return;
+      const now = new Date();
+      if (now.getHours() * 60 + now.getMinutes() < toMinutes(end)) return;
+      const today = localDateKey(now);
+      if (loadLastEndOfDaySave() === today) return;
+      markEndOfDaySave(today);
+      snapshotDue("end-of-day", "day");
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, [autosaveOptions.endOfDay, autosaveStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep an open students window on this board's period as it changes.
   useEffect(() => {
@@ -192,18 +279,9 @@ export default function PeriodBar({
     const prev = prevPeriodLabelRef.current;
     prevPeriodLabelRef.current = periodLabel;
     if (!prev || prev === periodLabel) return;
-    if (autosaveStatus !== "on" || !autosaveHandleRef.current) return;
-    (async () => {
-      try {
-        await writeSnapshot(autosaveHandleRef.current, timestampedFilename(prev), collectData());
-        setLastAutosaveAt(new Date());
-      } catch (_) {
-        // Quiet by design — most likely permission was revoked outside the
-        // app; stop trying silently until the teacher re-enables it.
-        setAutosaveStatus("needs-permission");
-      }
-    })();
-  }, [periodLabel, autosaveStatus]);
+    if (!autosaveOptionsRef.current.afterClass) return;
+    snapshotDue(prev, "class");
+  }, [periodLabel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Space opens the student list in its own popup window (StudentsView) —
   // or closes it again — as long as no other modal is up and the user isn't
@@ -629,13 +707,13 @@ export default function PeriodBar({
           {isFileSystemAccessSupported() && (
             <button
               className={`btn btn-sm tb-btn ei-btn ${autosaveStatus === "on" ? "btn-primary" : "btn-ghost"}`}
-              onClick={toggleAutosave}
+              onClick={() => setAutosaveMenuOpen(true)}
               title={
                 autosaveStatus === "on"
-                  ? `Auto-saving a dated snapshot to "${autosaveFolderName}" after each period${lastAutosaveAt ? ` — last saved ${lastAutosaveAt.toLocaleTimeString()}` : ""}. Click to turn off.`
+                  ? `Auto-saving to "${autosaveFolderName}"${lastAutosaveAt ? ` — last saved ${lastAutosaveAt.toLocaleTimeString()}` : ""}. Click for options.`
                   : autosaveStatus === "needs-permission"
-                  ? `Click to resume auto-saving to "${autosaveFolderName}"`
-                  : "Pick a folder to quietly save a dated snapshot after each period"
+                  ? `Auto-save to "${autosaveFolderName}" needs permission again — click to resume`
+                  : "Auto-save dated snapshots to a folder — click to set up"
               }
             >
               💾 Auto-save{autosaveStatus === "on" ? " ✓" : autosaveStatus === "needs-permission" ? " ⚠" : ""}
@@ -699,6 +777,62 @@ export default function PeriodBar({
           onClose={() => setStudentsOpen(false)}
           simple
         />
+      )}
+
+      {autosaveMenuOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setAutosaveMenuOpen(false)}>
+          <div className="modal autosave-modal">
+            <h2>Auto-save</h2>
+            <p className="autosave-hint">Saves a dated snapshot of all the board's data into a folder on this computer.</p>
+            <div className="autosave-folder">
+              {autosaveStatus === "off" ? (
+                <>
+                  <span>No folder chosen</span>
+                  <button className="btn btn-primary btn-sm" onClick={chooseAutosaveFolder}>Choose folder…</button>
+                </>
+              ) : (
+                <>
+                  <span>📁 <strong>{autosaveFolderName}</strong>{autosaveStatus === "needs-permission" && " — needs permission"}</span>
+                  {autosaveStatus === "needs-permission" && <button className="btn btn-primary btn-sm" onClick={resumeAutosave}>Allow</button>}
+                  <button className="btn btn-ghost btn-sm" onClick={chooseAutosaveFolder}>Change…</button>
+                  <button className="btn btn-danger btn-sm" onClick={turnOffAutosave}>Turn off</button>
+                </>
+              )}
+            </div>
+            <label className="autosave-check">
+              <input type="checkbox" checked={autosaveOptions.afterClass} onChange={e => updateAutosaveOptions({ afterClass: e.target.checked })} />
+              <span>At the end of each class <span className="autosave-hint">— whenever the period changes</span></span>
+            </label>
+            <label className="autosave-check">
+              <input type="checkbox" checked={autosaveOptions.endOfDay} onChange={e => updateAutosaveOptions({ endOfDay: e.target.checked })} />
+              <span>At the end of the day <span className="autosave-hint">— once the last period{dayEndTime(schedules[scheduleType]) ? ` (${dayEndTime(schedules[scheduleType])})` : ""} is over</span></span>
+            </label>
+            <label className="autosave-check">
+              <input type="checkbox" checked={autosaveOptions.ask} onChange={e => updateAutosaveOptions({ ask: e.target.checked })} />
+              <span>Ask before saving</span>
+            </label>
+            <div className="autosave-actions">
+              <span className="autosave-hint">{lastAutosaveAt ? `Last saved ${lastAutosaveAt.toLocaleTimeString()}` : ""}</span>
+              <button className="btn btn-primary btn-sm" onClick={() => setAutosaveMenuOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingSaves.length > 0 && !autosaveMenuOpen && (
+        <div className="modal-overlay">
+          <div className="modal autosave-modal">
+            <h2>Save a snapshot?</h2>
+            <p>
+              {pendingSaves[0].reason === "day" ? "The school day is over." : <><strong>{pendingSaves[0].label}</strong> just ended.</>}
+              {" "}Save a snapshot to <strong>{autosaveFolderName}</strong>?
+            </p>
+            <div className="autosave-actions">
+              <button className="btn btn-ghost btn-sm" onClick={() => answerPendingSave(false)}>Skip</button>
+              <button className="btn btn-primary btn-sm" onClick={() => answerPendingSave(true)} autoFocus>Save</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {layoutToolOpen && (
