@@ -131,8 +131,11 @@ const MIN_SPAN = 10; // floor for the auto-scaled range, so a flat/quiet
 const THERMO_MAX = 100; // fixed full-scale for the live-value gauge — unlike
                          // the graph, a thermometer's scale doesn't wander
 
-function formatCountdown(endAt) {
-  const remainingSec = Math.max(0, Math.ceil((endAt - performance.now()) / 1000));
+// A paused challenge's clock stands still at whatever was left when it
+// paused (pausedLeft, in ms); a running one counts down to endAt.
+function formatCountdown({ endAt, pausedLeft = null }) {
+  const remainingMs = pausedLeft ?? endAt - performance.now();
+  const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
   const m = Math.floor(remainingSec / 60);
   const s = remainingSec % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
@@ -302,8 +305,8 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
   // countdown; challengeResult is the brief win/lose banner shown once it ends.
   // targetLevel/thresholds are set (and targetDb is that level's upper
   // bound) only for a challenge started while showing levels; null otherwise.
-  const challengeRef = useRef(null); // { endAt, durationMin, targetDb, targetLevel, thresholds, reward, cost, playSound, autoRepeat, sum, count } | null
-  const [challengeUI, setChallengeUI] = useState(null); // { endAt, targetDb, targetLevel, reward, cost, autoRepeat } | null
+  const challengeRef = useRef(null); // { endAt, pausedLeft, durationMin, targetDb, targetLevel, thresholds, reward, cost, playSound, autoRepeat, sum, count } | null
+  const [challengeUI, setChallengeUI] = useState(null); // { endAt, pausedLeft, targetDb, targetLevel, reward, cost, autoRepeat } | null
   const [challengeResult, setChallengeResult] = useState(null); // { won, avg, avgLevel, targetDb, targetLevel, reward, cost, repeating } | null
   const [challengeSetupOpen, setChallengeSetupOpen] = useState(false);
   // The running challenge's own average (sum/count since it started) — what
@@ -548,8 +551,9 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     }
     rawPeakRef.current = -Infinity;
 
+    // A paused challenge neither counts what it hears nor runs out.
     const c = challengeRef.current;
-    if (c) {
+    if (c && c.pausedLeft == null) {
       c.sum += v;
       c.count += 1;
       setChallengeAvg(c.sum / c.count);
@@ -584,9 +588,9 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
 
   const beginChallenge = ({ durationMin, targetDb, targetLevel = null, thresholds = null, reward, cost, playSound, autoRepeat }, { keepResult = false } = {}) => {
     const endAt = performance.now() + Math.max(0.5, durationMin) * 60_000;
-    const c = { endAt, durationMin, targetDb, targetLevel, thresholds, reward, cost, playSound, autoRepeat, sum: 0, count: 0 };
+    const c = { endAt, pausedLeft: null, durationMin, targetDb, targetLevel, thresholds, reward, cost, playSound, autoRepeat, sum: 0, count: 0 };
     challengeRef.current = c;
-    setChallengeUI({ endAt, targetDb, targetLevel, reward, cost, autoRepeat });
+    setChallengeUI({ endAt, pausedLeft: null, targetDb, targetLevel, reward, cost, autoRepeat });
     setChallengeAvg(null);
     // Every round starts from a clean slate — clear the history too, so the
     // graph and its dashed average line don't carry over pre-challenge noise.
@@ -608,6 +612,20 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     beginChallenge(levelsMode
       ? { ...challengeDraft, targetLevel: draftTargetLevel, thresholds: thresholds.slice(), targetDb: levelUpperBound(draftTargetLevel, thresholds) }
       : { ...challengeDraft, targetLevel: null, thresholds: null });
+  };
+
+  // Pausing freezes the clock and the average where they are; resuming
+  // picks up with the same time left (endAt moves out by the pause).
+  const togglePauseChallenge = () => {
+    const c = challengeRef.current;
+    if (!c) return;
+    if (c.pausedLeft != null) {
+      c.endAt = performance.now() + c.pausedLeft;
+      c.pausedLeft = null;
+    } else {
+      c.pausedLeft = Math.max(0, c.endAt - performance.now());
+    }
+    setChallengeUI(u => u && { ...u, endAt: c.endAt, pausedLeft: c.pausedLeft });
   };
 
   const cancelChallenge = () => {
@@ -785,11 +803,17 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
 
             {challengeUI && (
               <div
-                className="decibel-challenge-badge"
+                className={`decibel-challenge-badge${challengeUI.pausedLeft != null ? " decibel-challenge-badge--paused" : ""}`}
                 onClick={e => { e.stopPropagation(); setChallengeSetupOpen(true); }}
-                title="Noise Challenge in progress — click for details"
+                title={challengeUI.pausedLeft != null ? "Noise Challenge paused — click for details" : "Noise Challenge in progress — click for details"}
               >
-                🎯 {formatCountdown(challengeUI.endAt)} · {challengeUI.targetLevel != null ? `≤ level ${challengeUI.targetLevel}` : `≤${challengeUI.targetDb} avg`}{challengeUI.autoRepeat && " · 🔁"}
+                {challengeUI.pausedLeft != null ? "⏸" : "🎯"} {formatCountdown(challengeUI)} · {challengeUI.targetLevel != null ? `≤ level ${challengeUI.targetLevel}` : `≤${challengeUI.targetDb} avg`}{challengeUI.autoRepeat && " · 🔁"}
+                <button
+                  className="decibel-challenge-pause"
+                  onClick={e => { e.stopPropagation(); togglePauseChallenge(); }}
+                  title={challengeUI.pausedLeft != null ? "Resume challenge" : "Pause challenge"}
+                  aria-label={challengeUI.pausedLeft != null ? "Resume challenge" : "Pause challenge"}
+                >{challengeUI.pausedLeft != null ? "▶" : "❚❚"}</button>
                 <button
                   className="decibel-challenge-cancel"
                   onClick={e => { e.stopPropagation(); cancelChallenge(); }}
@@ -1002,15 +1026,16 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
           <div className="modal decibel-challenge-modal">
             {challengeUI ? (
               <>
-                <h2>Noise Challenge in progress</h2>
+                <h2>{challengeUI.pausedLeft != null ? "Noise Challenge paused" : "Noise Challenge in progress"}</h2>
                 <p className="decibel-settings-hint">
-                  {formatCountdown(challengeUI.endAt)} left — keep the average at or under{" "}
+                  {formatCountdown(challengeUI)} left — keep the average at or under{" "}
                   <strong>{challengeUI.targetLevel != null ? `level ${challengeUI.targetLevel}` : challengeUI.targetDb}</strong> to win <strong>+{challengeUI.reward}</strong> for everyone
                   {challengeUI.cost > 0 && <> (or lose <strong>−{challengeUI.cost}</strong> if it's over)</>}.
                   {challengeUI.autoRepeat && " Repeats automatically until cancelled."}
                 </p>
                 <div className="decibel-settings-actions">
                   <button className="btn btn-danger btn-sm" onClick={cancelChallenge}>Cancel challenge</button>
+                  <button className="btn btn-ghost btn-sm" onClick={togglePauseChallenge}>{challengeUI.pausedLeft != null ? "Resume" : "Pause"}</button>
                   <button className="btn btn-primary btn-sm" onClick={() => setChallengeSetupOpen(false)}>Done</button>
                 </div>
               </>

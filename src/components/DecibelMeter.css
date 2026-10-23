@@ -239,6 +239,26 @@
 }
 .decibel-challenge-cancel:hover { filter: brightness(1.15); }
 
+.decibel-challenge-pause {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.decibel-challenge-pause:hover { filter: brightness(1.15); }
+
+/* Paused: dashed border so it reads as on hold at a glance. */
+.decibel-challenge-badge--paused { border-style: dashed; }
+
 .decibel-settings-check {
   display: flex;
   align-items: center;
