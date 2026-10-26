@@ -307,13 +307,33 @@ export default function TextPane({
   // feel too coarse at the small end and too fine at the large end. A
   // literal 1% rounds to 0px below ~100px, so it's floored at 1px so every
   // click still moves it somewhere.
+  //
+  // Text carrying its own inline size (a selection resized earlier, or
+  // pasted-in spans/list items) wouldn't follow the base size on its own —
+  // a bulleted list's marker grew while its text sat still — so every
+  // absolute inline size is scaled by the same ratio. Relative ones (em, %)
+  // already follow their parent. Sizes keep fractional px so a 1% step on
+  // small text doesn't round back to where it started.
   const adjustFontSize = (direction) => {
     if (hasSelection) {
       changeSizeForSelection(direction * 4);
     } else if (activePage) {
       const step = Math.max(1, Math.round(activePage.fontSize * 0.01));
       const fontSize = Math.min(144, Math.max(10, activePage.fontSize + direction * step));
-      onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, fontSize } : p)));
+      if (fontSize === activePage.fontSize) return;
+      const ratio = fontSize / activePage.fontSize;
+      const editor = editorRef.current;
+      let html = activePage.html;
+      if (editor) {
+        const sized = [...editor.querySelectorAll("[style]")]
+          .filter(el => el.style.fontSize && !/(em|%)$/.test(el.style.fontSize))
+          .map(el => [el, parseFloat(window.getComputedStyle(el).fontSize)]);
+        if (sized.length > 0) {
+          sized.forEach(([el, px]) => { el.style.fontSize = `${Math.round(px * ratio * 100) / 100}px`; });
+          html = editor.innerHTML;
+        }
+      }
+      onPagesChange(pages.map(p => (p.id === activePageId ? { ...p, fontSize, html } : p)));
     }
   };
 
