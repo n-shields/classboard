@@ -105,7 +105,10 @@ const ClockCtx = createContext(null);
 //
 // `mode` is whichever mode was used last: what a combined pane shows, and
 // what the camera overlay mirrors (via onDisplayChange).
-export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSettingsChange, children }) {
+export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSettingsChange, onTimerTriggered, children }) {
+  // Lets the board show a hidden Timer pane when a shortcut sets one going.
+  const onTimerTriggeredRef = useRef(onTimerTriggered);
+  onTimerTriggeredRef.current = onTimerTriggered;
   const [mode, setMode] = useState("Period");
   const [now, setNow] = useState(new Date());
 
@@ -265,6 +268,9 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
       const target = e.target;
       if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (document.querySelector(".modal-overlay")) return;
+
+      const timerKey = (e.key >= "1" && e.key <= "9") || ["+", "-", " ", "r", "R", "t", "T"].includes(e.key);
+      if (timerKey) onTimerTriggeredRef.current?.();
 
       if (e.key >= "1" && e.key <= "9") {
         setPreset(Number(e.key));

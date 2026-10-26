@@ -12,7 +12,7 @@ import DecibelMeter from "./components/DecibelMeter";
 import CaptionsPane from "./components/CaptionsPane";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod, loadActivePeriod, periodsNotInSchedule } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles, combineClockPanesOnce } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles, combineClockPanesOnce, rememberTileSpots, restoreTile } from "./data/layout";
 import { patchPeriodWithGemsSync } from "./data/gemsSync";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodData";
@@ -601,6 +601,7 @@ export default function App() {
     if (compact) {
       setLayout(prev => {
         const next = typeof updater === "function" ? updater(prev) : updater;
+        rememberTileSpots(prev, next);
         const key = periodKey ?? "";
         const map = compactLayoutsRef.current;
         compactLayoutsRef.current = { ...map, [key]: { ...map[key], tree: next } };
@@ -634,11 +635,21 @@ export default function App() {
     };
     setLayout(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
+      rememberTileSpots(prev, next);
       trackHidden(prev, next);
       persist(next);
       return next;
     });
   }, [periodKey, compact]);
+
+  // A timer started (or nudged) by keyboard shortcut while no Timer pane is
+  // on the board would run unseen — bring the pane back where it last was,
+  // and expand it if it's collapsed.
+  const handleTimerTriggered = useCallback(() => {
+    if (!collectLeaves(layout).has("timer")) handleLayoutChange(prev => restoreTile(prev, "timer"));
+    const host = collectRawLeaves(layout).find(l => leafParts(l).includes("timer"));
+    if (host && collapsed[host]) setCollapsed(c => ({ ...c, [host]: false }));
+  }, [layout, collapsed, handleLayoutChange]);
 
   // ── Data persistence ─────────────────────────────────────────────────────
   const savePeriod = useCallback((key, patch) => {
@@ -1151,6 +1162,7 @@ export default function App() {
         nextPeriod={clockNextPeriod}
         onDisplayChange={setClockDisplay}
         onSettingsChange={s => setClockFontSize(s.fontSize)}
+        onTimerTriggered={handleTimerTriggered}
       >
         <TileLayout
           layout={layout}

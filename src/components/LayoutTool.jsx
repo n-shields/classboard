@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TILE_IDS, COMBINABLE_IDS, collectLeaves, insertLeaf, removeLeaf, combineLegacyClock, addToCombinable } from "../data/layout";
+import { TILE_IDS, COMBINABLE_IDS, collectLeaves, removeLeaf, combineLegacyClock, restoreTile } from "../data/layout";
 import { BUILTIN_PRESETS, loadSavedLayouts, saveSavedLayouts } from "../data/layoutPresets";
 import "./LayoutTool.css";
 
@@ -27,13 +27,10 @@ export default function LayoutTool({ layout, onLayoutChange, onClose }) {
         if (leaves.size <= 1) return prev; // always leave at least one tile
         return removeLeaf(prev, id) ?? prev;
       }
-      // Period/Timer/Stopwatch join the pane already showing one of them
-      // (switched with its ‹ › arrows) rather than getting a tile each —
-      // that pane's ⇹ button splits one off into its own.
-      const joined = COMBINABLE_IDS.includes(id) && addToCombinable(prev, id);
-      if (joined) return joined;
-      const anchor = [...leaves][0];
-      return anchor ? insertLeaf(prev, anchor, id, "bottom") : prev;
+      // Back where it last was — or, failing that, Period/Timer/Stopwatch
+      // join the pane already showing one of them (switched with its ‹ ›
+      // arrows) rather than getting a tile each; see restoreTile.
+      return restoreTile(prev, id);
     });
   };
 

@@ -312,3 +312,88 @@ export function loadLayout() {
 export function saveLayout(layout) {
   localStorage.setItem('classboard_layout_v2', JSON.stringify(layout));
 }
+
+const TILE_SPOTS_KEY = 'classboard_tile_spots';
+
+// Where each tile last sat before it was hidden — which side of which
+// neighbor(s), and how big — so showing it again puts it back there rather
+// than tacking it on under the top-left pane.
+function loadTileSpots() {
+  try {
+    const s = JSON.parse(localStorage.getItem(TILE_SPOTS_KEY) || '{}');
+    if (s && typeof s === 'object') return s;
+  } catch (_) {}
+  return {};
+}
+
+/** Tile `id`'s place in `tree`: { combined } if it shares a pane, else the
+ *  side of its split it's on, the split's ratio, and the raw leaves on the
+ *  other side; null if it's the only leaf (or absent) */
+function spotOf(tree, id) {
+  const walk = (node) => {
+    if (typeof node === 'string') return null;
+    for (const [child, sibling, first] of [[node.a, node.b, true], [node.b, node.a, false]]) {
+      if (typeof child !== 'string' || !leafParts(child).includes(id)) continue;
+      if (isCombinedLeaf(child)) return { combined: true };
+      const side = node.dir === 'h' ? (first ? 'left' : 'right') : (first ? 'top' : 'bottom');
+      return { side, ratio: node.ratio, sibling: collectRawLeaves(sibling) };
+    }
+    return walk(node.a) ?? walk(node.b);
+  };
+  return walk(tree);
+}
+
+/** Record where each tile dropped between `prev` and `next` used to be */
+export function rememberTileSpots(prev, next) {
+  const nextLeaves = collectLeaves(next);
+  const gone = [...collectLeaves(prev)].filter(id => TILE_IDS.includes(id) && !nextLeaves.has(id));
+  if (gone.length === 0) return;
+  const spots = loadTileSpots();
+  for (const id of gone) {
+    const spot = spotOf(prev, id);
+    if (spot) spots[id] = spot;
+  }
+  try { localStorage.setItem(TILE_SPOTS_KEY, JSON.stringify(spots)); } catch (_) {}
+}
+
+/** Put `id` back beside its remembered neighbors: wrapping the exact same
+ *  group of panes at the same size if that group is still intact, else
+ *  docking against whichever of them is left; null if none are */
+function placeAtSpot(tree, id, { side, ratio, sibling }) {
+  const goesFirst = side === 'left' || side === 'top';
+  const dir = side === 'left' || side === 'right' ? 'h' : 'v';
+  const want = [...sibling].sort().join('|');
+  let placed = false;
+  const wrap = (node) => {
+    if (placed) return node;
+    if (collectRawLeaves(node).sort().join('|') === want) {
+      placed = true;
+      return goesFirst ? { dir, ratio, a: id, b: node } : { dir, ratio, a: node, b: id };
+    }
+    return typeof node === 'string' ? node : { ...node, a: wrap(node.a), b: wrap(node.b) };
+  };
+  const wrapped = wrap(tree);
+  if (placed) return wrapped;
+  // The neighbor group changed since — dock against the pane that was
+  // nearest it (the near edge of the group) that's still around.
+  const present = collectLeaves(tree);
+  const parts = sibling.flatMap(leafParts).filter(p => present.has(p));
+  const anchor = goesFirst ? parts[0] : parts[parts.length - 1];
+  return anchor ? insertLeaf(tree, anchor, id, side) : null;
+}
+
+/** Show tile `id` again — where it last was if that can be worked out,
+ *  otherwise in the shared Period/Timer/Stopwatch pane (for those), or
+ *  under the first pane */
+export function restoreTile(tree, id) {
+  if (collectLeaves(tree).has(id)) return tree;
+  const spot = loadTileSpots()[id];
+  if (spot?.sibling) {
+    const placed = placeAtSpot(tree, id, spot);
+    if (placed) return placed;
+  }
+  const joined = COMBINABLE_IDS.includes(id) && addToCombinable(tree, id);
+  if (joined) return joined;
+  const anchor = collectRawLeaves(tree)[0];
+  return anchor ? insertLeaf(tree, anchor, id, 'bottom') : tree;
+}
