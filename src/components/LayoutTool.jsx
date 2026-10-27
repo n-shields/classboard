@@ -73,7 +73,7 @@ export default function LayoutTool({ layout, onLayoutChange, onClose }) {
         </div>
 
         <div className="layout-tool-section-label">Countdowns &amp; timers</div>
-        <div className="layout-tool-hint">Shown together in one pane — switch with its ‹ › arrows, or ⇹ to split one off.</div>
+        <div className="layout-tool-hint">Shown together in one pane — switch with its ‹ › arrows, or drag its ⠿ grip to move the one showing into its own pane.</div>
         <div className="layout-tool-checkboxes">
           {COMBINABLE_IDS.map(id => (
             <label key={id} className="layout-tool-checkbox">

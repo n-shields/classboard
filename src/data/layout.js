@@ -137,14 +137,6 @@ export function combineLegacyClock(tree) {
   return replaceLeaf(tree, 'clock', 'clock+timer');
 }
 
-/** Split tile `partId` back out of combined leaf `leafId`, beside it */
-export function splitLeaf(tree, leafId, partId, side = 'right') {
-  const rest = leafParts(leafId).filter(p => p !== partId);
-  if (rest.length === leafParts(leafId).length) return tree;
-  const restId = rest.join('+');
-  return insertLeaf(replaceLeaf(tree, leafId, restId), restId, partId, side);
-}
-
 export const DEFAULT_LAYOUT = {
   dir: 'h', ratio: 0.78,
   a: {

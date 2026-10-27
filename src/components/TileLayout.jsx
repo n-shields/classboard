@@ -68,7 +68,7 @@ function DropOverlay({ tileId, onDrop, onDropPage, onCombine, isMergeTarget, com
 // ── Tile slot — leaf rendering with drag handle and drop overlay ─────────────
 
 function TileSlot({ id, content }) {
-  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide } = useContext(DragCtx);
+  const { dragging, setDragging, pageDragOrigin, setPageDragOrigin, partDragOrigin, setPartDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, getTileDragPart, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide } = useContext(DragCtx);
   const collapsed = isCollapsed(id);
   const maximized = maximizedId === id;
   const didDrag = useRef(false);
@@ -79,6 +79,10 @@ function TileSlot({ id, content }) {
   // this same corner grip instead drags its active tab (to merge into
   // another pane, or detach to a new tile), leaving the rest of the tabs here.
   const pagePayload = getTileDragPayload?.(id);
+  // Likewise a combined Period/Timer/Stopwatch pane's grip drags out just
+  // the mode it's showing — onto another pane's edge to give it a tile of
+  // its own, or onto another such pane's center to join that one instead.
+  const dragPart = !pagePayload ? getTileDragPart?.(id) : null;
 
   return (
     <div className={`tl-slot ${collapsed ? "tl-slot--collapsed" : ""} ${maximized ? "tl-slot--maximized" : ""}`} data-tile={id}>
@@ -93,15 +97,23 @@ function TileSlot({ id, content }) {
             e.dataTransfer.effectAllowed = "move";
             setPageDragOrigin(pagePayload.sourcePaneId);
             setTimeout(() => setDragging(pagePayload.pageId), 0);
+          } else if (dragPart) {
+            e.dataTransfer.setData("text/plain", dragPart);
+            e.dataTransfer.effectAllowed = "move";
+            setPartDragOrigin(id);
+            setTimeout(() => setDragging(dragPart), 0);
           } else {
             e.dataTransfer.setData("text/plain", id);
             e.dataTransfer.effectAllowed = "move";
             setTimeout(() => setDragging(id), 0);
           }
         }}
-        onDragEnd={() => { setDragging(null); setPageDragOrigin(null); }}
+        onDragEnd={() => { setDragging(null); setPageDragOrigin(null); setPartDragOrigin(null); }}
         onClick={() => { if (!didDrag.current) onToggle?.(id); didDrag.current = false; }}
-        title={collapsed ? "Click to expand" : pagePayload ? "Drag to move this tab · click to minimize" : "Drag to reposition · click to minimize"}
+        title={collapsed ? "Click to expand"
+          : pagePayload ? "Drag to move this tab · click to minimize"
+          : dragPart ? `Drag to move ${tileNames?.[dragPart] ?? dragPart} into its own pane · click to minimize`
+          : "Drag to reposition · click to minimize"}
       >
         {collapsed ? <>▶{name && <span className="tl-drag-handle-name">{name}</span>}</> : "⠿"}
       </div>
@@ -143,7 +155,7 @@ function TileSlot({ id, content }) {
       )}
       {/* Suppress the overlay on the pane a tab drag started from — dropping
           a tab back onto its own pane isn't a meaningful move. */}
-      {dragging && dragging !== id && pageDragOrigin !== id && (
+      {dragging && dragging !== id && pageDragOrigin !== id && partDragOrigin !== id && (
         <DropOverlay
           tileId={id}
           isMergeTarget={(!!pageDragOrigin && isPaneTile(id)) || combineTarget}
@@ -235,9 +247,12 @@ function LayoutNode({ node, onChange, tiles, isCollapsed }) {
 
 // ── Root export ───────────────────────────────────────────────────────────────
 
-export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop, getTileDragPayload, onDeleteTab }) {
+export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed, onToggle, tileNames, swapMap, onPageDrop, getTileDragPayload, getTileDragPart, onDeleteTab }) {
   const [dragging, setDragging] = useState(null);
   const [pageDragOrigin, setPageDragOrigin] = useState(null);
+  // The combined Period/Timer/Stopwatch pane one of its modes is being
+  // dragged out of — like pageDragOrigin, it gets no drop overlay of its own.
+  const [partDragOrigin, setPartDragOrigin] = useState(null);
   // The one tile (if any) currently maximized to fill the screen — view
   // state only, not saved with the layout. Escape restores it.
   const [maximizedId, setMaximizedId] = useState(null);
@@ -266,7 +281,7 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   // Safety net: if the dragged element remounts (layout changed mid-drag),
   // onDragEnd won't fire on it — clear dragging state from the document level.
   useEffect(() => {
-    const handler = () => { setDragging(null); setPageDragOrigin(null); };
+    const handler = () => { setDragging(null); setPageDragOrigin(null); setPartDragOrigin(null); };
     document.addEventListener("dragend", handler);
     return () => document.removeEventListener("dragend", handler);
   }, []);
@@ -277,8 +292,8 @@ export default function TileLayout({ layout, onLayoutChange, tiles, isCollapsed,
   const canHide = typeof layout !== "string"; // never hide the only tile
 
   const ctxValue = useMemo(
-    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide }),
-    [dragging, pageDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, onDeleteTab, maximizedId, onHide, canHide],
+    () => ({ dragging, setDragging, pageDragOrigin, setPageDragOrigin, partDragOrigin, setPartDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, getTileDragPart, onDeleteTab, maximizedId, setMaximizedId, onHide, canHide }),
+    [dragging, pageDragOrigin, partDragOrigin, onMove, onCombine, onSwap, swapMap, onToggle, isCollapsed, tileNames, onPageDrop, getTileDragPayload, getTileDragPart, onDeleteTab, maximizedId, onHide, canHide],
   );
 
   return (

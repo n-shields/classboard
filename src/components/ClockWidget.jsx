@@ -105,7 +105,7 @@ const ClockCtx = createContext(null);
 //
 // `mode` is whichever mode was used last: what a combined pane shows, and
 // what the camera overlay mirrors (via onDisplayChange).
-export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSettingsChange, onTimerTriggered, children }) {
+export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onModeChange, onSettingsChange, onTimerTriggered, children }) {
   // Lets the board show a hidden Timer pane when a shortcut sets one going.
   const onTimerTriggeredRef = useRef(onTimerTriggered);
   onTimerTriggeredRef.current = onTimerTriggered;
@@ -350,6 +350,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
     displayStr = main + (showSecsByMode.Stopwatch ? `:${sec}` : "");
   }
   useEffect(() => { onDisplayChange?.(displayStr); }, [displayStr]); // eslint-disable-line
+  useEffect(() => { onModeChange?.(mode); }, [mode]); // eslint-disable-line
 
   const value = {
     mode, setMode,
@@ -364,9 +365,9 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onSe
 }
 
 // One pane showing `modes` — "Period", "Timer" or "Stopwatch" on its own,
-// or several when combined, switched with the ‹ › arrows. `onSplit(mode)` (combined
-// panes only) pops that mode back out into a pane of its own.
-export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
+// or several when combined, switched with the ‹ › arrows. The tile's grip
+// drags the showing mode out into a pane of its own (see TileLayout).
+export default function ClockWidget({ collapsed, modes = MODES }) {
   const c = useContext(ClockCtx);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsPanelRef = useRef(null);
@@ -375,8 +376,6 @@ export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
   const combined = modes.length > 1;
   const mode = modes.includes(c.mode) ? c.mode : modes[0];
   const cycleMode = (dir) => c.setMode(modes[(modes.indexOf(mode) + dir + modes.length) % modes.length]);
-  // Split off whichever mode isn't showing, so what's on screen stays put.
-  const splitMode = modes.find(m => m !== mode);
 
   // Close settings on click outside
   useEffect(() => {
@@ -398,21 +397,12 @@ export default function ClockWidget({ collapsed, modes = MODES, onSplit }) {
   return (
     <div className={`card clock-widget ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
       <div className="card-body clock-body">
-        {/* Mode label (plus cycle arrows and a split button when combined) —
+        {/* Mode label (plus cycle arrows when combined) —
             top right, appears on hover */}
         <div className="clock-mode-nav">
           {combined && <button className="clock-nav-btn" onClick={() => cycleMode(-1)} onMouseDown={e => e.preventDefault()} tabIndex={-1} title="Previous mode">‹</button>}
           <span className="clock-mode-label">{mode}</span>
           {combined && <button className="clock-nav-btn" onClick={() => cycleMode(1)} onMouseDown={e => e.preventDefault()} tabIndex={-1} title="Next mode">›</button>}
-          {combined && onSplit && (
-            <button
-              className="clock-nav-btn"
-              onClick={() => onSplit(splitMode)}
-              onMouseDown={e => e.preventDefault()}
-              tabIndex={-1}
-              title={`Split ${splitMode} into its own pane`}
-            >⇹</button>
-          )}
         </div>
 
         {/* Settings panel — for whichever mode is showing: its own size,

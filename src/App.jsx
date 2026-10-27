@@ -12,7 +12,7 @@ import DecibelMeter from "./components/DecibelMeter";
 import CaptionsPane from "./components/CaptionsPane";
 import { loadSchedules, saveSchedules, loadScheduleDays, saveScheduleDays, loadPeriodNames, savePeriodNames, getScheduleForToday, detectCurrentPeriod, detectNextPeriod, saveActivePeriod, loadActivePeriod, periodsNotInSchedule } from "./data/schedules";
 import { THEMES, applyTheme, hasDarkText, lightenForDarkText, darkenForLightText } from "./data/themes";
-import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, splitLeaf, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles, combineClockPanesOnce, rememberTileSpots, restoreTile } from "./data/layout";
+import { loadLayout, saveLayout, validateLayout, migrateLayout, DEFAULT_LAYOUT, insertLeaf, removeLeaf, moveTile, collectLeaves, collectRawLeaves, isCombinedLeaf, leafParts, isDynamicPaneId, isPaneTile, makePaneId, TILE_IDS, loadHiddenTileIds, saveHiddenTileIds, stripHiddenTiles, combineClockPanesOnce, rememberTileSpots, restoreTile } from "./data/layout";
 import { patchPeriodWithGemsSync } from "./data/gemsSync";
 import { loadPageSyncGroups, savePageSyncGroups, getPageSyncMates, setPageSyncGroup, removePageSyncLocation } from "./data/pageSync";
 import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodData";
@@ -184,6 +184,7 @@ export default function App() {
 
   // Clock display string (mirrors whatever ClockWidget is showing)
   const [clockDisplay, setClockDisplay] = useState("");
+  const [clockMode, setClockMode] = useState("Period");
   const [clockFontSize, setClockFontSize] = useState("md");
 
   // Widget collapse state
@@ -1031,11 +1032,16 @@ export default function App() {
       <ClockWidget
         modes={leafParts(leafId).map(p => CLOCK_MODES[p])}
         collapsed={collapsed[leafId]}
-        onSplit={mode => handleLayoutChange(prev =>
-          splitLeaf(prev, leafId, Object.keys(CLOCK_MODES).find(k => CLOCK_MODES[k] === mode)))}
       />,
     ]),
   );
+  // A combined pane's grip drags out just the mode it's showing (the same
+  // one ClockWidget picks), the way a text pane's grip drags its active tab.
+  const getTileDragPart = (leafId) => {
+    if (!isCombinedLeaf(leafId)) return null;
+    const parts = leafParts(leafId);
+    return parts.find(p => CLOCK_MODES[p] === clockMode) ?? parts[0];
+  };
 
   const tiles = {
     date: <DateWidget />,
@@ -1161,6 +1167,7 @@ export default function App() {
         currentPeriod={clockPeriod}
         nextPeriod={clockNextPeriod}
         onDisplayChange={setClockDisplay}
+        onModeChange={setClockMode}
         onSettingsChange={s => setClockFontSize(s.fontSize)}
         onTimerTriggered={handleTimerTriggered}
       >
@@ -1174,6 +1181,7 @@ export default function App() {
           swapMap={SWAP_MAP}
           onPageDrop={handlePageDrop}
           getTileDragPayload={getTileDragPayload}
+          getTileDragPart={getTileDragPart}
           onDeleteTab={handleDeleteTab}
         />
       </ClockProvider>
