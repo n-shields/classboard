@@ -1,0 +1,92 @@
+/* Sits over the Students list, which is itself a modal. */
+.prize-overlay {
+  z-index: 1001;
+}
+
+.prize-modal {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+.prize-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.prize-header h2 {
+  margin: 0;
+  margin-right: auto;
+}
+.prize-total {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.prize-empty {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.prize-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prize-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 1.25rem;
+}
+.prize-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.prize-cost {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.prize-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prize-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.prize-edit-name {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.prize-edit-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.prize-edit-num input {
+  width: 64px;
+}
+.prize-edit-cost {
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 3em;
+}
+.prize-add-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}

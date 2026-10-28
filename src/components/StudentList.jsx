@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { playClick, playDing, isGemsSoundMuted, setGemsSoundMuted } from "../data/sounds";
 import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
+import PrizeMenu from "./PrizeMenu";
 import "./StudentList.css";
 
 const FALLBACK_PIE_COLORS = ["#e94560", "#0f3460", "#533483", "#1a7431", "#b5451b", "#1e8bc3"];
@@ -107,11 +108,17 @@ export default function StudentList({
     return () => window.removeEventListener("mousedown", onMouseDown);
   }, [simple]);
 
+  // The prize menu (🏆) opens over the list; Escape closes it first.
+  const [prizesOpen, setPrizesOpen] = useState(false);
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (prizesOpen) setPrizesOpen(false);
+      else onClose?.();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, prizesOpen]);
 
   const activeNames = useMemo(
     () => names.filter(n => !excludedNames.includes(n)),
@@ -496,6 +503,12 @@ export default function StudentList({
               onClick={toggleGemsMuted}
               title={gemsMuted ? "Unmute the point sound" : "Mute the point sound"}
             >{gemsMuted ? "🔇" : "🔊"}</button>
+            <button
+              type="button"
+              className="student-mute-btn"
+              onClick={() => setPrizesOpen(true)}
+              title="Prize menu"
+            >🏆</button>
           </div>
           {!simple && names.length > 0 && (
             <span className="student-count">{activeCount} / {names.length} in wheel</span>
@@ -770,6 +783,9 @@ export default function StudentList({
           </div>
         )}
       </div>
+      {prizesOpen && (
+        <PrizeMenu names={names} gems={gems} gemsLabel={gemsLabel} onClose={() => setPrizesOpen(false)} />
+      )}
     </div>
   );
 }
