@@ -218,7 +218,7 @@ export function resolveActivePeriod(periods, activePeriod, schedules) {
       if (other) return other;
     }
   }
-  const idx = detectCurrentPeriod(periods);
+  const idx = resolveActivePeriodIndex(periods, activePeriod);
   return idx >= 0 ? periods[idx] : null;
 }
 
@@ -236,11 +236,14 @@ export function cyclePeriod(periods, currentIndex, delta) {
 }
 
 /** Current-period index for a popup window: mirrors the main board's pinned
- *  period when it's not in Auto mode, otherwise falls back to time detection. */
+ *  period when it's not in Auto mode, otherwise time detection — except
+ *  between classes (or before/after school), when there's no period to
+ *  detect and the main board shows the upcoming one (or the first): the
+ *  label it last shared covers that. Detection still wins while a class is
+ *  on, so a closed main board's stale label can't pin a popup in place. */
 export function resolveActivePeriodIndex(periods, activePeriod) {
-  if (activePeriod && activePeriod.autoMode === false && activePeriod.label) {
-    const idx = periods.findIndex(p => p.label === activePeriod.label);
-    if (idx !== -1) return idx;
-  }
-  return detectCurrentPeriod(periods);
+  const labelIdx = activePeriod?.label ? periods.findIndex(p => p.label === activePeriod.label) : -1;
+  if (activePeriod && activePeriod.autoMode === false && labelIdx !== -1) return labelIdx;
+  const detected = detectCurrentPeriod(periods);
+  return detected !== -1 ? detected : labelIdx;
 }

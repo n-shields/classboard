@@ -490,12 +490,15 @@ export default function App() {
   const adoptedPeriodRef = useRef(null);
   useEffect(() => {
     if (isBoardPopup) return;
-    const label = (offSchedulePeriod ?? currentPeriod)?.label ?? null;
+    // The period actually on screen — in Auto that's the upcoming (or
+    // first) period between classes, which the popups can't work out from
+    // the clock alone (see resolveActivePeriod).
+    const label = periodKey;
     const adopted = adoptedPeriodRef.current;
     adoptedPeriodRef.current = null;
     if (adopted && adopted.autoMode === autoMode && (autoMode || adopted.label === label)) return;
     saveActivePeriod(autoMode, label);
-  }, [autoMode, currentPeriod, offSchedulePeriod]);
+  }, [autoMode, periodKey]);
 
   const selectPeriod = useCallback((idx) => {
     setOffSchedulePeriod(null);
