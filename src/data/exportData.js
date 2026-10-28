@@ -30,6 +30,31 @@ export function doExport() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  markBackedUp("Exported");
+}
+
+// When the board's data was last backed up (an Export download or an
+// auto-save snapshot), shown in the toolbar so it's clear backups are
+// happening. Deliberately not "classboard_"-prefixed: collectData would
+// sweep it into every backup, and importing an old one would then wind the
+// time back to when that backup was made.
+const LAST_BACKUP_KEY = "classboard-last-backup";
+export const BACKUP_EVENT = "classboard-backup";
+
+/** { at: Date, how: "Exported" | "Auto-saved" } or null */
+export function loadLastBackup() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LAST_BACKUP_KEY) || "null");
+    if (s?.at) return { at: new Date(s.at), how: s.how };
+  } catch {
+    // Unreadable — treat as never backed up.
+  }
+  return null;
+}
+
+export function markBackedUp(how) {
+  try { localStorage.setItem(LAST_BACKUP_KEY, JSON.stringify({ at: Date.now(), how })); } catch { /* storage full/blocked */ }
+  window.dispatchEvent(new Event(BACKUP_EVENT));
 }
 
 // Hosts that refuse to hand a file to another web page at all — e.g. Google

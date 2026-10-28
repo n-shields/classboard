@@ -188,6 +188,15 @@
   font-size: 0.8rem;
   padding: 3px 7px;
 }
+.tb-last-backup {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.tb-last-backup--never {
+  color: var(--warn);
+}
 
 /* ── Left hover trigger zone (periods sidebar) ── */
 .period-sidebar-trigger {

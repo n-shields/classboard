@@ -17,10 +17,18 @@ import {
 } from "../data/autosave";
 import { getScheduleForToday } from "../data/schedules";
 import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
-import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl, isUnfetchableHost } from "../data/exportData";
+import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl, isUnfetchableHost, loadLastBackup, markBackedUp, BACKUP_EVENT } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 
 import "./PeriodBar.css";
+
+// Just the time for a backup made today; the date too for an older one, so
+// a backup that stopped happening days ago doesn't pass for today's.
+function formatBackupTime(at) {
+  const time = at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (at.toDateString() === new Date().toDateString()) return time;
+  return `${at.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
 
 export default function PeriodBar({
   schedules, onSchedulesChange,
@@ -68,6 +76,16 @@ export default function PeriodBar({
   // Snapshots waiting on "Ask before saving" — each holds the data as it was
   // when it came due, so answering late still saves that moment's board.
   const [pendingSaves, setPendingSaves] = useState([]);
+  // Last Export or auto-save snapshot, from any window of this board.
+  const [lastBackup, setLastBackup] = useState(loadLastBackup);
+  useEffect(() => {
+    const refresh = () => setLastBackup(loadLastBackup());
+    window.addEventListener(BACKUP_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    // Re-render now and then so a backup from yesterday shows its date once midnight passes.
+    const tick = setInterval(refresh, 60_000);
+    return () => { clearInterval(tick); window.removeEventListener(BACKUP_EVENT, refresh); window.removeEventListener("storage", refresh); };
+  }, []);
   const fileRef   = useRef(null);
   const hideTimer = useRef(null);
   const themeMenuRef = useRef(null);
@@ -201,6 +219,7 @@ export default function PeriodBar({
     try {
       await writeSnapshot(autosaveHandleRef.current, timestampedFilename(label), data);
       setLastAutosaveAt(new Date());
+      markBackedUp("Auto-saved");
       return true;
     } catch {
       // Quiet by design — most likely permission was revoked outside the
@@ -701,7 +720,14 @@ export default function PeriodBar({
           </button>
 
           {/* Import / export — pinned right */}
-          <button className="btn btn-ghost btn-sm tb-btn ei-btn" style={{ marginLeft: "auto" }} onClick={doExport} title="Export all data">↓ Export</button>
+          <span
+            className={`tb-last-backup ${lastBackup ? "" : "tb-last-backup--never"}`}
+            style={{ marginLeft: "auto" }}
+            title={lastBackup ? `${lastBackup.how} ${lastBackup.at.toLocaleString()}` : "No Export or auto-save has happened on this computer yet"}
+          >
+            {lastBackup ? `Last backed up ${formatBackupTime(lastBackup.at)}` : "Not backed up yet"}
+          </span>
+          <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={doExport} title="Export all data">↓ Export</button>
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={() => fileRef.current.click()} title="Import data">↑ Import</button>
           <button className="btn btn-ghost btn-sm tb-btn ei-btn" onClick={handleImportUrl} title="Import data from a JSON file at a web address">🔗 Import URL</button>
           {isFileSystemAccessSupported() && (
