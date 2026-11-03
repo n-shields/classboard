@@ -5,7 +5,7 @@ import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
 import TileLayout from "./components/TileLayout";
 import HotkeysEditor from "./components/HotkeysEditor";
-import { loadSchedules, loadBoardScheduleType, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod, resolveActivePeriodIndex, saveActivePeriod, cyclePeriod } from "./data/schedules";
+import { loadSchedules, loadBoardScheduleType, detectCurrentPeriod, detectNextPeriod, loadActivePeriod, resolveActivePeriod, resolveActivePeriodIndex, cyclePeriod } from "./data/schedules";
 import { loadPeriodData, savePeriodPatch, otherPeriodsWithRosters, deleteClassList, PERIOD_DATA_KEY } from "./data/periodData";
 import { loadGemsSyncGroups, saveGemsSyncGroups, gemsSyncMates, setGemsSyncGroup, reconcileGems } from "./data/gemsSync";
 import { pagesForPane } from "./data/pages";
@@ -93,7 +93,15 @@ export default function TeacherView() {
   // Everything else (roster, reminders, notes) follows whichever period is
   // active on the main board — auto-detected in Auto mode, or the
   // manually-pinned period otherwise.
-  const currentPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
+  const boardPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
+  const boardKey = boardPeriod ? boardPeriod.label : null;
+
+  // ...unless the arrow keys have moved this window to another period, which
+  // stays here and never reaches the main board. It lasts until the board
+  // itself moves on, so the next class doesn't open on a stale period.
+  const [ownPeriod, setOwnPeriod] = useState(null);
+  if (ownPeriod && ownPeriod.boardKey !== boardKey) setOwnPeriod(null);
+  const currentPeriod = ownPeriod ? resolveActivePeriod(periods, { autoMode: false, label: ownPeriod.label }, schedules) : boardPeriod;
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   const currentNames     = periodKey ? (periodData[periodKey]?.names        ?? []) : [];
@@ -146,24 +154,25 @@ export default function TeacherView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Left/right switch period — written to the shared key, so the main
-  // board (and Seating View) follow, as with Seating View's period menu.
+  // Left/right switch this window's period only (see ownPeriod) — stepping
+  // back onto the main board's period goes back to following it.
   const periodCycleRef = useRef(null);
-  useEffect(() => { periodCycleRef.current = { periods, activePeriod }; });
+  useEffect(() => { periodCycleRef.current = { periods, activePeriod, ownPeriod, boardKey }; });
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
       const target = e.target;
       if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
-      const { periods, activePeriod } = periodCycleRef.current;
-      const next = cyclePeriod(periods, resolveActivePeriodIndex(periods, activePeriod), e.key === "ArrowRight" ? 1 : -1);
+      const { periods, activePeriod, ownPeriod, boardKey } = periodCycleRef.current;
+      const from = ownPeriod ? { autoMode: false, label: ownPeriod.label } : activePeriod;
+      const next = cyclePeriod(periods, resolveActivePeriodIndex(periods, from), e.key === "ArrowRight" ? 1 : -1);
       if (!next) return;
       e.preventDefault();
+      const own = next.label === boardKey ? null : { label: next.label, boardKey };
       // Advance now, so a quick second press steps on from here.
-      periodCycleRef.current.activePeriod = { autoMode: false, label: next.label };
-      saveActivePeriod(next.autoMode, next.label);
-      setActivePeriod({ autoMode: next.autoMode, label: next.label });
+      periodCycleRef.current.ownPeriod = own;
+      setOwnPeriod(own);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
