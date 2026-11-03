@@ -10,7 +10,7 @@
   position: relative;
 }
 
-/* Mode cycle arrows — top right, just left of the tile's hide button */
+/* Mode cycle arrows â€” top right, just left of the tile's hide button */
 .clock-mode-nav {
   position: absolute;
   top: 8px;
@@ -54,7 +54,7 @@
   text-align: center;
 }
 
-/* Settings gear — bottom right */
+/* Settings gear â€” bottom right */
 .clock-gear-btn {
   position: absolute;
   bottom: 10px;
@@ -130,7 +130,7 @@
   width: 100%;
 }
 
-/* Clickable minutes — toggles seconds visibility */
+/* Clickable minutes â€” toggles seconds visibility */
 .clock-min-toggle {
   cursor: pointer;
   border-radius: 3px;
@@ -142,7 +142,7 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Clickable hour — toggles 12/24h format */
+/* Clickable hour â€” toggles 12/24h format */
 .clock-hour-toggle {
   cursor: pointer;
   border-radius: 3px;
@@ -153,7 +153,7 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Clickable seconds — always rendered, dimmed when hidden */
+/* Clickable seconds â€” always rendered, dimmed when hidden */
 .clock-secs {
   cursor: pointer;
   user-select: none;
@@ -301,14 +301,13 @@
 /* Starts just right of the tile's own grip + maximize buttons (top-left),
    so a narrow pane never puts Start underneath them. */
 .timer-controls--top    { top: 6px; left: 52px; right: auto; justify-content: flex-start; }
-.timer-controls--bottom { bottom: 10px; }
 
 .clock-widget:hover .timer-controls {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* Stopwatch hundredths — a touch smaller than the rest of the digits */
+/* Stopwatch hundredths â€” a touch smaller than the rest of the digits */
 .clock-hundredths {
   font-size: 0.6em;
 }

@@ -353,7 +353,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
     fontScaleByMode, setFontScale, timerSound, setTimerSound,
     showSecsByMode, toggleSecs,
     timerSecs, timerInput, setTimerInput, timerRunning, timerDone,
-    setPreset, toggleTimer, resetTimer, handleTimerInputBlur,
+    toggleTimer, resetTimer, handleTimerInputBlur,
     swElapsed, swRunning, toggleStopwatch, resetStopwatch, swShowHundredths, setSwShowHundredths,
   };
   return <ClockCtx.Provider value={value}>{children}</ClockCtx.Provider>;
@@ -473,11 +473,6 @@ export default function ClockWidget({ collapsed, modes = MODES }) {
                   {c.timerRunning ? "Stop" : c.timerDone ? "Restart" : "Start"}
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={c.resetTimer}>Reset</button>
-              </div>
-              <div className="timer-controls timer-controls--bottom">
-                {[1, 2, 5, 10, 15].map(m => (
-                  <button key={m} className="btn btn-ghost btn-sm" onClick={() => c.setPreset(m)}>{m}</button>
-                ))}
               </div>
             </div>
           );
