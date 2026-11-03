@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import "./DecibelMeter.css";
 import { playChallengeWin, playChallengeLose } from "../data/sounds";
 import { CHALLENGE_COUNT_MS, CHALLENGE_REPEAT_DELAY_MS } from "../data/noiseChallenge";
+import FontSizeAdjuster from "./FontSizeAdjuster";
+import { useWidgetFontScale } from "../data/fontScale";
 
 // There's no way to get a calibrated, device-independent SPL reading out of
 // a browser mic — every device's gain/sensitivity differs — so this reports
@@ -239,6 +241,7 @@ function LevelPartitionBar({ thresholds, colors, onChange }) {
 }
 
 export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }) {
+  const [fontScale, setFontScale] = useWidgetFontScale("decibel");
   const canvasRef   = useRef(null);
   const curveSvgRef = useRef(null);
   const audioCtxRef = useRef(null);
@@ -763,9 +766,12 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     <div
       className="card decibel-meter"
       tabIndex={-1}
-      style={challengeUI && challengeAvg != null
-        ? { boxShadow: `inset 0 0 0 100vmax ${challengeTint(challengeAvg, challengeUI.targetDb)}` }
-        : undefined}
+      style={{
+        "--widget-font-scale": fontScale,
+        ...(challengeUI && challengeAvg != null
+          ? { boxShadow: `inset 0 0 0 100vmax ${challengeTint(challengeAvg, challengeUI.targetDb)}` }
+          : {}),
+      }}
     >
       <div className="card-body decibel-body">
         {/* A slim, always-in-place strip — its own colored fill toggles
@@ -974,6 +980,11 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                 </span>
               )}
               {!calibration && calMessage && <span className="decibel-calibrate-status">{calMessage}</span>}
+            </div>
+
+            <div className="decibel-settings-row">
+              <label>Font size</label>
+              <FontSizeAdjuster scale={fontScale} onChange={setFontScale} />
             </div>
 
             <div className="decibel-settings-row">

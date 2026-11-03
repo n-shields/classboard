@@ -13,7 +13,7 @@
 }
 
 .decibel-value {
-  font-size: clamp(1.6rem, 5vw, 2.6rem);
+  font-size: calc(clamp(1.6rem, 5vw, 2.6rem) * var(--widget-font-scale, 1));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -25,7 +25,7 @@
 }
 
 .decibel-unit {
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--widget-font-scale, 1));
   color: var(--text-dim);
   font-weight: 600;
 }
@@ -46,7 +46,7 @@
 }
 
 .decibel-thermo-label {
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--widget-font-scale, 1));
   color: var(--text-dim);
   flex-shrink: 0;
 }
@@ -206,7 +206,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--widget-font-scale, 1));
   font-weight: 600;
   /* Theme colors, not a fixed black — on the light themes a dark pill
      left the (dark) theme text unreadable. */
@@ -273,7 +273,7 @@
   left: 8px;
   right: 8px;
   bottom: 8px;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--widget-font-scale, 1));
   font-weight: 600;
   text-align: center;
   background: color-mix(in srgb, var(--surface) 92%, transparent);

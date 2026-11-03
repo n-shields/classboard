@@ -67,7 +67,7 @@
 }
 
 .pw-bar-title {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--widget-font-scale, 1));
   font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -78,7 +78,7 @@
 }
 
 .pw-remote-indicator {
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--widget-font-scale, 1));
   opacity: 0.6;
   color: var(--accent);
 }

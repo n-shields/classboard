@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { playTick } from "../data/sounds";
+import FontSizeAdjuster from "./FontSizeAdjuster";
 import "./WheelOfNames.css";
 
 // Keyed by period label (like classboard_period_layout_trees etc.) so each
@@ -8,7 +9,7 @@ import "./WheelOfNames.css";
 // Periods with no settings of their own, or no period active at all, fall
 // back to a shared "__default__" bucket rather than one hardcoded default.
 const WHEEL_SETTINGS_KEY = "classboard_wheel_settings";
-const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false, weightMode: "equal" };
+const DEFAULT_WHEEL_SETTINGS = { spinDuration: 3, displayDuration: 3, avoidRepeat: false, spinSound: false, weightMode: "equal", fontScale: 1 };
 function loadAllWheelSettings() {
   try {
     const raw = JSON.parse(localStorage.getItem(WHEEL_SETTINGS_KEY) || "{}");
@@ -180,7 +181,7 @@ export default function WheelOfNames({
       const byWidth   = maxWidth / Math.max(name.length, 1) / 0.58;
       const byHeight  = arcHeight * 0.62;
       const byRadius  = radius * 0.13;
-      const fontSize  = Math.max(radius * 0.022, Math.min(byWidth, byHeight, byRadius));
+      const fontSize  = Math.max(radius * 0.022, Math.min(byWidth, byHeight, byRadius)) * wheelSettings.fontScale;
       ctx.font        = `bold ${fontSize}px Segoe UI`;
       ctx.fillStyle   = wheelText;
       ctx.textAlign   = "center";
@@ -212,7 +213,7 @@ export default function WheelOfNames({
     ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.5;
     ctx.stroke();
-  }, [activeNames, segments, periodLabel, wheelColors, wheelText, colors]);
+  }, [activeNames, segments, periodLabel, wheelColors, wheelText, colors, wheelSettings.fontScale]);
 
   useEffect(() => { drawWheel(rotationRef.current); }, [drawWheel]);
 
@@ -337,14 +338,15 @@ export default function WheelOfNames({
 
       const byWidth  = REF * (availW / Math.max(textWidth, 1));
       const byHeight = availH * 0.82; // headroom above/below a single line
-      el.style.fontSize = `${Math.max(20, Math.min(byWidth, byHeight, 400))}px`;
+      // Already the largest that fits, so the font size setting only shrinks it.
+      el.style.fontSize = `${Math.max(20, Math.min(byWidth, byHeight, 400) * Math.min(wheelSettings.fontScale, 1))}px`;
     };
 
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [winner]);
+  }, [winner, wheelSettings.fontScale]);
 
   const spinnableCount = segments.filter(s => s.size > 0).length;
   const canSpin = !spinning && spinnableCount >= 2;
@@ -414,6 +416,11 @@ export default function WheelOfNames({
                 onChange={e => updateWheelSettings({ displayDuration: Math.max(0.5, parseFloat(e.target.value) || 3) })}
               />
               <span>s</span>
+            </div>
+
+            <div className="wheel-settings-row">
+              <label>Font size</label>
+              <FontSizeAdjuster scale={wheelSettings.fontScale} onChange={s => updateWheelSettings({ fontScale: s })} />
             </div>
 
             <label className="wheel-settings-row">

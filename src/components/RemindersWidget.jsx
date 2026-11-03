@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { doExport } from "../data/exportData";
 import { loadAutoExportReminders, saveAutoExportReminders } from "../data/autoExportReminders";
+import FontSizeAdjuster from "./FontSizeAdjuster";
+import { useWidgetFontScale } from "../data/fontScale";
 import "./RemindersWidget.css";
 
 const DISMISS_KEY_BASE = "classboard_reminders_dismissed";
@@ -167,6 +169,7 @@ export default function RemindersWidget({
   defaultReminders = DEFAULT_REMINDERS, scope = "main",
   names = [], birthdays = {},
 }) {
+  const [fontScale, setFontScale] = useWidgetFontScale("reminders");
   const periodReminders = useMemo(() => normalizeReminders(remindersProp, defaultReminders), [remindersProp, defaultReminders]);
   // Auto-export reminders are global (see data/autoExportReminders), and
   // only surfaced in Teacher View — the one window that's more likely to
@@ -368,7 +371,7 @@ export default function RemindersWidget({
     : active;
 
   return (
-    <div className={`card reminders-widget ${collapsed ? "card--collapsed" : ""} ${displayMessages.length ? "reminders-widget--active" : ""}`} tabIndex={-1}>
+    <div className={`card reminders-widget ${collapsed ? "card--collapsed" : ""} ${displayMessages.length ? "reminders-widget--active" : ""}`} style={{ "--widget-font-scale": fontScale }} tabIndex={-1}>
       <div className="card-body reminders-body">
         {displayMessages.length > 0 ? (
           <div className="reminders-messages" data-count={Math.min(displayMessages.length, 4)}>
@@ -501,6 +504,10 @@ export default function RemindersWidget({
             <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={addDraft}>
               + Add reminder
             </button>
+            <div className="font-size-row">
+              <span>Font size</span>
+              <FontSizeAdjuster scale={fontScale} onChange={setFontScale} />
+            </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={() => setEditOpen(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={saveEdit}>Save</button>

@@ -246,7 +246,7 @@ export default function TextPane({
     if (max) block.style.fontSize = `${max}px`;
   };
 
-  const changeSizeForSelection = (delta) => {
+  const changeSizeForSelection = (factor) => {
     const editor = editorRef.current;
     if (!editor) return;
     editor.focus();
@@ -283,7 +283,7 @@ export default function TextPane({
     const newSpans = [];
     editor.querySelectorAll('font[size="7"]').forEach(el => {
       const span = document.createElement("span");
-      span.style.fontSize = `${Math.max(10, Math.min(200, Math.round(currentSize + delta)))}px`;
+      span.style.fontSize = `${Math.max(10, Math.min(200, Math.round(currentSize * factor * 100) / 100))}px`;
       span.innerHTML = el.innerHTML;
       el.replaceWith(span);
       newSpans.push(span);
@@ -300,26 +300,23 @@ export default function TextPane({
     saveContent();
   };
 
-  // direction is +1 (larger) or -1 (smaller); selected text still steps by
-  // a flat few px, but the whole page's base size steps by 1% of its
-  // current size instead — proportional across the page's whole practical
-  // range (20px Notes text vs. 48px Board text), where a flat step would
-  // feel too coarse at the small end and too fine at the large end. A
-  // literal 1% rounds to 0px below ~100px, so it's floored at 1px so every
-  // click still moves it somewhere.
+  // direction is +1 (larger) or -1 (smaller); both selected text and the
+  // whole page's base size step by 5% of their current size — proportional
+  // across the practical range (20px Notes text vs. 48px Board text), where
+  // a flat step would feel too coarse at the small end and too fine at the
+  // large end.
   //
   // Text carrying its own inline size (a selection resized earlier, or
   // pasted-in spans/list items) wouldn't follow the base size on its own —
   // a bulleted list's marker grew while its text sat still — so every
   // absolute inline size is scaled by the same ratio. Relative ones (em, %)
-  // already follow their parent. Sizes keep fractional px so a 1% step on
-  // small text doesn't round back to where it started.
+  // already follow their parent. Sizes keep fractional px so a step on small
+  // text doesn't round back to where it started.
   const adjustFontSize = (direction) => {
     if (hasSelection) {
-      changeSizeForSelection(direction * 4);
+      changeSizeForSelection(1 + direction * 0.05);
     } else if (activePage) {
-      const step = Math.max(1, Math.round(activePage.fontSize * 0.01));
-      const fontSize = Math.min(144, Math.max(10, activePage.fontSize + direction * step));
+      const fontSize = Math.min(144, Math.max(10, Math.round(activePage.fontSize * (1 + direction * 0.05) * 100) / 100));
       if (fontSize === activePage.fontSize) return;
       const ratio = fontSize / activePage.fontSize;
       const editor = editorRef.current;
@@ -573,8 +570,8 @@ export default function TextPane({
           onPointerDown={restartIdleHide}
           onKeyDown={restartIdleHide}
         >
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(1); }} title={hasSelection ? "Larger selected text" : "Larger text (1%)"}>A+</button>
-          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(-1); }} title={hasSelection ? "Smaller selected text" : "Smaller text (1%)"}>A−</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(1); }} title={hasSelection ? "Larger selected text" : "Larger text (5%)"}>A+</button>
+          <button className="btn btn-ghost btn-sm textpane-toolbar-btn" onMouseDown={e => { e.preventDefault(); adjustFontSize(-1); }} title={hasSelection ? "Smaller selected text" : "Smaller text (5%)"}>A−</button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isBold ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("bold"); }} title="Bold"><strong>B</strong></button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isItalic ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("italic"); }} title="Italic"><em>I</em></button>
           <button className={`btn btn-sm textpane-toolbar-btn ${isBullet ? "btn-primary" : "btn-ghost"}`} onMouseDown={e => { e.preventDefault(); execFormat("insertUnorderedList"); }} title="Bullet list">•—</button>

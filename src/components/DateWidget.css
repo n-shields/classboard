@@ -15,7 +15,7 @@
   gap: 4px;
 }
 
-/* Section wrapper — provides hover context for hide button */
+/* Section wrapper â€” provides hover context for hide button */
 .date-section-wrap {
   position: relative;
   display: inline-flex;
@@ -29,7 +29,7 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Hide button — appears on section hover */
+/* Hide button â€” appears on section hover */
 .date-hide-btn {
   position: absolute;
   top: -6px;
@@ -58,7 +58,7 @@
   color: #fff;
 }
 
-/* Restore ghost — only visible while hovering the widget */
+/* Restore ghost â€” only visible while hovering the widget */
 .date-restore-btn {
   font-size: 1rem;
   opacity: 0;
@@ -132,7 +132,7 @@
   color: var(--text);
 }
 
-/* Gear button — bottom right, appears on hover */
+/* Gear button â€” bottom right, appears on hover */
 .date-gear-btn {
   position: absolute;
   bottom: 10px;
@@ -162,7 +162,7 @@
   opacity: 1 !important;
 }
 
-/* Settings panel — absolute overlay above gear */
+/* Settings panel â€” absolute overlay above gear */
 .date-settings-panel {
   position: absolute;
   bottom: 44px;
@@ -193,14 +193,3 @@
   flex-shrink: 0;
 }
 
-.date-settings-size {
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  min-width: 28px;
-  text-align: center;
-}
-
-.date-settings-group {
-  display: flex;
-  gap: 4px;
-}

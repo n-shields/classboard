@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import FontSizeAdjuster from "./FontSizeAdjuster";
 import "./CaptionsPane.css";
 
 // The Web Speech API's SpeechRecognition — built into Chrome/Edge, no key
@@ -211,12 +212,10 @@ export default function CaptionsPane() {
             </div>
             <div className="captions-settings-row">
               <label>Font size</label>
-              <input
-                type="number" min="14" max="72" step="2"
-                value={settings.fontSize}
-                onChange={e => updateSettings({ fontSize: Math.max(14, parseInt(e.target.value, 10) || 28) })}
+              <FontSizeAdjuster
+                scale={settings.fontSize / DEFAULT_SETTINGS.fontSize}
+                onChange={s => updateSettings({ fontSize: s * DEFAULT_SETTINGS.fontSize })}
               />
-              <span>px</span>
             </div>
             <div className="captions-settings-actions">
               <button className="btn btn-primary btn-sm" onClick={() => setSettingsOpen(false)}>Done</button>

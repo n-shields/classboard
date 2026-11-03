@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useContext, createContext } from "react";
 import { secondsUntilEnd, secondsUntilStart } from "../data/schedules";
+import FontSizeAdjuster from "./FontSizeAdjuster";
 import "./ClockWidget.css";
 
 const MODES = ["Period", "Timer"]; // a pane's default (Teacher View's)
@@ -7,11 +8,8 @@ const MODES = ["Period", "Timer"]; // a pane's default (Teacher View's)
 const CLOCK_SETTINGS_KEY = "classboard_clock_settings";
 
 // Each mode's digits are this base size times its own scale, nudged with
-// the A− / A+ buttons in its settings panel.
+// the font size control in its settings panel.
 const BASE_FONT_SIZE = "clamp(2.5rem, 5vw, 4.5rem)";
-const FONT_SCALE_STEP = 1.15;
-const FONT_SCALE_MIN = 0.4;
-const FONT_SCALE_MAX = 4;
 // The scales the old fixed S/M/L/XL sizes came to, for carrying a saved
 // pick over — and back again for the camera overlay, which still sizes its
 // copy of the clock in those buckets.
@@ -134,11 +132,8 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   const timerRef       = useRef(null);
   const lastDurationRef = useRef(10 * 60);
 
-  const adjustFontScale = useCallback((modeName, dir) => {
-    setFontScaleByMode(prev => {
-      const next = (prev[modeName] ?? 1) * (dir > 0 ? FONT_SCALE_STEP : 1 / FONT_SCALE_STEP);
-      return { ...prev, [modeName]: Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, next)) };
-    });
+  const setFontScale = useCallback((modeName, scale) => {
+    setFontScaleByMode(prev => ({ ...prev, [modeName]: scale }));
   }, []);
 
   // Stopwatch: timed from timestamps rather than counted ticks, so it stays
@@ -355,7 +350,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   const value = {
     mode, setMode,
     currentPeriod, nextPeriod, periodRemaining, nextStarting,
-    fontScaleByMode, adjustFontScale, timerSound, setTimerSound,
+    fontScaleByMode, setFontScale, timerSound, setTimerSound,
     showSecsByMode, toggleSecs,
     timerSecs, timerInput, setTimerInput, timerRunning, timerDone,
     setPreset, toggleTimer, resetTimer, handleTimerInputBlur,
@@ -410,11 +405,8 @@ export default function ClockWidget({ collapsed, modes = MODES }) {
         {settingsOpen && (
           <div className="clock-settings-panel" ref={settingsPanelRef}>
             <div className="clock-settings-row">
-              <span className="clock-settings-label">Size</span>
-              <div className="clock-settings-group">
-                <button className="btn btn-sm btn-ghost" onClick={() => c.adjustFontScale(mode, -1)} title="Smaller" disabled={(c.fontScaleByMode[mode] ?? 1) <= FONT_SCALE_MIN + 1e-6}>A−</button>
-                <button className="btn btn-sm btn-ghost" onClick={() => c.adjustFontScale(mode, 1)} title="Larger" disabled={(c.fontScaleByMode[mode] ?? 1) >= FONT_SCALE_MAX - 1e-6}>A+</button>
-              </div>
+              <span className="clock-settings-label">Font size</span>
+              <FontSizeAdjuster scale={c.fontScaleByMode[mode] ?? 1} onChange={s => c.setFontScale(mode, s)} />
             </div>
             {mode === "Timer" && (
               <div className="clock-settings-row">

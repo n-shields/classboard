@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from "react";
+import FontSizeAdjuster from "./FontSizeAdjuster";
+import { useWidgetFontScale } from "../data/fontScale";
 import "./ProgressWidget.css";
 
 const DEFAULT_BAR = { id: 1, title: "Class Prize", steps: 10, count: 0, color: "#facc15" };
@@ -33,6 +35,7 @@ function migrateBars(data) {
 
 export default function ProgressWidget({ data, onChange, collapsed, onToggle }) {
   const bars = migrateBars(data);
+  const [fontScale, setFontScale] = useWidgetFontScale("progress");
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   // Drag-to-reorder in the edit modal (by the ⋮⋮ handle, same idiom as the
@@ -116,7 +119,7 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
   const title = bars.length === 1 ? bars[0].title : "Progress";
 
   return (
-    <div className={`card progress-widget ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} tabIndex={-1}>
+    <div className={`card progress-widget ${anyFull ? "pw-full" : ""} ${collapsed ? "card--collapsed" : ""}`} style={{ "--widget-font-scale": fontScale }} tabIndex={-1}>
       <div className="card-body pw-body">
         {bars.map((bar, barIdx) => {
           const isFull = bar.count >= bar.steps;
@@ -232,6 +235,10 @@ export default function ProgressWidget({ data, onChange, collapsed, onToggle }) 
               style={{ marginTop: 10 }}
               onClick={addBar}
             >+ Add Goal</button>
+            <div className="font-size-row">
+              <span>Font size</span>
+              <FontSizeAdjuster scale={fontScale} onChange={setFontScale} />
+            </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={() => setEditOpen(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={saveEdit}>Save</button>

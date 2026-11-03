@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import FontSizeAdjuster from "./FontSizeAdjuster";
 import "./CameraFeed.css";
 
 const CAMERA_SETTINGS_KEY = "classboard_camera_settings";
@@ -6,8 +7,8 @@ const CAMERA_SETTINGS_KEY = "classboard_camera_settings";
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(CAMERA_SETTINGS_KEY) || "{}");
-    return { mirrored: true, flippedV: false, deviceId: null, ...s };
-  } catch (_) { return { mirrored: true, flippedV: false, deviceId: null }; }
+    return { mirrored: true, flippedV: false, deviceId: null, overlayScale: 1, ...s };
+  } catch (_) { return { mirrored: true, flippedV: false, deviceId: null, overlayScale: 1 }; }
 }
 
 function saveSettings(settings) {
@@ -62,6 +63,7 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const [histogram,    setHistogram]    = useState(null);
   const [devices,          setDevices]          = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(() => loadSettings().deviceId);
+  const [overlayScale,     setOverlayScale]     = useState(() => loadSettings().overlayScale);
   const [showCameraMenu,   setShowCameraMenu]   = useState(false);
 
   const toggleCh   = (ch)   => setIgnoreCh(prev => ({ ...prev, [ch]: !prev[ch] }));
@@ -117,8 +119,8 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
 
   // Persist flip/device settings globally
   useEffect(() => {
-    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId });
-  }, [mirrored, flippedV, selectedDeviceId]);
+    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId, overlayScale });
+  }, [mirrored, flippedV, selectedDeviceId, overlayScale]);
 
   // Track available cameras; labels only populate once permission is granted
   const refreshDevices = async () => {
@@ -370,7 +372,7 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
         {isFullscreen && showClock && clockDisplay && (
           <div
             className="camera-clock-overlay"
-            style={{ fontSize: overlayFontSize }}
+            style={{ fontSize: `calc(${overlayFontSize} * ${overlayScale})` }}
             onClick={e => { e.stopPropagation(); setShowClock(false); }}
             title="Click to hide"
           >{clockDisplay}</div>
@@ -432,7 +434,7 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
           <div className="levels-header">
             <span className="levels-title">Camera</span>
           </div>
-          {devices.map((d, i) => (
+          {devices.length > 1 && devices.map((d, i) => (
             <button
               key={d.deviceId}
               className={`camera-device-item ${d.deviceId === selectedDeviceId ? "camera-device-item-active" : ""}`}
@@ -440,23 +442,23 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
               title={d.label || `Camera ${i + 1}`}
             >{d.label || `Camera ${i + 1}`}</button>
           ))}
+          <div className="font-size-row">
+            <span>Clock font</span>
+            <FontSizeAdjuster scale={overlayScale} onChange={setOverlayScale} />
+          </div>
         </div>
       )}
 
       <div className={`camera-sidebar${showControls ? "" : " camera-sidebar--hidden"}`}>
         <div className="sidebar-label">Cam</div>
 
-        {devices.length > 1 && (
-          <>
-            <button
-              ref={cameraMenuBtnRef}
-              className={`sidebar-btn ${showCameraMenu ? "sidebar-btn-active" : ""}`}
-              onClick={e => { e.stopPropagation(); setShowCameraMenu(v => !v); }}
-              title="Choose camera"
-            >🎥</button>
-            <div className="sidebar-divider" />
-          </>
-        )}
+        <button
+          ref={cameraMenuBtnRef}
+          className={`sidebar-btn ${showCameraMenu ? "sidebar-btn-active" : ""}`}
+          onClick={e => { e.stopPropagation(); setShowCameraMenu(v => !v); }}
+          title="Camera settings"
+        >🎥</button>
+        <div className="sidebar-divider" />
 
         <button
           className="sidebar-btn"
