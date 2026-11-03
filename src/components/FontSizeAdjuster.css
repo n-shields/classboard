@@ -1,15 +1,6 @@
 .font-size-adjuster {
   display: flex;
-  align-items: center;
   gap: 4px;
-}
-
-.font-size-adjuster-value {
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  min-width: 40px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }
 
 /* For settings with no row style of their own to sit in. */
