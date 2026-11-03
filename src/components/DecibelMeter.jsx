@@ -32,8 +32,8 @@ function challengeTint(avg, targetDb) {
 }
 
 // reward is given to everyone on a win, cost taken from everyone on a loss
-// (0 = no penalty); playSound plays the win/lose sting (and the per-point
-// ticks) at the end; autoRepeat starts the next round as soon as one ends.
+// (0 = no penalty); playSound plays the win/lose sting once at the end;
+// autoRepeat starts the next round as soon as one ends.
 // targetDb is the max average on the 0–100 scale; targetLevel the max
 // level (0–3) used instead when the meter is showing levels.
 const DEFAULT_CHALLENGE_DRAFT = { durationMin: 5, targetDb: 60, targetLevel: 1, reward: 5, cost: 0, playSound: true, autoRepeat: false };
@@ -574,7 +574,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     const delta = won ? c.reward : -c.cost;
     if (c.playSound) { if (won) playChallengeWin(); else playChallengeLose(); }
     setChallengeResult({ won, avg: finalAvg, avgLevel, targetDb: c.targetDb, targetLevel: c.targetLevel, reward: c.reward, cost: c.cost, repeating: c.autoRepeat });
-    if (delta !== 0) onChallengeResultRef.current?.(delta, CHALLENGE_COUNT_MS, c.playSound);
+    if (delta !== 0) onChallengeResultRef.current?.(delta, CHALLENGE_COUNT_MS);
     // Next round runs on the same terms it just finished with (not whatever
     // the setup form has since been edited to), but only once this round's
     // points have finished counting on and the student list it popped open

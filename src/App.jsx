@@ -19,7 +19,6 @@ import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodDat
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import { saveBoardViewBounds, loadMainBoardSize, saveMainBoardSize, MAIN_BOARD_SIZE_KEY } from "./data/teacherView";
 import { DEFAULT_COMPACT_LAYOUT, loadCompactLayouts, saveCompactLayouts, sanitizeCompactTree, loadCompactSession, saveCompactSession } from "./data/compactLayout";
-import { playClick, playDing } from "./data/sounds";
 import "./App.css";
 
 
@@ -890,51 +889,46 @@ export default function App() {
   // currently-listed student the same flat amount — the same "everyone +N"
   // idiom PeriodBar's own +/- shortcut already uses — then pops the
   // (board-facing, simple) student list open so the result is actually
-  // visible. Rather than jumping straight to the final total, it lands the
-  // amount as that many separate ±1 ticks (each its own gems write, each
-  // with a fresh boost token so StudentList replays its "+1"/"−1" pop
-  // every time, with the same ding/click as a manual
-  // adjustment, unless the challenge has sound turned off), spaced so the
-  // whole count takes `durationMs`: the first tick lands immediately and
-  // the last right at that mark, however big the amount is. A duration of 0
-  // lands the whole amount as a single step instead.
+  // visible. Rather than jumping straight to the final total, it counts the
+  // amount on over `durationMs` (each landing its own gems write, with a
+  // fresh boost token so StudentList replays its pop): the first point lands
+  // immediately and the last right at that mark, however big the amount is.
+  // A duration of 0 lands the whole amount as a single step instead. It's
+  // silent — the challenge plays its one win/lose sound itself.
   //
-  // Each tick computes from the gems snapshot taken when the burst started
-  // plus however many of its own ticks have landed so far, rather than
-  // reading the live currentGems — that state only updates once React
-  // re-renders after each write, so reading it fresh inside the next
-  // already-scheduled tick's closure would just see the pre-burst value
-  // again and again instead of building on the previous tick.
-  const handleNoiseChallengeResult = useCallback((amount, durationMs = 2000, playSound = true) => {
+  // How far along the count is comes from the clock, not from counting
+  // timeouts, so it still finishes on time when timers run late: a browser
+  // holds them to about one a second while the board is behind another
+  // window, as it is when the students window pops up. A late timeout just
+  // lands several points at once.
+  //
+  // Each step computes from the gems snapshot taken when the burst started
+  // plus however many points have landed so far, rather than reading the
+  // live currentGems — that state only updates once React re-renders after
+  // each write, so reading it fresh inside the next already-scheduled
+  // step's closure would just see the pre-burst value again and again
+  // instead of building on the previous step.
+  const handleNoiseChallengeResult = useCallback((amount, durationMs = 2000) => {
     const sign = amount < 0 ? -1 : 1;
     const total = Math.max(1, Math.round(Math.abs(amount)));
-    // Instant: one step worth the whole amount, rather than N ticks at 0ms.
-    const perStep = durationMs > 0 ? 1 : total;
-    const steps = total / perStep;
-    const stepMs = steps > 1 ? durationMs / (steps - 1) : 0;
     const startGems = currentGems;
     const names = currentNames;
     setStudentsOpenSignal(s => s + 1);
 
-    // The count itself can tick many times a second on a big amount, but a
-    // ding on every tick turns into a buzz — the sound plays at most every
-    // COUNT_SOUND_GAP_MS (always on the first and last tick), so it lands
-    // a handful of times across the count however many points there are.
-    const COUNT_SOUND_GAP_MS = 400;
-    let lastSoundAt = -Infinity;
+    const COUNT_MIN_STEP_MS = 50; // each step writes to storage and re-renders
+    const pointMs = total > 1 ? durationMs / (total - 1) : 0;
+    const startedAt = performance.now();
     let applied = 0;
     const applyStep = () => {
-      applied += 1;
+      const elapsed = performance.now() - startedAt;
+      const due = pointMs > 0 ? Math.min(total, Math.max(applied + 1, Math.floor(elapsed / pointMs) + 1)) : total;
+      const landing = due - applied;
+      applied = due;
       const next = { ...startGems };
-      for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + sign * applied * perStep);
+      for (const name of names) next[name] = Math.max(0, (startGems[name] || 0) + sign * applied);
       handleGemsChange(next);
-      setGemsBoostAnimation({ amount: sign * perStep, id: `${Date.now()}-${applied}` });
-      const now = performance.now();
-      if (playSound && (applied === steps || now - lastSoundAt >= COUNT_SOUND_GAP_MS)) {
-        lastSoundAt = now;
-        if (sign > 0) playDing(); else playClick();
-      }
-      if (applied < steps) setTimeout(applyStep, stepMs);
+      setGemsBoostAnimation({ amount: sign * landing, id: `${Date.now()}-${applied}` });
+      if (applied < total) setTimeout(applyStep, Math.max(COUNT_MIN_STEP_MS, applied * pointMs - elapsed));
     };
     applyStep();
   }, [currentGems, currentNames, handleGemsChange]);
