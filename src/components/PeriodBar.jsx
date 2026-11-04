@@ -16,7 +16,7 @@ import {
   dayEndTime, toMinutes,
 } from "../data/autosave";
 import { getScheduleForToday } from "../data/schedules";
-import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
+import { GEMS_REPEAT_MS, gemsStep, gemsKeyDelta } from "../data/gems";
 import { collectData, doExport, IMPORT_URL_KEY, directDownloadUrl, isUnfetchableHost, loadLastBackup, markBackedUp, BACKUP_EVENT } from "../data/exportData";
 import { CHALLENGE_LIST_CLOSE_MS as STUDENTS_AUTO_CLOSE_MS } from "../data/noiseChallenge";
 
@@ -326,8 +326,8 @@ export default function PeriodBar({
   // Keyboard shortcuts, active whenever no text field has focus:
   //   ←/→ and ↑/↓  cycle the active period (wraps; disables auto-detect,
   //                same as clicking a period button)
-  //   +/- (or =/-) give or take a step (1% of each student's own total, min 1 — see gemsStep) from every student, 10 steps with Shift
-  //                held — held keys repeat at a fixed rate via our own timer
+  //   +/- (or =/-) give or take a step (1% of each student's own total, min 1 — see gemsStep) from every student, 10 steps with Shift or
+  //                Ctrl held — held keys repeat at a fixed rate via our own timer
   //                rather than relying on the browser's OS-driven key-repeat,
   //                which varies and starts after a delay. Applying a delta
   //                opens the students window (or brings it to the front),
@@ -357,16 +357,6 @@ export default function PeriodBar({
   useEffect(() => { soundHotkeysRef.current = soundHotkeys; }, [soundHotkeys]);
 
   useEffect(() => {
-    // e.code (the physical key) rather than e.key, since holding Shift
-    // changes e.key itself (e.g. "-" becomes "_") — using the physical key
-    // plus e.shiftKey directly keeps ±1 vs ±10 correct regardless of
-    // keyboard layout or which character shift actually produces.
-    const gemsDeltaForKey = (e) => {
-      const magnitude = e.shiftKey ? 10 : 1;
-      if (e.code === "Equal" || e.key === "+" || e.key === "=") return magnitude;
-      if (e.code === "Minus" || e.key === "-" || e.key === "_") return -magnitude;
-      return 0;
-    };
     const periodDeltaForKey = (key) => {
       if (key === "ArrowRight" || key === "ArrowDown") return 1;
       if (key === "ArrowLeft" || key === "ArrowUp") return -1;
@@ -385,7 +375,7 @@ export default function PeriodBar({
       const handler = onGemsChangeRef.current;
       if (!handler) return;
       const next = { ...gemsRef.current };
-      // `delta` is ±1 (±10 with Shift), scaled per student by gemsStep.
+      // `delta` is ±1 (±10 with Shift or Ctrl), scaled per student by gemsStep.
       for (const name of namesRef.current) {
         const current = next[name] || 0;
         next[name] = Math.max(0, current + Math.sign(delta) * gemsStep(current, Math.abs(delta)));
@@ -407,7 +397,9 @@ export default function PeriodBar({
     };
     const stopAll = () => { heldTimers.forEach(id => clearInterval(id)); heldTimers.clear(); };
     const onKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const delta = gemsKeyDelta(e);
+      // Ctrl only counts for +/-: Ctrl+A and the like stay the browser's.
+      if ((e.ctrlKey || e.metaKey || e.altKey) && !delta) return;
       const target = e.target;
       if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (e.key.toLowerCase() === "a") {
@@ -433,7 +425,6 @@ export default function PeriodBar({
         cyclePeriod(periodDelta);
         return;
       }
-      const delta = gemsDeltaForKey(e);
       if (!delta) return;
       const overlay = document.querySelector(".modal-overlay");
       if (overlay && !overlay.querySelector(".student-modal")) return;

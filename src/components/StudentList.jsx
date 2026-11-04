@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { playClick, playDing, isGemsSoundMuted, setGemsSoundMuted } from "../data/sounds";
-import { GEMS_REPEAT_MS, gemsStep } from "../data/gems";
+import { GEMS_REPEAT_MS, gemsStep, gemsKeyDelta } from "../data/gems";
 import PrizeMenu from "./PrizeMenu";
 import "./StudentList.css";
 
@@ -273,7 +273,7 @@ export default function StudentList({
   // pre-hold value, so every repeat would land the same total again.
   const gemsRef = useRef(gems);
   useEffect(() => { gemsRef.current = gems; }, [gems]);
-  // `direction` is ±1 per press (±10 with Shift), scaled by gemsStep.
+  // `direction` is ±1 per press (±10 with Shift or Ctrl), scaled by gemsStep.
   const adjustGems = (name, direction) => {
     const current = gemsRef.current[name] || 0;
     const delta = Math.sign(direction) * gemsStep(current, Math.abs(direction));
@@ -303,15 +303,12 @@ export default function StudentList({
   };
   useEffect(() => stopAllHeldKeys, []);
 
-  // +/- (Shift for ±10) on a student's name or points field adjusts just
+  // +/- (Shift or Ctrl for ±10) on a student's name or points field adjusts just
   // that student — the global all-students shortcut is blocked while any
   // field has focus, so this doesn't double up. Returns whether it handled
   // the key.
   const handleGemsKeyDown = (name, e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return false;
-    const magnitude = e.shiftKey ? 10 : 1;
-    const delta = e.code === "Equal" || e.key === "+" || e.key === "=" ? magnitude
-      : e.code === "Minus" || e.key === "-" || e.key === "_" ? -magnitude : 0;
+    const delta = gemsKeyDelta(e);
     if (!delta) return false;
     e.preventDefault();
     // Keyed by the physical key, not e.key — Shift changing mid-hold

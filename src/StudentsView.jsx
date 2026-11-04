@@ -4,7 +4,7 @@ import { loadSchedules, loadBoardScheduleType, resolveActivePeriod, loadActivePe
 import { loadPeriodData, savePeriodPatch, DEFAULT_NAMES } from "./data/periodData";
 import { applyTheme, THEMES } from "./data/themes";
 import { saveStudentsViewBounds } from "./data/teacherView";
-import { GEMS_REPEAT_MS, gemsStep } from "./data/gems";
+import { GEMS_REPEAT_MS, gemsStep, gemsKeyDelta } from "./data/gems";
 import { playClick, playDing } from "./data/sounds";
 
 function loadGlobalTheme() {
@@ -88,7 +88,7 @@ export default function StudentsView() {
   };
 
   // Keys, while no field has focus: Space closes the window again (as it
-  // opened it), left/right switch period, and +/- (Shift for ±10) give or
+  // opened it), left/right switch period, and +/- (Shift or Ctrl for ±10) give or
   // take from every student —
   // the board's own shortcut, which doesn't reach the board while this
   // window has focus. Held keys repeat at a fixed rate, as on the board.
@@ -108,7 +108,9 @@ export default function StudentsView() {
       if (delta > 0) playDing(); else playClick();
     };
     const onKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const delta = gemsKeyDelta(e);
+      // Ctrl only counts for +/-: other Ctrl combos stay the browser's.
+      if ((e.ctrlKey || e.metaKey || e.altKey) && !delta) return;
       const t = e.target;
       if (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(t.tagName)) return;
       if (e.key === " " || e.code === "Space") { e.preventDefault(); window.close(); return; }
@@ -131,9 +133,6 @@ export default function StudentsView() {
         }
         return;
       }
-      const magnitude = e.shiftKey ? 10 : 1;
-      const delta = e.code === "Equal" || e.key === "+" || e.key === "=" ? magnitude
-        : e.code === "Minus" || e.key === "-" || e.key === "_" ? -magnitude : 0;
       if (!delta) return;
       e.preventDefault();
       const holdKey = e.code || e.key;
