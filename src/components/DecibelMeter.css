@@ -7,13 +7,16 @@
 }
 
 .decibel-body {
+  /* Lets the numbers and controls size themselves to the pane. On the body,
+     not the whole meter, so the settings modals stay outside the container. */
+  container-type: size;
   padding: 10px;
   gap: 8px;
   position: relative;
 }
 
 .decibel-value {
-  font-size: calc(clamp(1.6rem, 5vw, 2.6rem) * var(--widget-font-scale, 1));
+  font-size: var(--decibel-number-size);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -25,7 +28,7 @@
 }
 
 .decibel-unit {
-  font-size: calc(0.85rem * var(--widget-font-scale, 1));
+  font-size: min(calc(0.85rem * var(--widget-font-scale, 1)), calc(var(--decibel-number-size) * 0.5));
   color: var(--text-dim);
   font-weight: 600;
 }
@@ -115,6 +118,9 @@
    edges rather than tied to any data position, so they don't drift around
    as the graph's own auto-scale changes. */
 .decibel-graph-value {
+  /* The chosen size, until the pane is too small to hold it: then it shrinks
+     with the pane, so the two numbers stay side by side and inside it. */
+  --decibel-number-size: min(calc(clamp(1.6rem, 5vw, 2.6rem) * var(--widget-font-scale, 1)), 14cqw, 30cqh);
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -197,6 +203,40 @@
 .decibel-btn-danger:hover {
   color: var(--danger);
   border-color: var(--danger);
+}
+
+/* Narrow: side by side rather than centered, or the numbers would collide. */
+@container (max-width: 640px) {
+  .decibel-graph-value {
+    gap: 3px;
+    padding: 0 2px;
+  }
+  .decibel-graph-value--live { left: 0; }
+  .decibel-graph-value--avg { left: 50%; transform: translateY(-50%); }
+}
+
+/* Both short and narrow, the hover buttons would land on the numbers: the
+   numbers go to the top of the graph and the buttons shrink into the strip
+   under them. The body's own padding can't be changed from here (a container
+   can't query itself), hence the negative margins. */
+@container (max-width: 420px) and (max-height: 170px) {
+  .decibel-thermo-row { margin-top: -6px; }
+  .decibel-graph-wrap { margin-top: -4px; }
+  .decibel-graph-value,
+  .decibel-graph-value--avg {
+    top: 0;
+    transform: none;
+  }
+  .decibel-controls {
+    bottom: 2px;
+    right: 2px;
+    gap: 2px;
+  }
+  .decibel-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+  }
 }
 
 /* Countdown pill — centered over the thermometer bar (a sibling of it, not
