@@ -71,6 +71,16 @@ function levelOf(v, thresholds) {
 function levelUpperBound(level, thresholds) {
   return level < thresholds.length ? thresholds[level] : 100;
 }
+// The 0–100 thermometer's own gradient (DecibelMeter.css), as a color at v.
+const THERMO_STOPS = [[0, [0x4a, 0xde, 0x80]], [55, [0xfa, 0xcc, 0x15]], [100, [0xf8, 0x71, 0x71]]];
+function thermoColor(v) {
+  const x = Math.max(0, Math.min(100, v));
+  const k = x <= THERMO_STOPS[1][0] ? 0 : 1;
+  const [[p0, a], [p1, b]] = [THERMO_STOPS[k], THERMO_STOPS[k + 1]];
+  const f = (x - p0) / (p1 - p0);
+  return `rgb(${a.map((c, i) => Math.round(c + (b[i] - c) * f)).join(", ")})`;
+}
+
 const DEFAULT_SETTINGS = {
   multiplier: 1, offset: 50,
   p1: { x: -50, y: 0 },
@@ -85,6 +95,7 @@ const DEFAULT_SETTINGS = {
   liveHidden: false, avgHidden: false, thermoHidden: false, graphHidden: false,
   challengeDraft: DEFAULT_CHALLENGE_DRAFT,
   scale: "100", // "100" (0–100) | a LEVEL_SCALES key ("levels" = 0–3, "levels5", "levels10")
+  bgTint: "off", // "off" | "now" | "avg" — tint the pane green → red by that reading
   ...Object.fromEntries(Object.values(LEVEL_SCALES).map(max => [levelThresholdsKey(max), defaultLevelThresholds(max)])),
 };
 const DECIBEL_SETTINGS_KEY = "classboard_decibel_settings";
@@ -97,6 +108,7 @@ function loadSettings() {
       if (!validLevelThresholds(raw[key], max)) raw[key] = defaultLevelThresholds(max);
     }
     if (raw.scale !== "100" && !LEVEL_SCALES[raw.scale]) raw.scale = "100";
+    if (!["off", "now", "avg"].includes(raw.bgTint)) raw.bgTint = "off";
     if (!raw.p1 || !raw.p2) {
       // Predates the curve editor — derive two on-line points from the flat
       // multiplier/offset that already existed, so a returning user's own
@@ -293,6 +305,12 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
   // A 0–100 reading as displayed: rounded, or its 0–3 level (and color).
   const fmtValue = (v) => (levelsMode ? levelOf(v, thresholds) : Math.round(v));
   const valueColor = (v) => (levelsMode && v != null ? colors[levelOf(v, thresholds)] : undefined);
+  // The pane's background tint, if turned on: the level's own color, or the
+  // thermometer's gradient on 0–100. A Noise Challenge's tint takes over
+  // while one runs.
+  const tintValue = !active ? null : settings.bgTint === "now" ? level : settings.bgTint === "avg" ? avg : null;
+  const bgTint = tintValue == null ? null
+    : `color-mix(in srgb, ${levelsMode ? colors[levelOf(tintValue, thresholds)] : thermoColor(tintValue)} 35%, transparent)`;
   const [settingsOpen, setSettingsOpen] = useState(false);
   // tick() runs inside a long-lived setInterval started once in startMic —
   // it needs whatever settings are current at sample time, not whichever
@@ -780,7 +798,7 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
         "--widget-font-scale": fontScale,
         ...(challengeUI && challengeAvg != null
           ? { boxShadow: `inset 0 0 0 100vmax ${challengeTint(challengeAvg, challengeUI.targetDb)}` }
-          : {}),
+          : bgTint ? { boxShadow: `inset 0 0 0 100vmax ${bgTint}` } : {}),
       }}
     >
       <div className="card-body decibel-body">
@@ -1013,6 +1031,15 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
                 onChange={next => updateSettings({ [levelThresholdsKey(levelMax)]: next })}
               />
             )}
+
+            <div className="decibel-settings-row">
+              <label>Background</label>
+              <select value={settings.bgTint} onChange={e => updateSettings({ bgTint: e.target.value })}>
+                <option value="off">Plain</option>
+                <option value="now">Green to red, by "now"</option>
+                <option value="avg">Green to red, by "avg"</option>
+              </select>
+            </div>
 
             <div className="decibel-settings-row">
               <label>Graph window</label>
