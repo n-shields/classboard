@@ -345,6 +345,7 @@
 .autosave-modal { max-width: 460px; }
 .autosave-hint { font-size: 0.82rem; color: var(--text-dim); }
 .autosave-modal > .autosave-hint { margin: 0 0 12px; }
+.autosave-hint--error { color: var(--danger); }
 .autosave-folder {
   display: flex;
   align-items: center;

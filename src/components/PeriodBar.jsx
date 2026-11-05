@@ -69,6 +69,7 @@ export default function PeriodBar({
   // not a fresh folder pick.
   const [autosaveStatus, setAutosaveStatus] = useState("off");
   const [autosaveFolderName, setAutosaveFolderName] = useState(null);
+  const [autosaveError, setAutosaveError] = useState(null);
   const [lastAutosaveAt, setLastAutosaveAt] = useState(null);
   const autosaveHandleRef = useRef(null);
   const [autosaveOptions, setAutosaveOptions] = useState(loadAutosaveOptions);
@@ -185,6 +186,7 @@ export default function PeriodBar({
     autosaveHandleRef.current = null;
     setAutosaveFolderName(null);
     setLastAutosaveAt(null);
+    setAutosaveError(null);
     setAutosaveStatus("off");
     setPendingSaves([]);
   };
@@ -201,6 +203,7 @@ export default function PeriodBar({
       const handle = await pickAutosaveFolder();
       autosaveHandleRef.current = handle;
       setAutosaveFolderName(handle.name);
+      setAutosaveError(null);
       setAutosaveStatus("on");
     } catch (_) {
       // User canceled the folder picker — leave things as they were.
@@ -215,22 +218,25 @@ export default function PeriodBar({
     });
   };
 
-  const writeAutosave = async (label, data) => {
+  const writeAutosave = async (snapshot) => {
     try {
-      await writeSnapshot(autosaveHandleRef.current, timestampedFilename(label), data);
+      await writeSnapshot(autosaveHandleRef.current, timestampedFilename(snapshot.label), snapshot.data);
       setLastAutosaveAt(new Date());
+      setAutosaveError(null);
       markBackedUp("Auto-saved");
-      return true;
-    } catch {
-      // Quiet by design — most likely permission was revoked outside the
-      // app; stop trying silently until the teacher re-enables it.
+    } catch (err) {
+      // Put it back in the queue, which asks the teacher, rather than losing
+      // a backup with nothing on screen to say so.
       setAutosaveStatus("needs-permission");
-      return false;
+      setAutosaveError(err?.name === "NotAllowedError" ? null : "Couldn't write to that folder. It may have been moved or deleted — you can pick another from 💾 Auto-save.");
+      setPendingSaves(q => [snapshot, ...q]);
     }
   };
 
-  // A snapshot came due: save it now, or (Ask before saving) queue it up
-  // for the teacher to confirm. Only the main board saves — a cloned board
+  // A snapshot came due: save it now, or queue it up for the teacher to
+  // confirm — because of Ask before saving, or because the browser needs
+  // permission again, which it can only ask for after a click (it lapses when
+  // the browser restarts, unless allowed on every visit). Only the main board saves — a cloned board
   // window would otherwise write a duplicate of every snapshot.
   const autosaveStatusRef = useRef(autosaveStatus);
   const autosaveOptionsRef = useRef(autosaveOptions);
@@ -238,22 +244,24 @@ export default function PeriodBar({
   useEffect(() => { autosaveOptionsRef.current = autosaveOptions; }, [autosaveOptions]);
   const snapshotDue = (label, reason) => {
     if (window.opener || !autosaveHandleRef.current) return;
-    const data = collectData();
-    if (autosaveOptionsRef.current.ask) {
-      setPendingSaves(q => [...q, { label, reason, data }]);
-    } else if (autosaveStatusRef.current === "on") {
-      writeAutosave(label, data);
+    const snapshot = { label, reason, data: collectData() };
+    if (autosaveOptionsRef.current.ask || autosaveStatusRef.current !== "on") {
+      setPendingSaves(q => [...q, snapshot]);
+    } else {
+      writeAutosave(snapshot);
     }
   };
 
   const answerPendingSave = async (save) => {
-    const [first] = pendingSaves;
-    setPendingSaves(q => q.slice(1));
-    if (!save || !first) return;
+    // Ask before saving goes one at a time; otherwise these only waited on
+    // permission, so one click saves them all.
+    const batch = save && !autosaveOptions.ask ? pendingSaves : pendingSaves.slice(0, 1);
+    setPendingSaves(q => q.slice(batch.length));
+    if (!save || !batch.length) return;
     // The Save click is a user gesture, so a lapsed permission can be
     // re-granted right here instead of the save quietly failing.
     if (autosaveStatus !== "on" && !(await resumeAutosave())) return;
-    await writeAutosave(first.label, first.data);
+    for (const snapshot of batch) await writeAutosave(snapshot);
   };
 
   // End of day: once the last period of today's schedule has ended, save
@@ -828,6 +836,7 @@ export default function PeriodBar({
               <input type="checkbox" checked={autosaveOptions.ask} onChange={e => updateAutosaveOptions({ ask: e.target.checked })} />
               <span>Ask before saving</span>
             </label>
+            {autosaveError && <p className="autosave-hint autosave-hint--error">{autosaveError}</p>}
             <div className="autosave-actions">
               <span className="autosave-hint">{lastAutosaveAt ? `Last saved ${lastAutosaveAt.toLocaleTimeString()}` : ""}</span>
               <button className="btn btn-primary btn-sm" onClick={() => setAutosaveMenuOpen(false)}>Done</button>
@@ -844,6 +853,9 @@ export default function PeriodBar({
               {pendingSaves[0].reason === "day" ? "The school day is over." : <><strong>{pendingSaves[0].label}</strong> just ended.</>}
               {" "}Save a snapshot to <strong>{autosaveFolderName}</strong>?
             </p>
+            {autosaveError
+              ? <p className="autosave-hint autosave-hint--error">{autosaveError}</p>
+              : autosaveStatus !== "on" && <p className="autosave-hint">The browser needs your OK to use this folder again. If it offers "Allow on every visit", choose that and it won't ask after a restart.</p>}
             <div className="autosave-actions">
               <button className="btn btn-ghost btn-sm" onClick={() => answerPendingSave(false)}>Skip</button>
               <button className="btn btn-primary btn-sm" onClick={() => answerPendingSave(true)} autoFocus>Save</button>
