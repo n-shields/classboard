@@ -4,6 +4,7 @@ import { playChallengeWin, playChallengeLose } from "../data/sounds";
 import { CHALLENGE_COUNT_MS, CHALLENGE_REPEAT_DELAY_MS } from "../data/noiseChallenge";
 import FontSizeAdjuster from "./FontSizeAdjuster";
 import { useWidgetFontScale } from "../data/fontScale";
+import { registerPausable } from "../data/pauseKey";
 
 // There's no way to get a calibrated, device-independent SPL reading out of
 // a browser mic — every device's gain/sensitivity differs — so this reports
@@ -754,6 +755,15 @@ export default function DecibelMeter({ onChallengeResult, pointsLabel = "Gems" }
     if (canvasRef.current) ro.observe(canvasRef.current);
     return () => { clearInterval(id); ro.disconnect(); };
   }, []);
+
+  // The "." key, shared with the timer. Everything here reads challengeRef,
+  // so it only needs registering once.
+  useEffect(() => registerPausable("noiseChallenge", {
+    isRunning: () => challengeRef.current?.pausedLeft === null,
+    isPaused: () => challengeRef.current != null && challengeRef.current.pausedLeft !== null,
+    pause: togglePauseChallenge,
+    resume: togglePauseChallenge,
+  }), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The win/lose banner is a brief announcement, not a permanent readout.
   useEffect(() => {

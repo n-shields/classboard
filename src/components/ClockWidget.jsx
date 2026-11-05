@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useContext, createContext } from "react";
 import { secondsUntilEnd, secondsUntilStart } from "../data/schedules";
+import { registerPausable } from "../data/pauseKey";
 import FontSizeAdjuster from "./FontSizeAdjuster";
 import "./ClockWidget.css";
 
@@ -131,6 +132,10 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   const [timerDone,    setTimerDone]    = useState(false);
   const timerRef       = useRef(null);
   const lastDurationRef = useRef(10 * 60);
+  // Stopped partway through, as opposed to set and waiting to start: only
+  // this is what "." resumes.
+  const timerPausedRef = useRef(false);
+  const startOnBlurRef = useRef(false);
 
   const setFontScale = useCallback((modeName, scale) => {
     setFontScaleByMode(prev => ({ ...prev, [modeName]: scale }));
@@ -211,7 +216,8 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
     setTimerSecs(secs);
     setTimerInput(formatSeconds(secs));
     setTimerDone(false);
-    setTimerRunning(true);
+    setTimerRunning(false);
+    timerPausedRef.current = false;
   }, []);
 
   // Nudge the timer by a step that depends on how much time is left: under a
@@ -225,7 +231,13 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
     });
   }, []);
 
+  const pauseTimer = () => {
+    timerPausedRef.current = true;
+    setTimerRunning(false);
+  };
+
   const startTimer = () => {
+    timerPausedRef.current = false;
     lastDurationRef.current = timerSecs;
     setMode("Timer");
     setTimerRunning(true);
@@ -233,6 +245,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   };
 
   const restartTimer = () => {
+    timerPausedRef.current = false;
     const secs = lastDurationRef.current;
     setMode("Timer");
     setTimerSecs(secs);
@@ -242,6 +255,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   };
 
   const resetTimer = () => {
+    timerPausedRef.current = false;
     setTimerRunning(false);
     setTimerDone(false);
     const parts = timerInput.split(":").map(Number);
@@ -250,11 +264,30 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
     setTimerSecs(secs);
   };
 
+  // Reads the time through the setter: the shortcuts below don't re-subscribe
+  // on every tick, so timerSecs could be out of date here.
+  const startFromKey = () => {
+    if (timerDone) { restartTimer(); return; }
+    timerPausedRef.current = false;
+    setTimerSecs(s => { lastDurationRef.current = s; return s; });
+    setTimerRunning(true);
+    setTimerDone(false);
+  };
+
+  useEffect(() => registerPausable("timer", {
+    isRunning: () => timerRunning,
+    isPaused: () => !timerRunning && timerPausedRef.current,
+    pause: () => { onTimerTriggeredRef.current?.(); setMode("Timer"); pauseTimer(); },
+    resume: () => { onTimerTriggeredRef.current?.(); setMode("Timer"); timerPausedRef.current = false; setTimerRunning(true); },
+  }), [timerRunning]);
+
   // Global shortcuts, active as long as focus isn't in a text field (notes
   // pane, board, inputs, etc.) and no modal is open:
-  //   1-9    start a timer of that many minutes
+  //   1-9    set a timer of that many minutes (stops one that's running)
+  //   enter  start the timer, if it isn't running
   //   +/-    add/subtract time on the timer (10s under a minute, else 1min)
   //   space  pause the timer if running, start it if paused
+  //   .      pause/resume the timer and any Noise Challenge (see data/pauseKey)
   //   r      reset the timer back to its last-entered duration
   //   p/t    jump to Period / Timer mode (in a combined pane)
   useEffect(() => {
@@ -263,6 +296,16 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
       const target = e.target;
       if (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
       if (document.querySelector(".modal-overlay")) return;
+
+      // Enter on a button is that button's own click.
+      if (e.key === "Enter") {
+        if (e.repeat || timerRunning || ["BUTTON", "A"].includes(target.tagName)) return;
+        e.preventDefault();
+        onTimerTriggeredRef.current?.();
+        setMode("Timer");
+        startFromKey();
+        return;
+      }
 
       const timerKey = (e.key >= "1" && e.key <= "9") || ["+", "-", " ", "r", "R", "t", "T"].includes(e.key);
       if (timerKey) onTimerTriggeredRef.current?.();
@@ -279,15 +322,8 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
       if (e.key === " ") {
         e.preventDefault();
         setMode("Timer");
-        if (timerDone) {
-          restartTimer();
-        } else if (timerRunning) {
-          setTimerRunning(false);
-        } else {
-          setTimerSecs(s => { lastDurationRef.current = s; return s; });
-          setTimerRunning(true);
-          setTimerDone(false);
-        }
+        if (timerRunning) pauseTimer();
+        else startFromKey();
         return;
       }
       switch (e.key.toLowerCase()) {
@@ -307,15 +343,32 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
     if (parts.length === 3) secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
     else if (parts.length === 2) secs = parts[0] * 60 + parts[1];
     else secs = parts[0] * 60;
-    if (!isNaN(secs) && secs > 0) { setTimerSecs(secs); setTimerInput(formatSeconds(secs)); }
+    const valid = !isNaN(secs) && secs > 0;
+    if (valid) { setTimerSecs(secs); setTimerInput(formatSeconds(secs)); }
     else setTimerInput(formatSeconds(timerSecs));
-    setTimerRunning(false);
+    // Clicking in and out of the field leaves a paused timer paused.
+    if (valid && secs !== timerSecs) timerPausedRef.current = false;
     setTimerDone(false);
+    if (startOnBlurRef.current) {
+      startOnBlurRef.current = false;
+      timerPausedRef.current = false;
+      lastDurationRef.current = valid ? secs : timerSecs;
+      setMode("Timer");
+      setTimerRunning(true);
+    } else {
+      setTimerRunning(false);
+    }
+  };
+
+  // Enter in the time field sets that time and starts it.
+  const handleTimerInputEnter = (e) => {
+    startOnBlurRef.current = true;
+    e.target.blur();
   };
 
   const toggleTimer = () => {
     if (timerDone) { restartTimer(); }
-    else if (timerRunning) { setTimerRunning(false); }
+    else if (timerRunning) { pauseTimer(); }
     else { startTimer(); }
   };
 
@@ -353,7 +406,7 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
     fontScaleByMode, setFontScale, timerSound, setTimerSound,
     showSecsByMode, toggleSecs,
     timerSecs, timerInput, setTimerInput, timerRunning, timerDone,
-    toggleTimer, resetTimer, handleTimerInputBlur,
+    toggleTimer, resetTimer, handleTimerInputBlur, handleTimerInputEnter,
     swElapsed, swRunning, toggleStopwatch, resetStopwatch, swShowHundredths, setSwShowHundredths,
   };
   return <ClockCtx.Provider value={value}>{children}</ClockCtx.Provider>;
@@ -464,7 +517,7 @@ export default function ClockWidget({ collapsed, modes = MODES }) {
                     style={{ fontSize: fontSizeStyle }}
                     onChange={e => c.setTimerInput(e.target.value)}
                     onBlur={c.handleTimerInputBlur}
-                    onKeyDown={e => e.key === "Enter" && e.target.blur()}
+                    onKeyDown={e => e.key === "Enter" && c.handleTimerInputEnter(e)}
                     spellCheck={false} />
                 )}
               </div>

@@ -8,7 +8,7 @@ import "./HotkeysEditor.css";
 // flagged so an assignment doesn't silently double up with something else.
 const RESERVED_KEYS = new Set([
   "a", "arrowleft", "arrowright", "arrowup", "arrowdown",
-  "+", "=", "-", "_", " ", "escape",
+  "+", "=", "-", "_", " ", ".", "enter", "escape",
   "1", "2", "3", "4", "5", "6", "7", "8", "9",
   "p", "t", "r",
 ]);
