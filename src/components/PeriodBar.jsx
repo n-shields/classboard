@@ -616,6 +616,10 @@ export default function PeriodBar({
 
   return (
     <>
+      {/* Auto is on: a small always-visible mark, since the toolbar's own
+          Auto button is hidden most of the time. */}
+      {autoMode && <div className="auto-mode-badge" aria-label="Auto period detection is on">A</div>}
+
       {/* Invisible hover zone at very top of screen */}
       <div className="toolbar-trigger" onMouseEnter={show} onMouseLeave={scheduleHide} />
 
