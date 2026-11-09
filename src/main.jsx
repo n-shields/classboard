@@ -8,6 +8,7 @@ import SeatingView from './SeatingView.jsx'
 import StudentsView from './StudentsView.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import DEFAULT_BOARD from './data/defaultBoard.json'
+import { trackInput } from './data/lastInput.js'
 
 // On a fresh browser with no saved classboard data, seed localStorage with
 // the bundled default board (schedules, layout, themes — no per-class content)
@@ -55,6 +56,9 @@ window.addEventListener('keydown', (e) => {
   const el = document.activeElement;
   if (el && el !== document.body) el.blur();
 });
+
+// Every window counts toward "nobody has touched the board" (see App).
+trackInput();
 
 const view = new URLSearchParams(window.location.search).get('view');
 

@@ -19,6 +19,7 @@ import { PERIOD_DATA_KEY, loadPeriodData, DEFAULT_NAMES } from "./data/periodDat
 import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import { saveBoardViewBounds, loadMainBoardSize, saveMainBoardSize, MAIN_BOARD_SIZE_KEY } from "./data/teacherView";
 import { DEFAULT_COMPACT_LAYOUT, loadCompactLayouts, saveCompactLayouts, sanitizeCompactTree, loadCompactSession, saveCompactSession } from "./data/compactLayout";
+import { msSinceInput } from "./data/lastInput";
 import "./App.css";
 
 
@@ -126,6 +127,7 @@ function loadLayouts() {
 // itself, that happens to share this same App component. Stable for the
 // life of the window, so no need for state.
 const isBoardPopup = typeof window !== "undefined" && !!window.opener;
+const AUTO_RESUME_IDLE_MS = 10 * 60_000;
 
 // Best effort — a browser ignores this for a window the page didn't open.
 function resizeWindow(b) {
@@ -478,6 +480,19 @@ export default function App() {
   useEffect(() => {
     if (!autoMode && clockPeriodIndex >= 0 && clockPeriodIndex === currentPeriodIndex) setAutoMode(true);
   }, [clockPeriodIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Nobody has touched the board (or any of its windows) for a while: a
+  // period picked by hand was probably left behind, so go back to Auto.
+  // Not in a Clone window, which keeps its own period.
+  useEffect(() => {
+    if (autoMode || isBoardPopup) return;
+    const id = setInterval(() => {
+      if (msSinceInput() < AUTO_RESUME_IDLE_MS) return;
+      setOffSchedulePeriod(null);
+      setAutoMode(true);
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [autoMode]);
 
   // Let popup windows (Teacher View, seating chart) mirror whichever period
   // is active here, instead of independently time-detecting their own. Not
