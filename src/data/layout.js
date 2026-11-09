@@ -107,6 +107,14 @@ export function combineLeaves(tree, fromId, toId) {
   return replaceLeaf(removed, toId, parts.join('+'));
 }
 
+/** Take tile `part` out of combined leaf `leafId`, leaving the rest in
+ *  that pane; a leaf that isn't combined is removed whole */
+export function removePart(tree, leafId, part) {
+  const rest = leafParts(leafId).filter(p => p !== part);
+  if (!isCombinedLeaf(leafId) || rest.length === leafParts(leafId).length) return removeLeaf(tree, leafId);
+  return replaceLeaf(tree, leafId, rest.join('+'));
+}
+
 /** The leaf (if any) already hosting a combinable tile — where another one
  *  being shown joins in, rather than getting a tile of its own */
 export function combinableHost(tree) {
