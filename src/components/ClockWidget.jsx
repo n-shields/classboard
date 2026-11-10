@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, useContext, createCo
 import { secondsUntilEnd, secondsUntilStart } from "../data/schedules";
 import { registerPausable } from "../data/pauseKey";
 import FontSizeAdjuster from "./FontSizeAdjuster";
+import { usePeriodFontScale } from "../data/fontScale";
 import "./ClockWidget.css";
 
 const MODES = ["Period", "Timer"]; // a pane's default (Teacher View's)
@@ -112,7 +113,15 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   const [now, setNow] = useState(new Date());
 
   const initSettings = useMemo(loadClockSettings, []);
-  const [fontScaleByMode, setFontScaleByMode] = useState(initSettings.fontScaleByMode);
+  // Font sizes are each period's own (see usePeriodFontScale); the saved
+  // settings' fontScaleByMode is only what a period starts from.
+  const [periodScale,    setPeriodScale]    = usePeriodFontScale("clock:Period", initSettings.fontScaleByMode.Period);
+  const [timerScale,     setTimerScale]     = usePeriodFontScale("clock:Timer", initSettings.fontScaleByMode.Timer);
+  const [stopwatchScale, setStopwatchScale] = usePeriodFontScale("clock:Stopwatch", initSettings.fontScaleByMode.Stopwatch);
+  const fontScaleByMode = useMemo(
+    () => ({ Period: periodScale, Timer: timerScale, Stopwatch: stopwatchScale }),
+    [periodScale, timerScale, stopwatchScale],
+  );
   const [use24h,          setUse24h]          = useState(initSettings.use24h);
   const [timerSound,      setTimerSound]      = useState(initSettings.timerSound);
   const [showSmallClock]                      = useState(initSettings.showSmallClock ?? true);
@@ -137,9 +146,9 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   const timerPausedRef = useRef(false);
   const startOnBlurRef = useRef(false);
 
-  const setFontScale = useCallback((modeName, scale) => {
-    setFontScaleByMode(prev => ({ ...prev, [modeName]: scale }));
-  }, []);
+  const setFontScale = (modeName, scale) => {
+    ({ Period: setPeriodScale, Timer: setTimerScale, Stopwatch: setStopwatchScale })[modeName]?.(scale);
+  };
 
   // Stopwatch: timed from timestamps rather than counted ticks, so it stays
   // exact however the interval below drifts.
@@ -173,9 +182,9 @@ export function ClockProvider({ currentPeriod, nextPeriod, onDisplayChange, onMo
   // Persist settings and notify parent whenever they change. `fontSize`
   // (an S/M/L/XL bucket of the shown mode's scale) is for the camera overlay.
   useEffect(() => {
-    const settings = { fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, swShowHundredths };
+    const settings = { fontScaleByMode: initSettings.fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, swShowHundredths };
     saveClockSettings(settings);
-    onSettingsChange?.({ ...settings, fontSize: fontSizeKeyForScale(fontScaleByMode[mode] ?? 1) });
+    onSettingsChange?.({ ...settings, fontScaleByMode, fontSize: fontSizeKeyForScale(fontScaleByMode[mode] ?? 1) });
   }, [fontScaleByMode, use24h, timerSound, showSecsByMode, showSmallClock, swShowHundredths, mode]); // eslint-disable-line
 
   // Clock tick

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import ClockWidget, { ClockProvider } from "./components/ClockWidget";
+import { FontScalePeriodCtx } from "./data/fontScale";
 import RemindersWidget from "./components/RemindersWidget";
 import TextPane from "./components/TextPane";
 import StudentList from "./components/StudentList";
@@ -297,6 +298,7 @@ export default function TeacherView() {
   };
 
   return (
+    <FontScalePeriodCtx.Provider value={periodKey}>
     <div className="teacher-view">
       <div className="teacher-view-header">
         <span className="teacher-view-title">Teacher View</span>
@@ -372,5 +374,6 @@ export default function TeacherView() {
         />
       )}
     </div>
+    </FontScalePeriodCtx.Provider>
   );
 }

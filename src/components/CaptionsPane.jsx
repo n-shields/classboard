@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import FontSizeAdjuster from "./FontSizeAdjuster";
+import { usePeriodFontScale } from "../data/fontScale";
 import "./CaptionsPane.css";
 
 // The Web Speech API's SpeechRecognition — built into Chrome/Edge, no key
@@ -68,6 +69,8 @@ export default function CaptionsPane() {
   const [interim, setInterim] = useState("");
   const [settings, setSettingsState] = useState(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Each period's own; the saved fontSize is only what a period starts from.
+  const [fontScale, setFontScale] = usePeriodFontScale("captions", settings.fontSize / DEFAULT_SETTINGS.fontSize);
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
 
@@ -177,7 +180,7 @@ export default function CaptionsPane() {
             <span>{active ? "Listening…" : "Click 💬 to start captions"}</span>
           </div>
         ) : (
-          <p className="captions-text" style={{ fontSize: `${settings.fontSize}px` }}>
+          <p className="captions-text" style={{ fontSize: `${fontScale * DEFAULT_SETTINGS.fontSize}px` }}>
             {segments.join(" ")}
             {segments.length > 0 && interim ? " " : ""}
             <span className="captions-interim">{interim}</span>
@@ -213,8 +216,8 @@ export default function CaptionsPane() {
             <div className="captions-settings-row">
               <label>Font size</label>
               <FontSizeAdjuster
-                scale={settings.fontSize / DEFAULT_SETTINGS.fontSize}
-                onChange={s => updateSettings({ fontSize: s * DEFAULT_SETTINGS.fontSize })}
+                scale={fontScale}
+                onChange={setFontScale}
               />
             </div>
             <div className="captions-settings-actions">

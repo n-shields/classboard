@@ -20,6 +20,7 @@ import { migrateToUnifiedPages, pagesForPane } from "./data/pages";
 import { saveBoardViewBounds, loadMainBoardSize, saveMainBoardSize, MAIN_BOARD_SIZE_KEY } from "./data/teacherView";
 import { DEFAULT_COMPACT_LAYOUT, loadCompactLayouts, saveCompactLayouts, sanitizeCompactTree, loadCompactSession, saveCompactSession } from "./data/compactLayout";
 import { msSinceInput } from "./data/lastInput";
+import { FontScalePeriodCtx } from "./data/fontScale";
 import "./App.css";
 
 
@@ -1144,6 +1145,7 @@ export default function App() {
   };
 
   return (
+    <FontScalePeriodCtx.Provider value={periodKey}>
     <div className="app">
       <PeriodBar
         schedules={schedules}           onSchedulesChange={handleSchedulesChange}
@@ -1198,5 +1200,6 @@ export default function App() {
         />
       </ClockProvider>
     </div>
+    </FontScalePeriodCtx.Provider>
   );
 }

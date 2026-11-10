@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import FontSizeAdjuster from "./FontSizeAdjuster";
+import { usePeriodFontScale } from "../data/fontScale";
 import "./CameraFeed.css";
 
 const CAMERA_SETTINGS_KEY = "classboard_camera_settings";
@@ -63,7 +64,9 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const [histogram,    setHistogram]    = useState(null);
   const [devices,          setDevices]          = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(() => loadSettings().deviceId);
-  const [overlayScale,     setOverlayScale]     = useState(() => loadSettings().overlayScale);
+  // Each period's own; the saved overlayScale is only what a period starts from.
+  const [savedOverlayScale]                     = useState(() => loadSettings().overlayScale);
+  const [overlayScale,     setOverlayScale]     = usePeriodFontScale("camera", savedOverlayScale);
   const [showCameraMenu,   setShowCameraMenu]   = useState(false);
 
   const toggleCh   = (ch)   => setIgnoreCh(prev => ({ ...prev, [ch]: !prev[ch] }));
@@ -119,8 +122,8 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
 
   // Persist flip/device settings globally
   useEffect(() => {
-    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId, overlayScale });
-  }, [mirrored, flippedV, selectedDeviceId, overlayScale]);
+    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId, overlayScale: savedOverlayScale });
+  }, [mirrored, flippedV, selectedDeviceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track available cameras; labels only populate once permission is granted
   const refreshDevices = async () => {

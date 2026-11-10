@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import FontSizeAdjuster from "./FontSizeAdjuster";
+import { usePeriodFontScale } from "../data/fontScale";
 import "./DateWidget.css";
 
 const DAYS   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -51,7 +52,14 @@ export default function DateWidget() {
   const [showDate,  setShowDate]  = useState(init.showDate);
   const [use24h,    setUse24h]    = useState(init.use24h);
   const [showSecs,  setShowSecs]  = useState(init.showSecs);
-  const [fontSizes, setFontSizes] = useState(() => ({ ...DEFAULT_FONT_SIZES, ...init.fontSizes }));
+  // Each period's own; the saved fontSizes are only what a period starts from.
+  const [savedFontSizes] = useState(() => ({ ...DEFAULT_FONT_SIZES, ...init.fontSizes }));
+  const scales = {
+    time: usePeriodFontScale("date:time", savedFontSizes.time / DEFAULT_FONT_SIZES.time),
+    day:  usePeriodFontScale("date:day",  savedFontSizes.day  / DEFAULT_FONT_SIZES.day),
+    date: usePeriodFontScale("date:date", savedFontSizes.date / DEFAULT_FONT_SIZES.date),
+  };
+  const fontSizes = Object.fromEntries(Object.entries(scales).map(([k, [s]]) => [k, s * DEFAULT_FONT_SIZES[k]]));
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
@@ -59,8 +67,8 @@ export default function DateWidget() {
   }, []);
 
   useEffect(() => {
-    saveWidgetSettings({ showTime, showDate, use24h, showSecs, fontSizes });
-  }, [showTime, showDate, use24h, showSecs, fontSizes]);
+    saveWidgetSettings({ showTime, showDate, use24h, showSecs, fontSizes: savedFontSizes });
+  }, [showTime, showDate, use24h, showSecs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close settings on click outside
   useEffect(() => {
@@ -132,8 +140,8 @@ export default function DateWidget() {
             <div key={key} className="date-settings-row">
               <span className="date-settings-label">{label}</span>
               <FontSizeAdjuster
-                scale={fontSizes[key] / DEFAULT_FONT_SIZES[key]}
-                onChange={s => setFontSizes(fs => ({ ...fs, [key]: s * DEFAULT_FONT_SIZES[key] }))}
+                scale={scales[key][0]}
+                onChange={scales[key][1]}
               />
             </div>
           ))}
