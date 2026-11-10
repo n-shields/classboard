@@ -13,11 +13,12 @@ export const FONT_SCALE_MAX = 4;
  *  between periods, which keeps a set of its own too). */
 export const FontScalePeriodCtx = createContext(null);
 
-/** `scale` one 5% step up (dir 1) or down (dir -1), in points of the widget's
- *  original size (100% -> 105% -> 110%). Lands on a multiple of 5%, so a size
- *  saved before this step existed joins the same steps on its first click. */
+/** `scale` one step up (dir 1) or down (dir -1): 5% of the size it is now,
+ *  so every click looks the same however large the text already is (like
+ *  the text panes' A+/A−). Down divides rather than taking 5% off, so A+
+ *  then A− lands back where it started. */
 export function stepFontScale(scale, dir) {
-  const next = (Math.round(scale * 20) + dir) / 20;
+  const next = Math.round(scale * 1.05 ** dir * 10000) / 10000;
   return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, next));
 }
 
