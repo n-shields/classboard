@@ -8,8 +8,8 @@ const CAMERA_SETTINGS_KEY = "classboard_camera_settings";
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(CAMERA_SETTINGS_KEY) || "{}");
-    return { mirrored: true, flippedV: false, deviceId: null, overlayScale: 1, ...s };
-  } catch (_) { return { mirrored: true, flippedV: false, deviceId: null, overlayScale: 1 }; }
+    return { mirrored: true, flippedV: false, deviceId: null, overlayScale: 1, hue: 0, saturation: 100, ...s };
+  } catch (_) { return { mirrored: true, flippedV: false, deviceId: null, overlayScale: 1, hue: 0, saturation: 100 }; }
 }
 
 function saveSettings(settings) {
@@ -53,6 +53,9 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
   const [error,        setError]        = useState(null);
   const [mirrored,     setMirrored]     = useState(() => loadSettings().mirrored);
   const [flippedV,     setFlippedV]     = useState(() => loadSettings().flippedV);
+  // Color correction for the picture: hue shift in degrees, saturation in %.
+  const [hue,          setHue]          = useState(() => loadSettings().hue);
+  const [saturation,   setSaturation]   = useState(() => loadSettings().saturation);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showClock,    setShowClock]    = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -88,6 +91,8 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
 
   const videoFilter = [
     hasSvgFilter ? "url(#cam-main-filter)" : "",
+    hue ? `hue-rotate(${hue}deg)` : "",
+    saturation !== 100 ? `saturate(${saturation}%)` : "",
     grayMode ? "grayscale(1)" : "",
     grayMode === "bw" ? "contrast(1000%)" : "",
     negative ? "invert(1)" : "",
@@ -122,8 +127,8 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
 
   // Persist flip/device settings globally
   useEffect(() => {
-    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId, overlayScale: savedOverlayScale });
-  }, [mirrored, flippedV, selectedDeviceId]); // eslint-disable-line react-hooks/exhaustive-deps
+    saveSettings({ mirrored, flippedV, deviceId: selectedDeviceId, overlayScale: savedOverlayScale, hue, saturation });
+  }, [mirrored, flippedV, selectedDeviceId, hue, saturation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track available cameras; labels only populate once permission is granted
   const refreshDevices = async () => {
@@ -445,6 +450,22 @@ export default function CameraFeed({ periodKey, clockDisplay, clockFontSize = "m
               title={d.label || `Camera ${i + 1}`}
             >{d.label || `Camera ${i + 1}`}</button>
           ))}
+          <div className="levels-section">
+            <div className="levels-header">
+              <span className="levels-label">Color</span>
+              <button className="levels-reset" onClick={() => { setHue(0); setSaturation(100); }} title="Reset hue and saturation">↺</button>
+            </div>
+            <label className="levels-row" title="Hue">
+              <span className="camera-color-name">Hue</span>
+              <input type="range" min={-180} max={180} value={hue} onChange={e => setHue(+e.target.value)} />
+              <span className="levels-val">{hue}°</span>
+            </label>
+            <label className="levels-row" title="Saturation">
+              <span className="camera-color-name">Sat</span>
+              <input type="range" min={0} max={300} step={5} value={saturation} onChange={e => setSaturation(+e.target.value)} />
+              <span className="levels-val">{saturation}%</span>
+            </label>
+          </div>
           <div className="font-size-row">
             <span>Clock font</span>
             <FontSizeAdjuster scale={overlayScale} onChange={setOverlayScale} />

@@ -308,8 +308,16 @@
   text-align: right;
 }
 
+.camera-color-name {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  width: 22px;
+  flex-shrink: 0;
+}
+
 .levels-row input[type="range"] {
   flex: 1;
+  min-width: 0;
   accent-color: var(--accent);
   height: 3px;
   cursor: pointer;
