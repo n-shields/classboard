@@ -4,6 +4,8 @@
 }
 
 .clock-body {
+  /* The digits size themselves to the pane (see BASE_FONT_SIZE). */
+  container-type: size;
   align-items: center;
   justify-content: center;
   padding: 12px;
@@ -276,7 +278,8 @@
   background: transparent;
   border: none;
   padding: 0 4px;
-  width: 260px;
+  width: 4.6em; /* grows with the digits; fits "1:00:00" */
+  max-width: 100%;
   text-align: center;
   line-height: 1;
 }

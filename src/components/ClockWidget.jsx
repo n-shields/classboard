@@ -10,8 +10,10 @@ const MODES = ["Period", "Timer"]; // a pane's default (Teacher View's)
 const CLOCK_SETTINGS_KEY = "classboard_clock_settings";
 
 // Each mode's digits are this base size times its own scale, nudged with
-// the font size control in its settings panel.
-const BASE_FONT_SIZE = "clamp(2.5rem, 5vw, 4.5rem)";
+// the font size control in its settings panel. The base follows the pane's
+// size (container units — .clock-body is the container), whichever of width
+// or height runs out first, so the digits grow and shrink as it's resized.
+const BASE_FONT_SIZE = "max(1.25rem, min(19cqw, 30cqh))";
 // The scales the old fixed S/M/L/XL sizes came to, for carrying a saved
 // pick over — and back again for the camera overlay, which still sizes its
 // copy of the clock in those buckets.
