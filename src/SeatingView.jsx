@@ -15,6 +15,11 @@ function loadGlobalTheme() {
 // whichever main-board tile happens to be largest. Mirrors the main board's
 // currently-active period (see data/schedules.js: resolveActivePeriod)
 // by re-reading localStorage, the same way Teacher View does.
+// Opened from Teacher View (vs. the main board's period bar)?
+const params = new URLSearchParams(window.location.search);
+const FROM_TEACHER = params.get("from") === "teacher";
+const INITIAL_OWN_PERIOD = FROM_TEACHER ? params.get("period") : null;
+
 export default function SeatingView() {
   const [schedules, setSchedules]     = useState(loadSchedules);
   const [scheduleType, setScheduleType] = useState(() => loadBoardScheduleType());
@@ -37,19 +42,38 @@ export default function SeatingView() {
   }, []);
 
   const periods = schedules[scheduleType] || [];
-  const currentPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
+  const boardPeriod = useMemo(() => resolveActivePeriod(periods, activePeriod, schedules), [periods, now, activePeriod, schedules]); // eslint-disable-line
+  const boardKey = boardPeriod ? boardPeriod.label : null;
+
+  // Opened from Teacher View, this window keeps its own period (same as
+  // Teacher View's arrow keys): picks here never reach the main board. It
+  // lasts until the board itself moves on, then follows the board again.
+  const [ownPeriod, setOwnPeriod] = useState(() =>
+    INITIAL_OWN_PERIOD && INITIAL_OWN_PERIOD !== boardKey ? { label: INITIAL_OWN_PERIOD, boardKey } : null);
+  if (ownPeriod && ownPeriod.boardKey !== boardKey) setOwnPeriod(null);
+  const shownPeriod = ownPeriod ? { autoMode: false, label: ownPeriod.label } : activePeriod;
+  const currentPeriod = ownPeriod ? resolveActivePeriod(periods, shownPeriod, schedules) : boardPeriod;
   const periodKey = currentPeriod ? currentPeriod.label : null;
 
   // The same slide-out period menu as the main board. Picking a period here
   // writes the shared active-period key, which the main board listens for
   // and follows — so this switches the whole board, not just this window
-  // (and still works with no board window open at all).
+  // (and still works with no board window open at all). Except when opened
+  // from Teacher View: then picks stay in this window (see ownPeriod).
   const [menuEdge, setMenuEdge] = usePeriodMenuEdge("classboard_seating_period_menu_edge");
-  const currentPeriodIndex = useMemo(() => resolveActivePeriodIndex(periods, activePeriod), [periods, now, activePeriod]); // eslint-disable-line
+  const currentPeriodIndex = useMemo(() => resolveActivePeriodIndex(periods, shownPeriod), [periods, now, shownPeriod?.autoMode, shownPeriod?.label]); // eslint-disable-line
   const nextPeriodIndex    = useMemo(() => detectNextPeriod(periods), [periods, now]); // eslint-disable-line
-  const autoMode = activePeriod?.autoMode !== false;
-  const offSchedulePeriodLabel = !autoMode && currentPeriodIndex === -1 ? activePeriod?.label ?? null : null;
+  const autoMode = shownPeriod?.autoMode !== false;
+  const offSchedulePeriodLabel = !autoMode && currentPeriodIndex === -1 ? shownPeriod?.label ?? null : null;
+  const boardKeyRef = useRef(boardKey);
+  useEffect(() => { boardKeyRef.current = boardKey; });
   const pickPeriod = (label, isScheduledNow) => {
+    if (FROM_TEACHER) {
+      // Stepping back onto the board's period goes back to following it.
+      const board = boardKeyRef.current;
+      setOwnPeriod(label === board ? null : { label, boardKey: board });
+      return;
+    }
     // Same rule as the board: picking whatever's scheduled right now means Auto.
     const next = { autoMode: isScheduledNow, label };
     saveActivePeriod(next.autoMode, next.label);

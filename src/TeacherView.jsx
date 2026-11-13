@@ -267,6 +267,12 @@ export default function TeacherView() {
     const url = new URL(window.location.href);
     url.searchParams.set("view", "seating");
     url.searchParams.delete("s");
+    // Opened from here, its period picks stay in that window (like this
+    // one's arrow keys) instead of switching the main board — and it opens
+    // on whichever period this window is showing.
+    url.searchParams.set("from", "teacher");
+    if (ownPeriod) url.searchParams.set("period", ownPeriod.label);
+    else url.searchParams.delete("period");
     const popup = window.open(url.toString(), "classboard-seating-view", `width=${width},height=${height},left=${left},top=${top}`);
     popup?.focus();
   };
