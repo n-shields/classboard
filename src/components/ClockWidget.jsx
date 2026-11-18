@@ -14,6 +14,9 @@ const CLOCK_SETTINGS_KEY = "classboard_clock_settings";
 // size (container units — .clock-body is the container), whichever of width
 // or height runs out first, so the digits grow and shrink as it's resized.
 const BASE_FONT_SIZE = "max(1.25rem, min(19cqw, 30cqh))";
+// A+ goes well past the size that fits: in a short pane the fitted base is
+// small, and the usual 4× limit would barely clear the pane's edges.
+const CLOCK_FONT_SCALE_MAX = 12;
 // The scales the old fixed S/M/L/XL sizes came to, for carrying a saved
 // pick over — and back again for the camera overlay, which still sizes its
 // copy of the clock in those buckets.
@@ -470,7 +473,7 @@ export default function ClockWidget({ collapsed, modes = MODES }) {
           <div className="clock-settings-panel" ref={settingsPanelRef}>
             <div className="clock-settings-row">
               <span className="clock-settings-label">Font size</span>
-              <FontSizeAdjuster scale={c.fontScaleByMode[mode] ?? 1} onChange={s => c.setFontScale(mode, s)} />
+              <FontSizeAdjuster scale={c.fontScaleByMode[mode] ?? 1} onChange={s => c.setFontScale(mode, s)} max={CLOCK_FONT_SCALE_MAX} />
             </div>
             {mode === "Timer" && (
               <div className="clock-settings-row">
@@ -587,6 +590,14 @@ export default function ClockWidget({ collapsed, modes = MODES }) {
           tabIndex={-1}
           title="Clock settings"
         >⚙</button>
+
+        {/* A− / A+ for the mode in front — bottom left, appears on hover */}
+        <FontSizeAdjuster
+          className="clock-font-btns"
+          scale={c.fontScaleByMode[mode] ?? 1}
+          onChange={s => c.setFontScale(mode, s)}
+          max={CLOCK_FONT_SCALE_MAX}
+        />
       </div>
     </div>
   );

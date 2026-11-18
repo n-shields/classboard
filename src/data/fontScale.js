@@ -17,9 +17,9 @@ export const FontScalePeriodCtx = createContext(null);
  *  so every click looks the same however large the text already is (like
  *  the text panes' A+/A−). Down divides rather than taking 5% off, so A+
  *  then A− lands back where it started. */
-export function stepFontScale(scale, dir) {
+export function stepFontScale(scale, dir, max = FONT_SCALE_MAX) {
   const next = Math.round(scale * 1.05 ** dir * 10000) / 10000;
-  return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, next));
+  return Math.min(max, Math.max(FONT_SCALE_MIN, next));
 }
 
 function loadScale(widget) {

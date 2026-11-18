@@ -86,6 +86,26 @@
   opacity: 1 !important;
 }
 
+/* Font size A− / A+ — bottom left, mirroring the gear */
+.clock-font-btns {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 2;
+}
+.clock-widget:hover .clock-font-btns {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Solid, so they stay readable over digits enlarged beneath them */
+.clock-font-btns .btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+
 /* Settings panel */
 .clock-settings-panel {
   position: absolute;
