@@ -25,6 +25,10 @@ const HOVER_HIDE_DELAY_MS = 250;
 // clicking, or moving over the toolbar), even with the pane still focused —
 // the next keystroke or click in the pane brings it back.
 const IDLE_HIDE_MS = 5000;
+// And after this long without typing or clicking in it, the pane gives up
+// focus altogether, so the board's hotkeys (which stand aside while a text
+// field has focus) work again without having to click elsewhere first.
+const IDLE_BLUR_MS = 10000;
 
 // CSS's own definition of a physical unit: 96px per inch, 2.54cm per inch —
 // the same ratio the browser itself uses for e.g. `width: 1cm`, regardless
@@ -441,11 +445,25 @@ export default function TextPane({
   // Any input in the pane counts as activity — and brings an idle-hidden
   // toolbar back, as long as the pane is still the one being edited.
   const onPaneInput = () => {
+    restartIdleBlur();
     if (toolbarVisible) { restartIdleHide(); return; }
     if (wrapRef.current?.contains(document.activeElement)) showToolbar();
   };
 
-  useEffect(() => () => { clearTimeout(hideTimerRef.current); clearTimeout(idleTimerRef.current); }, []);
+  // Idle blur (IDLE_BLUR_MS): restarted by focusing, typing or clicking in
+  // the pane or its toolbar. Not while a toolbar control has focus (e.g. a
+  // color picker open) — check again later instead.
+  const blurTimerRef = useRef(null);
+  const restartIdleBlur = () => {
+    clearTimeout(blurTimerRef.current);
+    blurTimerRef.current = setTimeout(() => {
+      const el = document.activeElement;
+      if (toolbarRef.current?.contains(el)) { restartIdleBlur(); return; }
+      if (el && el !== document.body && wrapRef.current?.contains(el)) el.blur();
+    }, IDLE_BLUR_MS);
+  };
+
+  useEffect(() => () => { clearTimeout(hideTimerRef.current); clearTimeout(idleTimerRef.current); clearTimeout(blurTimerRef.current); }, []);
 
   // Recalibrate the marquee's distance/duration (see applyMarqueeDistance)
   // whenever scrolling turns on, the page changes, or the pane itself
@@ -468,7 +486,7 @@ export default function TextPane({
       className="textpane-wrap"
       tabIndex={-1}
       ref={wrapRef}
-      onFocusCapture={showToolbar}
+      onFocusCapture={() => { showToolbar(); restartIdleBlur(); }}
       onBlurCapture={scheduleHideToolbar}
       onKeyDownCapture={onPaneInput}
       onPointerDownCapture={onPaneInput}
