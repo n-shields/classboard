@@ -7,8 +7,8 @@ import "./FontSizeAdjuster.css";
 export default function FontSizeAdjuster({ scale, onChange, max = FONT_SCALE_MAX, className = "" }) {
   return (
     <div className={`font-size-adjuster ${className}`}>
-      <button className="btn btn-ghost btn-sm" onClick={() => onChange(stepFontScale(scale, -1, max))} title="Smaller (5%)" disabled={scale <= FONT_SCALE_MIN + 1e-6}>A−</button>
-      <button className="btn btn-ghost btn-sm" onClick={() => onChange(stepFontScale(scale, 1, max))} title="Larger (5%)" disabled={scale >= max - 1e-6}>A+</button>
+      <button className="btn btn-ghost btn-sm" onClick={() => onChange(stepFontScale(scale, -1, max))} title="Smaller (10%)" disabled={scale <= FONT_SCALE_MIN + 1e-6}>A−</button>
+      <button className="btn btn-ghost btn-sm" onClick={() => onChange(stepFontScale(scale, 1, max))} title="Larger (10%)" disabled={scale >= max - 1e-6}>A+</button>
     </div>
   );
 }
